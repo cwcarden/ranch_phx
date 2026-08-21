@@ -5,9 +5,9 @@
 # =============================================================================
 set -e
 
-APP_DIR="$HOME/ranch_phx"
+APP_DIR="/opt/ranch_phx"
 RELEASE="$APP_DIR/_build/prod/rel/ranch_phx/bin/ranch_phx"
-ENV_FILE="/etc/ranch_phx/env"
+ENV_FILE="$APP_DIR/.env"
 
 echo ""
 echo "╔═══════════════════════════════════════╗"

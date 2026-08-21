@@ -17,6 +17,8 @@ rsync -avz --progress \
   --exclude 'node_modules' \
   --exclude '*.log' \
   --exclude 'priv/static/assets' \
+  --exclude '.env' \
+  --exclude 'priv/static/uploads' \
   . "$SERVER:$REMOTE_DIR/"
 
 echo ""
