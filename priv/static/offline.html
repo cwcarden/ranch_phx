@@ -76,7 +76,7 @@
     background: var(--brand); border: none; color: #fff; font-size: 14px; font-weight: 700;
     padding: 10px 16px; border-radius: var(--radius-sm); cursor: pointer;
   }
-  .pdf-viewer-frame { flex: 1; border: none; width: 100%; background: #fff; }
+  .pdf-viewer-pages { flex: 1; overflow-y: auto; padding: 16px; }
 </style>
 </head>
 <body>
@@ -95,7 +95,7 @@
       <span id="pdf-viewer-title" class="pdf-viewer-title"></span>
       <button class="pdf-viewer-close" onclick="closePdfViewer()">✕ Close</button>
     </div>
-    <iframe id="pdf-viewer-frame" class="pdf-viewer-frame" src="about:blank"></iframe>
+    <div id="pdf-viewer-pages" class="pdf-viewer-pages"></div>
   </div>
 
   <script>
@@ -119,17 +119,71 @@
       localStorage.setItem(STORAGE_KEY, JSON.stringify(docs));
     }
 
+    // iOS Safari's embedded PDF renderer only shows page one inside an
+    // <iframe>, so pages are rendered ourselves via PDF.js (vendored
+    // locally under /pdfjs so this still works fully offline).
+    let pdfjsLibPromise = null;
+    function loadPdfjs() {
+      if (!pdfjsLibPromise) {
+        pdfjsLibPromise = import("/pdfjs/pdf.min.mjs").then((lib) => {
+          lib.GlobalWorkerOptions.workerSrc = "/pdfjs/pdf.worker.min.mjs";
+          return lib;
+        });
+      }
+      return pdfjsLibPromise;
+    }
+
+    // Each getDocument() call spins up a dedicated Worker that stays alive
+    // until destroyed — track the current one so opening another document
+    // (or closing this one) frees it instead of leaking workers indefinitely.
+    let currentPdfDoc = null;
+
+    async function renderPdfPages(container, url) {
+      container.innerHTML = '<p style="color:#fff;text-align:center;padding:40px">Loading…</p>';
+      try {
+        if (currentPdfDoc) {
+          currentPdfDoc.destroy();
+          currentPdfDoc = null;
+        }
+        const pdfjsLib = await loadPdfjs();
+        const pdf = await pdfjsLib.getDocument({url}).promise;
+        currentPdfDoc = pdf;
+        container.innerHTML = "";
+        const width = container.clientWidth || window.innerWidth;
+
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const viewport = page.getViewport({scale: width / page.getViewport({scale: 1}).width});
+          const canvas = document.createElement("canvas");
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          canvas.style.cssText = "display:block;margin:0 auto 12px;max-width:100%";
+          container.appendChild(canvas);
+          await page.render({canvasContext: canvas.getContext("2d"), viewport}).promise;
+        }
+      } catch (e) {
+        console.error("Failed to render PDF", e);
+        container.innerHTML = `<p style="color:#fff;text-align:center;padding:40px">
+          Couldn't render this document. <a href="${url}" style="color:#a78bfa">Open it directly</a> instead.
+        </p>`;
+      }
+    }
+
     function openPdfViewer(event, url, title) {
       event.preventDefault();
-      document.getElementById("pdf-viewer-frame").src = url;
       document.getElementById("pdf-viewer-title").textContent = title || "";
       document.getElementById("pdf-viewer-overlay").style.display = "flex";
+      renderPdfPages(document.getElementById("pdf-viewer-pages"), url);
     }
     window.openPdfViewer = openPdfViewer;
 
     function closePdfViewer() {
       document.getElementById("pdf-viewer-overlay").style.display = "none";
-      document.getElementById("pdf-viewer-frame").src = "about:blank";
+      document.getElementById("pdf-viewer-pages").innerHTML = "";
+      if (currentPdfDoc) {
+        currentPdfDoc.destroy();
+        currentPdfDoc = null;
+      }
     }
     window.closePdfViewer = closePdfViewer;
 

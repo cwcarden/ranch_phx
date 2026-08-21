@@ -1,6 +1,13 @@
-const SHELL_CACHE = "ranch-shell-v2";
+const SHELL_CACHE = "ranch-shell-v4";
 const DOCS_CACHE = "ranch-docs-v1";
-const SHELL_ASSETS = ["/offline.html", "/assets/css/app.css", "/assets/js/app.js", "/manifest.json"];
+const SHELL_ASSETS = [
+  "/offline.html",
+  "/assets/css/app.css",
+  "/assets/js/app.js",
+  "/manifest.json",
+  "/pdfjs/pdf.min.mjs",
+  "/pdfjs/pdf.worker.min.mjs",
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(SHELL_CACHE).then((cache) => cache.addAll(SHELL_ASSETS)));

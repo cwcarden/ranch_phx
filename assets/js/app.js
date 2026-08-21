@@ -29,24 +29,78 @@ const DOCS_CACHE = "ranch-docs-v1"
 
 // Installed as a standalone PWA, there's no browser chrome (no back button,
 // no address bar) — navigating straight to a PDF traps the user there with
-// no way back. Open documents in an in-page viewer instead.
+// no way back. An <iframe> avoids that but iOS Safari's embedded PDF
+// renderer only shows page one, so instead render every page ourselves
+// (via PDF.js, vendored locally so it still works offline) onto stacked
+// canvases inside our own scrollable, closeable overlay.
+let pdfjsLibPromise = null
+function loadPdfjs() {
+  if (!pdfjsLibPromise) {
+    pdfjsLibPromise = import("/pdfjs/pdf.min.mjs").then((lib) => {
+      lib.GlobalWorkerOptions.workerSrc = "/pdfjs/pdf.worker.min.mjs"
+      return lib
+    })
+  }
+  return pdfjsLibPromise
+}
+
+// Each getDocument() call spins up a dedicated Worker that stays alive
+// until destroyed — track the current one so opening another document
+// (or closing this one) frees it instead of leaking workers indefinitely.
+let currentPdfDoc = null
+
+async function renderPdfPages(container, url) {
+  container.innerHTML = '<p style="color:#fff;text-align:center;padding:40px">Loading…</p>'
+  try {
+    if (currentPdfDoc) {
+      currentPdfDoc.destroy()
+      currentPdfDoc = null
+    }
+    const pdfjsLib = await loadPdfjs()
+    const pdf = await pdfjsLib.getDocument({url}).promise
+    currentPdfDoc = pdf
+    container.innerHTML = ""
+    const width = container.clientWidth || window.innerWidth
+
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i)
+      const viewport = page.getViewport({scale: width / page.getViewport({scale: 1}).width})
+      const canvas = document.createElement("canvas")
+      canvas.width = viewport.width
+      canvas.height = viewport.height
+      canvas.style.cssText = "display:block;margin:0 auto 12px;max-width:100%"
+      container.appendChild(canvas)
+      await page.render({canvasContext: canvas.getContext("2d"), viewport}).promise
+    }
+  } catch (e) {
+    console.error("Failed to render PDF", e)
+    container.innerHTML = `<p style="color:#fff;text-align:center;padding:40px">
+      Couldn't render this document. <a href="${url}" style="color:#a78bfa">Open it directly</a> instead.
+    </p>`
+  }
+}
+
 window.openPdfViewer = function (event, url, title) {
   event.preventDefault()
-  const frame = document.getElementById("pdf-viewer-frame")
+  const container = document.getElementById("pdf-viewer-pages")
   const overlay = document.getElementById("pdf-viewer-overlay")
   const titleEl = document.getElementById("pdf-viewer-title")
-  if (!frame || !overlay) return
-  frame.src = url
+  if (!container || !overlay) return
   if (titleEl) titleEl.textContent = title || ""
   overlay.style.display = "flex"
+  renderPdfPages(container, url)
 }
 
 window.closePdfViewer = function () {
-  const frame = document.getElementById("pdf-viewer-frame")
+  const container = document.getElementById("pdf-viewer-pages")
   const overlay = document.getElementById("pdf-viewer-overlay")
-  if (!frame || !overlay) return
+  if (!container || !overlay) return
   overlay.style.display = "none"
-  frame.src = "about:blank"
+  container.innerHTML = ""
+  if (currentPdfDoc) {
+    currentPdfDoc.destroy()
+    currentPdfDoc = null
+  }
 }
 
 window.addEventListener("keydown", (e) => {
