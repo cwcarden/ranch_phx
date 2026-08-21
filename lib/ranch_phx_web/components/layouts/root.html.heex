@@ -7,8 +7,18 @@
     <.live_title default="Gimel Ranch">
       {assigns[:page_title]}
     </.live_title>
+    <link rel="manifest" href={~p"/manifest.json"} />
+    <link rel="apple-touch-icon" href={~p"/icons/apple-touch-icon.png"} />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="theme-color" content="#FD4F00" />
     <link phx-track-static rel="stylesheet" href={~p"/assets/css/app.css"} />
     <script defer phx-track-static type="text/javascript" src={~p"/assets/js/app.js"}>
+    </script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js"));
+      }
     </script>
     <script>
       (() => {

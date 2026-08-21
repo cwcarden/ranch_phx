@@ -24,10 +24,118 @@ import {Socket} from "phoenix"
 import {LiveSocket} from "phoenix_live_view"
 import topbar from "../vendor/topbar"
 
+const OFFLINE_DOCS_KEY = "gimelRanchOfflineDocs"
+const DOCS_CACHE = "ranch-docs-v1"
+
+function loadOfflineDocs() {
+  try {
+    return JSON.parse(localStorage.getItem(OFFLINE_DOCS_KEY) || "[]")
+  } catch (e) {
+    return []
+  }
+}
+
+function saveOfflineDocs(docs) {
+  localStorage.setItem(OFFLINE_DOCS_KEY, JSON.stringify(docs))
+}
+
+function isDocSaved(url) {
+  return loadOfflineDocs().some((d) => d.url === url)
+}
+
+const Hooks = {}
+
+Hooks.SaveOffline = {
+  mounted() {
+    this.updateLabel()
+    this.el.addEventListener("click", () => this.toggle())
+    this.refreshHandler = () => this.updateLabel()
+    window.addEventListener("gimel:offline-docs-updated", this.refreshHandler)
+  },
+
+  updated() {
+    this.updateLabel()
+  },
+
+  destroyed() {
+    window.removeEventListener("gimel:offline-docs-updated", this.refreshHandler)
+  },
+
+  updateLabel() {
+    const saved = isDocSaved(this.el.dataset.url)
+    this.el.textContent = saved ? "✓ Offline" : "Save Offline"
+    this.el.classList.toggle("is-offline-saved", saved)
+  },
+
+  async toggle() {
+    const {url, title, docType, animalName, animalId, docId} = this.el.dataset
+
+    if (isDocSaved(url)) {
+      saveOfflineDocs(loadOfflineDocs().filter((d) => d.url !== url))
+      if ("caches" in window) {
+        const cache = await caches.open(DOCS_CACHE)
+        await cache.delete(url)
+      }
+      this.updateLabel()
+      return
+    }
+
+    this.el.textContent = "Saving…"
+    try {
+      const res = await fetch(url)
+      if ("caches" in window) {
+        const cache = await caches.open(DOCS_CACHE)
+        await cache.put(url, res.clone())
+      }
+      const docs = loadOfflineDocs()
+      docs.push({id: docId, animalId, animalName, title, docType, url, cachedAt: Date.now()})
+      saveOfflineDocs(docs)
+    } catch (e) {
+      console.error("Failed to save document offline", e)
+    }
+    this.updateLabel()
+  },
+}
+
+Hooks.SaveAllOffline = {
+  mounted() {
+    this.el.addEventListener("click", () => this.saveAll())
+  },
+
+  async saveAll() {
+    const docs = JSON.parse(this.el.dataset.docs || "[]")
+    this.el.textContent = `Saving 0/${docs.length}…`
+    let done = 0
+
+    for (const doc of docs) {
+      if (!isDocSaved(doc.url)) {
+        try {
+          const res = await fetch(doc.url)
+          if ("caches" in window) {
+            const cache = await caches.open(DOCS_CACHE)
+            await cache.put(doc.url, res.clone())
+          }
+          const existing = loadOfflineDocs()
+          existing.push({...doc, cachedAt: Date.now()})
+          saveOfflineDocs(existing)
+        } catch (e) {
+          console.error("Failed to save document offline", doc.url, e)
+        }
+      }
+      done += 1
+      this.el.textContent = `Saving ${done}/${docs.length}…`
+    }
+
+    this.el.textContent = "✓ All Saved Offline"
+    window.dispatchEvent(new CustomEvent("gimel:offline-docs-updated"))
+  },
+}
+
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
+  hooks: Hooks,
 })
 
 // Show progress bar on live navigation and form submits

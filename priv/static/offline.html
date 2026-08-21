@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Offline Documents — Gimel Ranch</title>
+<link rel="manifest" href="/manifest.json" />
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="theme-color" content="#FD4F00" />
+<style>
+  :root {
+    --brand: #8b5cf6; --brand-soft: #ede9fe; --surface: #ffffff; --surface2: #f9fafb;
+    --border: #e5e7eb; --text: #111827; --text2: #6b7280; --text3: #9ca3af;
+    --radius: 12px; --radius-sm: 8px;
+  }
+  [data-theme="dark"] {
+    --brand: #a78bfa; --brand-soft: #2e1065; --surface: #1e1e2e; --surface2: #16161e;
+    --border: #2d2d3d; --text: #e2e8f0; --text2: #94a3b8; --text3: #64748b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--surface2); color: var(--text); padding: 20px;
+  }
+  header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; gap: 12px; flex-wrap: wrap; }
+  h1 { font-size: 20px; margin: 0; }
+  .subtitle { color: var(--text2); font-size: 13px; margin-top: 2px; }
+  .app-link {
+    color: var(--brand); text-decoration: none; font-size: 14px; font-weight: 600;
+    border: 1.5px solid var(--border); padding: 8px 14px; border-radius: var(--radius-sm);
+    background: var(--surface);
+  }
+  .horse-group { margin-bottom: 28px; }
+  .horse-name { font-size: 16px; font-weight: 700; margin-bottom: 10px; }
+  .doc-list {
+    background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .doc-row {
+    display: flex; align-items: center; gap: 12px; padding: 14px 16px;
+    border-bottom: 1.5px solid var(--border);
+  }
+  .doc-row:last-child { border-bottom: none; }
+  .doc-info { flex: 1; min-width: 0; }
+  .doc-title { font-size: 14px; font-weight: 600; color: var(--text); text-decoration: none; display: block; }
+  .doc-meta { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
+  .doc-type-badge {
+    background: var(--brand-soft); color: var(--brand); font-size: 11px; font-weight: 700;
+    padding: 2px 7px; border-radius: 20px; letter-spacing: .02em;
+  }
+  .doc-date { font-size: 12px; color: var(--text2); }
+  .doc-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+  .doc-open {
+    color: var(--brand); text-decoration: none; font-size: 13px; font-weight: 600;
+  }
+  .doc-remove {
+    background: none; border: none; color: var(--text3); cursor: pointer; font-size: 12px;
+    padding: 4px 8px;
+  }
+  .doc-remove:hover { color: #ef4444; }
+  .empty-state {
+    text-align: center; padding: 60px 20px; color: var(--text2); font-size: 14px;
+    background: var(--surface); border: 1.5px dashed var(--border); border-radius: var(--radius);
+  }
+</style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Offline Documents</h1>
+      <div class="subtitle">Available without a connection</div>
+    </div>
+    <a class="app-link" href="/">Open App</a>
+  </header>
+
+  <div id="content"></div>
+
+  <script>
+    const STORAGE_KEY = "gimelRanchOfflineDocs";
+    const DOCS_CACHE = "ranch-docs-v1";
+
+    (() => {
+      const setTheme = (theme) => document.documentElement.setAttribute("data-theme", theme);
+      setTheme(localStorage.getItem("phx:theme") || "light");
+    })();
+
+    function loadDocs() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function saveDocs(docs) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(docs));
+    }
+
+    async function removeDoc(url) {
+      const docs = loadDocs().filter((d) => d.url !== url);
+      saveDocs(docs);
+      if ("caches" in window) {
+        const cache = await caches.open(DOCS_CACHE);
+        await cache.delete(url);
+      }
+      render();
+    }
+    window.removeDoc = removeDoc;
+
+    function escapeHtml(s) {
+      const div = document.createElement("div");
+      div.textContent = s || "";
+      return div.innerHTML;
+    }
+
+    function render() {
+      const docs = loadDocs();
+      const content = document.getElementById("content");
+
+      if (docs.length === 0) {
+        content.innerHTML = `<div class="empty-state">
+          No documents saved for offline yet.<br>
+          Open the app while you have a connection and tap "Save Offline" on any document.
+        </div>`;
+        return;
+      }
+
+      const byHorse = {};
+      for (const doc of docs) {
+        const key = doc.animalName || "Unknown";
+        (byHorse[key] = byHorse[key] || []).push(doc);
+      }
+
+      const sections = Object.keys(byHorse).sort().map((horseName) => {
+        const rows = byHorse[horseName].map((doc) => `
+          <div class="doc-row">
+            <div class="doc-info">
+              <a class="doc-title" href="${escapeHtml(doc.url)}" target="_blank">${escapeHtml(doc.title || "Untitled")}</a>
+              <div class="doc-meta">
+                ${doc.docType ? `<span class="doc-type-badge">${escapeHtml(doc.docType)}</span>` : ""}
+                ${doc.cachedAt ? `<span class="doc-date">Saved ${new Date(doc.cachedAt).toLocaleDateString()}</span>` : ""}
+              </div>
+            </div>
+            <div class="doc-actions">
+              <a class="doc-open" href="${escapeHtml(doc.url)}" target="_blank">Open ↗</a>
+              <button class="doc-remove" onclick="removeDoc('${escapeHtml(doc.url).replace(/'/g, "\\'")}')">Remove</button>
+            </div>
+          </div>
+        `).join("");
+
+        return `<div class="horse-group">
+          <div class="horse-name">${escapeHtml(horseName)}</div>
+          <div class="doc-list">${rows}</div>
+        </div>`;
+      }).join("");
+
+      content.innerHTML = sections;
+    }
+
+    render();
+  </script>
+</body>
+</html>
