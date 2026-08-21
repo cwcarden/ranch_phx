@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Report — <%= assigns[:report_title] || "Gimel Ranch" %></title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Georgia, 'Times New Roman', serif; color: #111; background: #fff; font-size: 11pt; line-height: 1.5; }
+    .print-page { max-width: 8in; margin: 0 auto; padding: 0.5in 0.75in; }
+    .no-print { background: #f3f4f6; border-bottom: 1px solid #e5e7eb; padding: 10px 16px; display: flex; align-items: center; gap: 12px; font-family: -apple-system, sans-serif; }
+    .no-print button { padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; }
+    .btn-print { background: #8b5cf6; color: #fff; }
+    .btn-close { background: #e5e7eb; color: #111; }
+    .rpt-header { border-bottom: 2px solid #111; padding-bottom: 12px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-end; }
+    .rpt-title { font-size: 22pt; font-weight: bold; }
+    .rpt-subtitle { font-size: 11pt; color: #555; margin-top: 2px; }
+    .rpt-meta { font-size: 9pt; color: #777; text-align: right; }
+    .rpt-section { margin-bottom: 24pt; }
+    .rpt-section-title { font-size: 13pt; font-weight: bold; text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid #ccc; padding-bottom: 4pt; margin-bottom: 10pt; color: #333; }
+    .rpt-table { width: 100%; border-collapse: collapse; font-size: 10pt; }
+    .rpt-table th { text-align: left; font-weight: bold; padding: 5pt 8pt; border-bottom: 1.5pt solid #ccc; font-size: 9pt; text-transform: uppercase; letter-spacing: 0.05em; color: #555; }
+    .rpt-table td { padding: 5pt 8pt; border-bottom: 0.5pt solid #e5e7eb; vertical-align: top; }
+    .rpt-table tr:last-child td { border-bottom: none; }
+    .tag { display: inline-block; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 3pt; padding: 1pt 5pt; font-size: 8pt; margin-right: 3pt; }
+    .ped-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0; border: 1pt solid #ccc; font-size: 10pt; }
+    .ped-cell { padding: 6pt 8pt; border-right: 1pt solid #ccc; border-bottom: 1pt solid #ccc; }
+    .ped-cell:last-child, .ped-cell:nth-child(3n) { border-right: none; }
+    .ped-label { font-size: 8pt; text-transform: uppercase; letter-spacing: 0.05em; color: #777; margin-bottom: 2pt; }
+    .ped-name { font-weight: bold; }
+    .ped-sub { font-size: 9pt; color: #555; }
+    .exp-total { font-size: 14pt; font-weight: bold; }
+    .exp-cat-title { font-weight: bold; padding: 4pt 0 2pt; border-top: 1pt solid #ccc; margin-top: 6pt; display: flex; justify-content: space-between; }
+    .exp-cat-total { font-weight: bold; }
+    .rpt-photo { float: right; margin: 0 0 12pt 16pt; width: 2in; height: 2in; object-fit: cover; border: 1pt solid #ccc; }
+    .clearfix::after { content: ''; display: block; clear: both; }
+    .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4pt; font-size: 10pt; }
+    .profile-row { padding: 3pt 0; border-bottom: 0.5pt solid #f0f0f0; }
+    .profile-label { color: #777; font-size: 9pt; }
+    @page { margin: 0.75in; }
+    @media print {
+      .no-print { display: none !important; }
+      body { font-size: 10pt; }
+      .print-page { padding: 0; max-width: 100%; }
+      .rpt-section { page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <div class="no-print">
+    <button class="btn-print" onclick="window.print()">🖨 Print / Save as PDF</button>
+    <button class="btn-close" onclick="window.close()">Close</button>
+    <span style="font-size:12px;color:#6b7280;font-family:-apple-system,sans-serif">
+      Tip: In the print dialog, choose "Save as PDF" as the destination.
+    </span>
+  </div>
+  <%= @inner_content %>
+</body>
+</html>

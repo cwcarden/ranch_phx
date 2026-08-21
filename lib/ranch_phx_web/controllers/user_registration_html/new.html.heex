@@ -1,0 +1,61 @@
+<style>
+:root { --brand:#8b5cf6; --surface:#ffffff; --surface2:#f9fafb; --border:#e5e7eb; --text:#111827; --text2:#6b7280; --radius:12px; --radius-sm:8px; }
+[data-theme="dark"] { --brand:#a78bfa; --surface:#1e1e2e; --surface2:#16161e; --border:#2d2d3d; --text:#e2e8f0; --text2:#94a3b8; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--surface2); color: var(--text); min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+.login-card { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); padding: 40px; width: 100%; max-width: 400px; box-shadow: 0 4px 24px rgba(0,0,0,.08); }
+.login-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 28px; justify-content: center; }
+.login-logo svg { color: var(--brand); }
+.login-logo span { font-size: 20px; font-weight: 800; }
+h1 { font-size: 22px; font-weight: 800; margin-bottom: 6px; text-align: center; }
+p.sub { font-size: 14px; color: var(--text2); text-align: center; margin-bottom: 28px; }
+.form-field { margin-bottom: 16px; }
+.form-field label { display: block; font-size: 13px; font-weight: 600; color: var(--text2); margin-bottom: 5px; }
+.form-field input { width: 100%; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); background: var(--surface2); color: var(--text); font-size: 14px; outline: none; }
+.form-field input:focus { border-color: var(--brand); }
+.btn { display: block; width: 100%; padding: 11px; border-radius: var(--radius-sm); border: none; cursor: pointer; font-size: 14px; font-weight: 700; background: var(--brand); color: #fff; }
+.btn:hover { opacity: .9; }
+.error-msg { color: #dc2626; font-size: 12px; margin-top: 4px; }
+.flash-error { background: #fee2e2; border: 1px solid #fecaca; border-radius: var(--radius-sm); padding: 10px 14px; font-size: 13px; color: #dc2626; margin-bottom: 16px; }
+.login-link { text-align: center; font-size: 13px; color: var(--text2); margin-top: 20px; }
+.login-link a { color: var(--brand); font-weight: 600; text-decoration: none; }
+.first-user-note { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: var(--radius-sm); padding: 10px 14px; font-size: 13px; color: #1d4ed8; margin-bottom: 20px; }
+</style>
+
+<div class="login-card">
+  <div class="login-logo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="28" height="28">
+      <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+      <polyline points="9 22 9 12 15 12 15 22"/>
+    </svg>
+    <span>Gimel Ranch</span>
+  </div>
+
+  <h1>Create account</h1>
+  <p class="sub">Register to access Gimel Ranch records</p>
+
+  <%= if @flash["error"] && @flash["error"] != "" do %>
+    <div class="flash-error"><%= @flash["error"] %></div>
+  <% end %>
+
+  <div class="first-user-note">
+    The first account registered becomes the superuser with full access.
+  </div>
+
+  <.form :let={f} for={@changeset} action={~p"/users/register"}>
+    <div class="form-field">
+      <label for="email">Email address</label>
+      <input type="email" id="email" name="user[email]" value={f[:email].value}
+             autocomplete="username" spellcheck="false" required autofocus
+             placeholder="you@example.com"/>
+      <%= for {msg, _} <- f[:email].errors do %>
+        <p class="error-msg"><%= msg %></p>
+      <% end %>
+    </div>
+    <button type="submit" class="btn">Create account →</button>
+  </.form>
+
+  <p class="login-link">
+    Already have an account? <a href={~p"/users/log-in"}>Sign in</a>
+  </p>
+</div>

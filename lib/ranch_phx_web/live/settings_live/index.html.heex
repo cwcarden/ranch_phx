@@ -1,0 +1,115 @@
+<style>
+:root {
+  --brand: #8b5cf6; --brand-soft: #ede9fe; --surface: #ffffff; --surface2: #f9fafb;
+  --border: #e5e7eb; --text: #111827; --text2: #6b7280; --text3: #9ca3af;
+  --radius: 12px; --radius-sm: 8px;
+}
+[data-theme="dark"] {
+  --brand: #a78bfa; --brand-soft: #2e1065; --surface: #1e1e2e; --surface2: #16161e;
+  --border: #2d2d3d; --text: #e2e8f0; --text2: #94a3b8; --text3: #64748b;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--surface2); color: var(--text); }
+.topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 20px; height: 56px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+.topbar-left { display: flex; align-items: center; gap: 12px; }
+.back-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: var(--text2); text-decoration: none; font-weight: 500; }
+.back-btn:hover { color: var(--brand); }
+.topbar-title { font-size: 16px; font-weight: 700; }
+.page-body { max-width: 780px; margin: 32px auto; padding: 0 20px 60px; }
+.page-header { margin-bottom: 28px; }
+.page-header h1 { font-size: 22px; font-weight: 800; }
+.page-header p { color: var(--text2); font-size: 14px; margin-top: 4px; }
+.cat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 20px; overflow: hidden; }
+.cat-header { display: flex; align-items: center; gap: 10px; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+.cat-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+.cat-label { font-size: 15px; font-weight: 700; flex: 1; }
+.add-btn { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 20px; border: 1.5px dashed var(--border); background: transparent; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text2); transition: border-color .15s, color .15s; }
+.add-btn:hover { border-color: var(--brand); color: var(--brand); }
+.type-list { padding: 8px 0; }
+.type-row { display: flex; align-items: center; gap: 12px; padding: 10px 20px; border-bottom: 1px solid var(--border); }
+.type-row:last-child { border-bottom: none; }
+.type-label { flex: 1; font-size: 14px; font-weight: 500; }
+.type-slug { font-size: 12px; color: var(--text3); font-family: monospace; margin-right: 8px; }
+.builtin-badge { font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 99px; background: var(--surface2); color: var(--text3); border: 1px solid var(--border); }
+.del-btn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 6px; border: none; background: transparent; cursor: pointer; color: var(--text3); transition: background .15s, color .15s; flex-shrink: 0; }
+.del-btn:hover { background: #fee2e2; color: #dc2626; }
+.add-form { display: flex; gap: 8px; padding: 12px 20px; background: var(--surface2); border-top: 1px solid var(--border); align-items: center; flex-wrap: wrap; }
+.add-form input { flex: 1; min-width: 160px; padding: 8px 12px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); font-size: 14px; background: var(--surface); color: var(--text); outline: none; }
+.add-form input:focus { border-color: var(--brand); }
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: var(--radius-sm); border: none; cursor: pointer; font-size: 14px; font-weight: 600; transition: opacity .15s; }
+.btn:hover { opacity: .85; }
+.btn-primary { background: var(--brand); color: #fff; }
+.btn-ghost { background: var(--surface); color: var(--text2); border: 1.5px solid var(--border); }
+.error-msg { color: #dc2626; font-size: 13px; width: 100%; margin-top: 2px; }
+.empty-cat { padding: 14px 20px; font-size: 13px; color: var(--text3); font-style: italic; }
+</style>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <a href="/" class="back-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="15 18 9 12 15 6"/></svg>
+      Animals
+    </a>
+    <span class="topbar-title">Record Type Settings</span>
+  </div>
+</div>
+
+<div class="page-body">
+  <div class="page-header">
+    <h1>Record Types</h1>
+    <p>Add or remove record types within each category. Built-in types can also be deleted if not needed.</p>
+  </div>
+
+  <%= for cat <- Record.categories() do %>
+    <% cat_types = @types_by_cat[cat.id] || [] %>
+    <div class="cat-card">
+      <div class="cat-header">
+        <div class="cat-dot" style={"background:#{cat.color}"}></div>
+        <span class="cat-label"><%= cat.label %></span>
+        <button class="add-btn" phx-click="start_add" phx-value-cat={cat.id}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="13" height="13"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add type
+        </button>
+      </div>
+
+      <div class="type-list">
+        <%= if cat_types == [] do %>
+          <div class="empty-cat">No types in this category.</div>
+        <% end %>
+
+        <%= for type <- cat_types do %>
+          <div class="type-row">
+            <span class="type-label"><%= type.label %></span>
+            <span class="type-slug"><%= type.slug %></span>
+            <%= if type.is_builtin do %>
+              <span class="builtin-badge">built-in</span>
+            <% end %>
+            <button class="del-btn"
+                    phx-click="delete_type"
+                    phx-value-id={type.id}
+                    data-confirm={"Delete "#{type.label}"? Existing records using this type will retain their value but the type won't appear in the dropdown."}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+            </button>
+          </div>
+        <% end %>
+      </div>
+
+      <%= if @adding_cat == cat.id do %>
+        <form class="add-form" phx-submit="save_type">
+          <input type="hidden" name="cat" value={cat.id}/>
+          <input type="text" name="label"
+                 placeholder={"New #{cat.label} type…"}
+                 value={@new_label}
+                 phx-keyup="update_label"
+                 autofocus
+                 autocomplete="off"/>
+          <button type="submit" class="btn btn-primary">Save</button>
+          <button type="button" class="btn btn-ghost" phx-click="cancel_add">Cancel</button>
+          <%= if @error do %>
+            <span class="error-msg"><%= @error %></span>
+          <% end %>
+        </form>
+      <% end %>
+    </div>
+  <% end %>
+</div>

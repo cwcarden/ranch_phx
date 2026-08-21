@@ -1,0 +1,81 @@
+defmodule RanchPhxWeb.Router do
+  use RanchPhxWeb, :router
+
+  import RanchPhxWeb.UserAuth
+
+  pipeline :browser do
+    plug :accepts, ["html"]
+    plug :fetch_session
+    plug :fetch_live_flash
+    plug :put_root_layout, html: {RanchPhxWeb.Layouts, :root}
+    plug :protect_from_forgery
+    plug :put_secure_browser_headers
+    plug :fetch_current_scope_for_user
+  end
+
+  pipeline :api do
+    plug :accepts, ["json"]
+  end
+
+  # Protected animal routes — require login
+  scope "/", RanchPhxWeb do
+    pipe_through [:browser, :require_authenticated_user]
+
+    live_session :require_authenticated_user,
+      on_mount: [{RanchPhxWeb.UserAuth, :ensure_authenticated}] do
+      live "/",                    AnimalLive.Index,  :index
+      live "/animals/:id",         AnimalLive.Show,   :show
+    end
+
+    get "/animals/:id/report", AnimalReportController, :show
+  end
+
+  # Admin routes — superuser only
+  scope "/admin", RanchPhxWeb do
+    pipe_through [:browser, :require_authenticated_user]
+
+    live_session :require_superuser,
+      on_mount: [{RanchPhxWeb.UserAuth, :ensure_superuser}] do
+      live "/users",    AdminLive.Users,   :index
+      live "/settings", SettingsLive.Index, :index
+    end
+  end
+
+  # Enable LiveDashboard and Swoosh mailbox in development
+  if Application.compile_env(:ranch_phx, :dev_routes) do
+    import Phoenix.LiveDashboard.Router
+
+    scope "/dev" do
+      pipe_through :browser
+
+      live_dashboard "/dashboard", metrics: RanchPhxWeb.Telemetry
+      forward "/mailbox", Plug.Swoosh.MailboxPreview
+    end
+  end
+
+  ## Authentication routes
+
+  scope "/", RanchPhxWeb do
+    pipe_through [:browser, :redirect_if_user_is_authenticated]
+
+    get "/users/register", UserRegistrationController, :new
+    post "/users/register", UserRegistrationController, :create
+  end
+
+  scope "/", RanchPhxWeb do
+    pipe_through [:browser, :require_authenticated_user]
+
+    get "/users/settings", UserSettingsController, :edit
+    put "/users/settings", UserSettingsController, :update
+    get "/users/settings/confirm-email/:token", UserSettingsController, :confirm_email
+  end
+
+  scope "/", RanchPhxWeb do
+    pipe_through [:browser]
+
+    get "/users/log-in", UserSessionController, :new
+    get "/users/log-in/:token", UserSessionController, :confirm
+    post "/users/log-in", UserSessionController, :create
+    delete "/users/log-out", UserSessionController, :delete
+  end
+end

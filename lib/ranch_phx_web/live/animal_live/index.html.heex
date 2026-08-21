@@ -1,0 +1,333 @@
+<style>
+:root {
+  --brand: #8b5cf6;
+  --brand-soft: #ede9fe;
+  --surface: #ffffff;
+  --surface2: #f9fafb;
+  --border: #e5e7eb;
+  --text: #111827;
+  --text2: #6b7280;
+  --text3: #9ca3af;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow: 0 1px 3px rgba(0,0,0,.08), 0 4px 16px rgba(0,0,0,.06);
+}
+[data-theme="dark"] {
+  --brand: #a78bfa;
+  --brand-soft: #2e1065;
+  --surface: #1e1e2e;
+  --surface2: #16161e;
+  --border: #2d2d3d;
+  --text: #e2e8f0;
+  --text2: #94a3b8;
+  --text3: #64748b;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--surface2); color: var(--text); }
+
+.topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 20px; height: 56px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+.topbar-brand { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 700; color: var(--brand); text-decoration: none; }
+.topbar-brand svg { width: 28px; height: 28px; }
+.topbar-actions { display: flex; align-items: center; gap: 10px; }
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: var(--radius-sm); border: none; cursor: pointer; font-size: 14px; font-weight: 600; transition: opacity .15s; }
+.btn:hover { opacity: .85; }
+.btn-primary { background: var(--brand); color: #fff; }
+.btn-icon { background: none; border: 1.5px solid var(--border); color: var(--text2); width: 36px; height: 36px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+.btn-icon:hover { border-color: var(--brand); color: var(--brand); }
+
+.page-wrap { max-width: 1200px; margin: 0 auto; padding: 24px 20px; }
+
+.filter-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 24px; }
+.search-wrap { flex: 1; min-width: 220px; position: relative; }
+.search-wrap input { width: 100%; padding: 9px 12px 9px 36px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font-size: 14px; outline: none; }
+.search-wrap input:focus { border-color: var(--brand); }
+.search-wrap svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text3); }
+.filter-pill { display: flex; gap: 6px; }
+.filter-btn { padding: 7px 14px; border-radius: 20px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text2); font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s; }
+.filter-btn.active, .filter-btn:hover { border-color: var(--brand); color: var(--brand); background: var(--brand-soft); }
+
+.section-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--text3); margin-bottom: 14px; }
+
+.animal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+
+.animal-card { background: var(--surface); border-radius: var(--radius); overflow: visible; border: 1px solid var(--border); box-shadow: var(--shadow); transition: transform .15s, box-shadow .15s; position: relative; }
+.animal-card:hover { transform: translateY(-2px); box-shadow: 0 4px 24px rgba(0,0,0,.12); }
+.animal-card-link { display: block; text-decoration: none; color: inherit; border-radius: var(--radius); overflow: hidden; }
+
+.card-photo { height: 180px; background: var(--surface2); display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
+.card-photo img { width: 100%; height: 100%; object-fit: cover; }
+.card-photo-placeholder { color: var(--text3); }
+.card-fav { position: absolute; top: 10px; right: 10px; z-index: 2; background: rgba(0,0,0,.35); border: none; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background .15s; }
+.card-fav:hover { background: rgba(0,0,0,.55); }
+.card-kind-badge { position: absolute; bottom: 10px; left: 10px; background: rgba(0,0,0,.45); color: #fff; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; padding: 3px 8px; border-radius: 20px; }
+
+.card-body { padding: 14px 16px 16px; }
+.card-name { font-size: 15px; font-weight: 700; margin-bottom: 2px; }
+.card-sub { font-size: 12px; color: var(--text2); margin-bottom: 10px; }
+.card-stats { display: flex; gap: 10px; }
+.card-stat { display: flex; flex-direction: column; gap: 1px; }
+.card-stat-label { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--text3); font-weight: 600; }
+.card-stat-val { font-size: 13px; font-weight: 600; }
+.status-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 4px; }
+.status-active { background: #22c55e; }
+.status-retired { background: #f59e0b; }
+.status-sold { background: #3b82f6; }
+.status-deceased { background: #6b7280; }
+
+.empty-state { text-align: center; padding: 80px 24px; color: var(--text3); }
+.empty-state svg { margin: 0 auto 16px; color: var(--text3); display: block; }
+.empty-state h3 { font-size: 17px; font-weight: 600; color: var(--text2); margin-bottom: 6px; }
+
+/* Dialog (prefixed dlg- to avoid daisyUI .modal clash) */
+.dlg-wrap { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.dlg-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.5); backdrop-filter: blur(4px); }
+.dlg { position: relative; z-index: 1; background: var(--surface); border-radius: var(--radius); width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; box-shadow: 0 24px 80px rgba(0,0,0,.25); }
+.dlg-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px 16px; border-bottom: 1px solid var(--border); }
+.dlg-header h2 { font-size: 17px; font-weight: 700; }
+.dlg-body { padding: 20px 24px; }
+.dlg-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; }
+.form-field { margin-bottom: 16px; }
+.form-field label { display: block; font-size: 13px; font-weight: 600; color: var(--text2); margin-bottom: 5px; }
+.form-field input, .form-field select, .form-field textarea { width: 100%; padding: 9px 12px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); background: var(--surface2); color: var(--text); font-size: 14px; outline: none; }
+.form-field input:focus, .form-field select:focus { border-color: var(--brand); }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.btn-secondary { background: var(--surface2); border: 1.5px solid var(--border); color: var(--text2); }
+.error-msg { font-size: 12px; color: #ef4444; margin-top: 4px; }
+
+@media (max-width: 600px) {
+  .filter-pill { width: 100%; overflow-x: auto; }
+  .form-row { grid-template-columns: 1fr; }
+  .mobile-hide { display: none !important; }
+  .page-wrap { padding: 16px 14px; }
+  .dlg-body { padding: 16px; }
+  .dlg-header { padding: 16px 16px 12px; }
+  .dlg-footer { padding: 12px 16px; }
+  .topbar-brand span { display: none; }
+}
+</style>
+
+<div class="topbar">
+  <a class="topbar-brand" href="/">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+      <polyline points="9 22 9 12 15 12 15 22"/>
+    </svg>
+    Gimel Ranch
+  </a>
+  <div class="topbar-actions">
+    <a href="https://portal.gimelranch.com" class="btn btn-ghost mobile-hide" style="font-size:13px;display:inline-flex;align-items:center;gap:5px" title="Back to Portal">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      Portal
+    </a>
+    <button class="btn-icon" onclick="toggleTheme()" title="Toggle theme">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
+      </svg>
+    </button>
+    <span class="mobile-hide" style="font-size:13px;color:var(--text2);padding:0 4px"><%= @current_scope.user.email %></span>
+    <%= if @is_superuser do %>
+      <a href="/admin/users" class="btn btn-ghost mobile-hide" style="font-size:13px">Users</a>
+      <a href="/admin/settings" class="btn btn-ghost mobile-hide" style="font-size:13px">Settings</a>
+    <% end %>
+    <.link href={~p"/users/log-out"} method="delete" class="btn btn-ghost mobile-hide" style="font-size:13px">Log out</.link>
+    <%= if @is_superuser do %>
+      <button class="btn btn-primary" phx-click="open_new">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add Animal
+      </button>
+    <% end %>
+  </div>
+</div>
+
+<div class="page-wrap">
+  <!-- Filter bar -->
+  <div class="filter-bar">
+    <div class="search-wrap">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <form phx-change="filter" phx-submit="filter">
+        <input type="text" name="search" value={@search} placeholder="Search by name or registration…" phx-debounce="300"/>
+      </form>
+    </div>
+    <div class="filter-pill">
+      <button class={"filter-btn #{if @filter_kind == "", do: "active"}"} phx-click="filter" phx-value-kind="">All</button>
+      <button class={"filter-btn #{if @filter_kind == "horse", do: "active"}"} phx-click="filter" phx-value-kind="horse">Horses</button>
+      <button class={"filter-btn #{if @filter_kind == "cattle", do: "active"}"} phx-click="filter" phx-value-kind="cattle">Cattle</button>
+      <button class={"filter-btn #{if @filter_kind == "dog", do: "active"}"} phx-click="filter" phx-value-kind="dog">Dogs</button>
+    </div>
+    <div class="filter-pill">
+      <button class={"filter-btn #{if @filter_status == "", do: "active"}"} phx-click="filter" phx-value-status="">Any</button>
+      <button class={"filter-btn #{if @filter_status == "active", do: "active"}"} phx-click="filter" phx-value-status="active">Active</button>
+      <button class={"filter-btn #{if @filter_status == "retired", do: "active"}"} phx-click="filter" phx-value-status="retired">Retired</button>
+      <button class={"filter-btn #{if @filter_status == "sold", do: "active"}"} phx-click="filter" phx-value-status="sold">Sold</button>
+      <button class={"filter-btn #{if @filter_status == "deceased", do: "active"}"} phx-click="filter" phx-value-status="deceased">Deceased</button>
+    </div>
+  </div>
+
+  <!-- Animal grid -->
+  <%= if length(@animals) == 0 do %>
+    <div class="empty-state">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="52" height="52">
+        <path d="M20 7l-8-4-8 4m16 0v10l-8 4m-8-4V7m0 10l8-4m0 0V7"/>
+      </svg>
+      <h3>No animals yet</h3>
+      <p>Click <strong>Add Animal</strong> to create your first record.</p>
+    </div>
+  <% else %>
+    <div class="section-label"><%= length(@animals) %> animal<%= if length(@animals) != 1, do: "s" %></div>
+    <div class="animal-grid">
+      <%= for animal <- @animals do %>
+        <div class="animal-card">
+          <a class="animal-card-link" href={"/animals/#{animal.id}"}>
+            <div class="card-photo">
+              <%= if animal.cover_photo_url do %>
+                <img src={animal.cover_photo_url} alt={animal.name}/>
+              <% else %>
+                <div class="card-photo-placeholder">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48">
+                    <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
+                    <polyline points="21 15 16 10 5 21"/>
+                  </svg>
+                </div>
+              <% end %>
+              <span class="card-kind-badge"><%= animal.kind %></span>
+            </div>
+            <div class="card-body">
+              <div class="card-name"><%= animal.name %></div>
+              <div class="card-sub"><%= animal.breed %><%= if animal.breed && animal.color, do: " · " %><%= animal.color %></div>
+              <div class="card-stats">
+                <div class="card-stat">
+                  <span class="card-stat-label">Status</span>
+                  <span class="card-stat-val">
+                    <span class={"status-dot status-#{animal.status}"}></span>
+                    <%= String.capitalize(animal.status) %>
+                  </span>
+                </div>
+                <%= if animal.sex && animal.sex != "" do %>
+                  <div class="card-stat">
+                    <span class="card-stat-label">Sex</span>
+                    <span class="card-stat-val"><%= String.capitalize(animal.sex) %></span>
+                  </div>
+                <% end %>
+                <%= if Animal.age_label(animal) do %>
+                  <div class="card-stat">
+                    <span class="card-stat-label">Age</span>
+                    <span class="card-stat-val"><%= Animal.age_label(animal) %></span>
+                  </div>
+                <% end %>
+              </div>
+            </div>
+          </a>
+          <%= if @is_superuser do %>
+            <button class={"card-fav #{if animal.is_favorite, do: "active"}"}
+                    phx-click="toggle_favorite" phx-value-id={animal.id}>
+              <svg viewBox="0 0 24 24" fill={if animal.is_favorite, do: "#fbbf24", else: "none"} stroke="#fbbf24" stroke-width="2" width="14" height="14">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+              </svg>
+            </button>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+  <% end %>
+</div>
+
+<!-- Add Animal Dialog (superuser only) -->
+<%= if @show_modal && @is_superuser do %>
+  <div class="dlg-wrap">
+    <div class="dlg-backdrop" phx-click="close_modal"></div>
+    <div class="dlg">
+      <div class="dlg-header">
+        <h2>Add Animal</h2>
+        <button class="btn-icon" phx-click="close_modal">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <.form for={@changeset} phx-submit="save_animal">
+        <div class="dlg-body">
+          <div class="form-row">
+            <div class="form-field">
+              <label>Name *</label>
+              <input type="text" name="animal[name]" value={@changeset.data.name} placeholder="e.g. Smart Little Lena" required/>
+              <%= for err <- Keyword.get_values(@changeset.errors, :name) do %>
+                <div class="error-msg"><%= elem(err, 0) %></div>
+              <% end %>
+            </div>
+            <div class="form-field">
+              <label>Species *</label>
+              <select name="animal[kind]" required>
+                <option value="">Select…</option>
+                <option value="horse" selected={@changeset.data.kind == "horse"}>Horse</option>
+                <option value="cattle" selected={@changeset.data.kind == "cattle"}>Cattle</option>
+                <option value="dog" selected={@changeset.data.kind == "dog"}>Dog</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Sex</label>
+              <select name="animal[sex]">
+                <option value="">Select…</option>
+                <option value="mare">Mare</option>
+                <option value="stallion">Stallion</option>
+                <option value="gelding">Gelding</option>
+                <option value="colt">Colt</option>
+                <option value="filly">Filly</option>
+                <option value="female">Female</option>
+                <option value="male">Male</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label>Status</label>
+              <select name="animal[status]">
+                <option value="active">Active</option>
+                <option value="retired">Retired</option>
+                <option value="sold">Sold</option>
+                <option value="deceased">Deceased</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Breed</label>
+              <input type="text" name="animal[breed]" placeholder="e.g. Quarter Horse"/>
+            </div>
+            <div class="form-field">
+              <label>Color</label>
+              <input type="text" name="animal[color]" placeholder="e.g. Sorrel"/>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Birth Date</label>
+              <input type="date" name="animal[birth_date]"/>
+            </div>
+            <div class="form-field">
+              <label>Registration #</label>
+              <input type="text" name="animal[registration_number]" placeholder="e.g. 1234567"/>
+            </div>
+          </div>
+          <div class="form-field">
+            <label>Owner</label>
+            <input type="text" name="animal[owner]" placeholder="e.g. Gimel Ranch" value="Gimel Ranch"/>
+          </div>
+        </div>
+        <div class="dlg-footer">
+          <button type="button" class="btn btn-secondary" phx-click="close_modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Animal</button>
+        </div>
+      </.form>
+    </div>
+  </div>
+<% end %>
+
+<script>
+function toggleTheme() {
+  const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('phx:theme', next);
+}
+</script>

@@ -1,0 +1,1698 @@
+<style>
+:root {
+  --brand: #8b5cf6;
+  --brand-soft: #ede9fe;
+  --surface: #ffffff;
+  --surface2: #f9fafb;
+  --border: #e5e7eb;
+  --text: #111827;
+  --text2: #6b7280;
+  --text3: #9ca3af;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow: 0 1px 3px rgba(0,0,0,.08), 0 4px 16px rgba(0,0,0,.06);
+}
+[data-theme="dark"] {
+  --brand: #a78bfa;
+  --brand-soft: #2e1065;
+  --surface: #1e1e2e;
+  --surface2: #16161e;
+  --border: #2d2d3d;
+  --text: #e2e8f0;
+  --text2: #94a3b8;
+  --text3: #64748b;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--surface2); color: var(--text); }
+
+.topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 20px; height: 56px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+.topbar-left { display: flex; align-items: center; gap: 12px; }
+.back-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: var(--text2); text-decoration: none; font-weight: 500; }
+.back-btn:hover { color: var(--brand); }
+.topbar-name { font-size: 16px; font-weight: 700; }
+.topbar-actions { display: flex; align-items: center; gap: 8px; }
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: var(--radius-sm); border: none; cursor: pointer; font-size: 14px; font-weight: 600; transition: opacity .15s; }
+.btn:hover { opacity: .85; }
+.btn-primary { background: var(--brand); color: #fff; }
+.btn-ghost { background: none; border: 1.5px solid var(--border); color: var(--text2); }
+.btn-danger { background: #fee2e2; color: #dc2626; border: none; }
+.btn-sm { padding: 5px 10px; font-size: 12px; }
+.btn-icon { background: none; border: 1.5px solid var(--border); color: var(--text2); width: 36px; height: 36px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: all .15s; }
+.btn-icon:hover { border-color: var(--brand); color: var(--brand); }
+.btn-icon.fav-active { border-color: #fbbf24; color: #fbbf24; }
+
+.hero { background: var(--surface); border-bottom: 1px solid var(--border); }
+.hero-inner { max-width: 1100px; margin: 0 auto; padding: 24px 20px; display: flex; align-items: flex-start; gap: 24px; }
+.hero-photo { width: 130px; height: 130px; border-radius: var(--radius); overflow: hidden; flex-shrink: 0; background: var(--surface2); display: flex; align-items: center; justify-content: center; border: 2px solid var(--border); position: relative; cursor: pointer; }
+.hero-photo img { width: 100%; height: 100%; object-fit: cover; object-position: center; }
+.cover-pos-btns { display: flex; gap: 4px; margin-top: 6px; }
+.cover-pos-btn { flex: 1; padding: 4px 0; border-radius: 4px; border: 1px solid var(--border); background: var(--surface); color: var(--text2); font-size: 11px; cursor: pointer; }
+.cover-pos-btn.active { background: var(--brand); color: #fff; border-color: var(--brand); }
+.hero-photo-overlay { position: absolute; inset: 0; background: rgba(0,0,0,.55); display: none; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: #fff; font-size: 11px; font-weight: 700; cursor: pointer; }
+.hero-photo:hover .hero-photo-overlay { display: flex; }
+.hero-photo-edit-btn { position: absolute; bottom: 6px; right: 6px; width: 28px; height: 28px; border-radius: 50%; background: rgba(0,0,0,.6); border: none; color: #fff; cursor: pointer; display: none; align-items: center; justify-content: center; }
+.hero-info { flex: 1; }
+.hero-name { font-size: 26px; font-weight: 800; margin-bottom: 4px; }
+.hero-sub { font-size: 14px; color: var(--text2); margin-bottom: 14px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+.badge-kind { background: var(--brand-soft); color: var(--brand); }
+.badge-status-active { background: #dcfce7; color: #16a34a; }
+.badge-status-retired { background: #fef3c7; color: #d97706; }
+.badge-status-sold { background: #dbeafe; color: #2563eb; }
+.badge-status-deceased { background: #f3f4f6; color: #6b7280; }
+.hero-details { display: flex; gap: 24px; flex-wrap: wrap; }
+.detail-item { display: flex; flex-direction: column; gap: 2px; }
+.detail-label { font-size: 10px; text-transform: uppercase; letter-spacing: .07em; color: var(--text3); font-weight: 700; }
+.detail-val { font-size: 14px; font-weight: 600; }
+
+.tabs-bar { background: var(--surface); border-bottom: 1px solid var(--border); }
+.tabs-wrap { position: relative; }
+.tabs-wrap::after { content: ''; position: absolute; right: 0; top: 0; bottom: 0; width: 32px; background: linear-gradient(to right, transparent, var(--surface)); pointer-events: none; }
+.tabs-inner { max-width: 1100px; margin: 0 auto; padding: 0 20px; display: flex; gap: 0; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.tabs-inner::-webkit-scrollbar { display: none; }
+.tab-btn { padding: 14px 18px; border: none; background: none; cursor: pointer; font-size: 14px; font-weight: 600; color: var(--text2); border-bottom: 2px solid transparent; white-space: nowrap; transition: color .15s; }
+.tab-btn:hover { color: var(--brand); }
+.tab-btn.active { color: var(--brand); border-bottom-color: var(--brand); }
+
+.page-wrap { max-width: 1100px; margin: 0 auto; padding: 24px 20px; }
+
+/* Overview */
+.overview-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.info-card { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); padding: 20px; }
+.info-card h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--text3); font-weight: 700; margin-bottom: 14px; }
+.info-rows { display: flex; flex-direction: column; gap: 10px; }
+.info-row { display: flex; justify-content: space-between; align-items: baseline; font-size: 14px; }
+.info-row-label { color: var(--text2); }
+.info-row-val { font-weight: 600; text-align: right; max-width: 60%; }
+.notes-box { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); padding: 20px; margin-top: 20px; }
+.notes-box h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--text3); font-weight: 700; margin-bottom: 10px; }
+
+/* Pedigree chart */
+.ped-subject-bar { padding: 14px 0 16px; border-bottom: 1px solid var(--border); margin-bottom: 0; }
+.ped-subject-name { font-size: 17px; font-weight: 800; }
+.ped-subject-sub  { font-size: 13px; color: var(--text2); margin-top: 2px; }
+.ped-chart-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--border); border-radius: var(--radius); }
+.ped-chart { display: flex; flex-direction: row; min-width: 680px; }
+.ped-col { display: flex; flex-direction: column; flex: 1; border-right: 1px solid var(--border); min-width: 130px; }
+.ped-col:last-child { border-right: none; }
+.ped-col-header { padding: 7px 10px; font-size: 9px; text-transform: uppercase; letter-spacing: .08em; font-weight: 800; color: var(--text3); background: var(--surface2); border-bottom: 1px solid var(--border); white-space: nowrap; flex-shrink: 0; }
+.ped-col-body { display: flex; flex-direction: column; flex: 1; }
+.ped-cell { flex: 1; border-bottom: 1px solid var(--border); padding: 5px 8px; cursor: default; position: relative; overflow: hidden; min-height: 28px; display: flex; flex-direction: column; justify-content: center; }
+.ped-cell:last-child { border-bottom: none; }
+.ped-cell.ped-clickable { cursor: pointer; transition: background .12s; }
+.ped-cell.ped-clickable:hover { background: var(--surface2); }
+.ped-cell.ped-sire { border-left: 3px solid #3b82f6; }
+.ped-cell.ped-dam  { border-left: 3px solid #ec4899; }
+.ped-cell.ped-empty { color: var(--text3); align-items: center; }
+.ped-cell.ped-empty.ped-clickable:hover { background: var(--brand-soft); color: var(--brand); }
+.ped-name { font-weight: 700; font-size: 11px; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ped-reg  { font-size: 9px; color: var(--text3); font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+.ped-meta { font-size: 9px; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ped-gen1 .ped-name { font-size: 13px; }
+.ped-gen1 .ped-reg  { font-size: 10px; }
+.ped-gen2 .ped-name { font-size: 12px; }
+.ped-pencil { position: absolute; top: 3px; right: 4px; opacity: 0; background: none; border: none; cursor: pointer; color: var(--text3); padding: 2px; border-radius: 4px; line-height: 1; }
+.ped-cell.ped-clickable:hover .ped-pencil { opacity: 1; }
+.ped-pencil:hover { color: var(--brand); }
+/* Pedigree edit modal */
+.ped-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 500; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.ped-modal { background: var(--surface); border-radius: var(--radius); padding: 24px; width: 100%; max-width: 420px; box-shadow: 0 20px 60px rgba(0,0,0,.3); }
+.ped-modal-title { font-size: 16px; font-weight: 800; margin-bottom: 4px; }
+.ped-modal-gen { font-size: 12px; color: var(--text3); margin-bottom: 18px; }
+.ped-modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.ped-modal-actions { display: flex; gap: 8px; justify-content: space-between; margin-top: 20px; }
+.ped-del-btn { background: none; border: 1px solid #fca5a5; color: #dc2626; padding: 8px 14px; border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; font-weight: 600; }
+.ped-del-btn:hover { background: #fee2e2; }
+
+/* Timeline */
+.timeline { position: relative; padding-left: 32px; }
+.timeline::before { content: ''; position: absolute; left: 12px; top: 0; bottom: 0; width: 2px; background: var(--border); }
+.tl-item { position: relative; margin-bottom: 20px; }
+.tl-dot { position: absolute; left: -26px; top: 4px; width: 12px; height: 12px; border-radius: 50%; background: var(--brand); border: 2px solid var(--surface); }
+.tl-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px 16px; }
+.tl-header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 4px; gap: 8px; }
+.tl-title { font-size: 14px; font-weight: 700; }
+.tl-date { font-size: 12px; color: var(--text3); white-space: nowrap; }
+.tl-type { font-size: 11px; color: var(--brand); text-transform: uppercase; letter-spacing: .06em; font-weight: 600; margin-bottom: 4px; }
+.tl-desc { font-size: 13px; color: var(--text2); }
+.tl-del { background: none; border: none; cursor: pointer; color: var(--text3); padding: 2px 4px; }
+.tl-del:hover { color: #ef4444; }
+
+/* Photos */
+.photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-bottom: 24px; }
+.photo-card { position: relative; border-radius: var(--radius-sm); overflow: hidden; aspect-ratio: 4/3; background: var(--surface2); border: 1px solid var(--border); }
+.photo-card img { width: 100%; height: 100%; object-fit: cover; }
+.photo-actions { position: absolute; inset: 0; background: rgba(0,0,0,0); display: flex; align-items: center; justify-content: center; gap: 6px; transition: background .15s; opacity: 0; pointer-events: none; }
+.photo-actions button { pointer-events: auto; }
+.photo-card:hover .photo-actions { background: rgba(0,0,0,.45); opacity: 1; }
+.photo-cover-badge { position: absolute; top: 6px; left: 6px; background: #fbbf24; color: #000; font-size: 9px; font-weight: 800; text-transform: uppercase; padding: 2px 6px; border-radius: 10px; }
+.upload-zone { display: block; border: 2px dashed var(--border); border-radius: var(--radius); padding: 32px; text-align: center; color: var(--text3); cursor: pointer; transition: border-color .15s, background .15s; }
+.upload-zone:hover { border-color: var(--brand); background: var(--brand-soft); }
+.upload-zone input[type=file] { display: none; }
+.tl-search-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+.tl-search-bar input { flex: 1; padding: 9px 12px 9px 36px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font-size: 14px; outline: none; }
+.tl-search-bar input:focus { border-color: var(--brand); }
+.tl-search-wrap { position: relative; flex: 1; }
+.tl-search-wrap svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text3); }
+.tl-month-header { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: var(--text3); padding: 4px 0 10px; margin-top: 8px; border-bottom: 1px solid var(--border); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+.tl-year-header { font-size: 22px; font-weight: 800; color: var(--text); margin: 24px 0 4px 0; }
+.doc-type-manager { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px 16px; margin-bottom: 20px; }
+.doc-type-manager h4 { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: var(--text3); margin-bottom: 10px; }
+.doc-type-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.doc-type-chip { display: inline-flex; align-items: center; gap: 6px; background: var(--surface); border: 1.5px solid var(--border); border-radius: 20px; padding: 3px 10px; font-size: 12px; font-weight: 600; }
+.doc-type-chip button { background: none; border: none; cursor: pointer; color: var(--text3); font-size: 14px; line-height: 1; padding: 0; }
+.doc-type-chip button:hover { color: #ef4444; }
+.doc-type-add { display: flex; gap: 8px; }
+.doc-type-add input { flex: 1; padding: 7px 10px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font-size: 13px; outline: none; }
+.doc-type-add input:focus { border-color: var(--brand); }
+.upload-entry { display: flex; align-items: center; gap: 12px; padding: 10px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); margin-top: 8px; }
+.upload-entry-name { flex: 1; font-size: 13px; font-weight: 600; }
+.upload-entry-size { font-size: 12px; color: var(--text3); }
+.upload-progress { height: 3px; background: var(--border); border-radius: 2px; margin-top: 4px; overflow: hidden; }
+.upload-progress-bar { height: 100%; background: var(--brand); }
+
+/* Genetics */
+.genetics-panels { display: flex; flex-direction: column; gap: 16px; }
+.genetics-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; }
+.genetics-card-header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px; }
+.genetics-card-title { font-size: 15px; font-weight: 700; }
+.genetics-card-meta { font-size: 12px; color: var(--text3); }
+.genetics-results { display: flex; flex-wrap: wrap; gap: 8px; }
+.result-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; border: 1.5px solid transparent; }
+.result-n  { background: #dcfce7; color: #16a34a; border-color: #bbf7d0; }
+.result-c  { background: #fef9c3; color: #ca8a04; border-color: #fde68a; }
+.result-h  { background: #fee2e2; color: #dc2626; border-color: #fecaca; }
+.result-p  { background: #dbeafe; color: #2563eb; border-color: #bfdbfe; }
+.result-u  { background: var(--surface2); color: var(--text2); }
+
+/* Records */
+.rec-list { display: flex; flex-direction: column; gap: 10px; }
+.rec-row { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px 16px; display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: start; transition: border-color .15s; }
+.rec-row:hover { border-color: var(--brand); }
+.rec-type-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+.rec-info { flex: 1; }
+.rec-title { font-size: 14px; font-weight: 700; margin-bottom: 3px; }
+.rec-meta { font-size: 12px; color: var(--text3); display: flex; gap: 10px; flex-wrap: wrap; }
+.rec-meta-item { display: flex; align-items: center; gap: 4px; }
+.rec-desc { font-size: 13px; color: var(--text2); margin-top: 6px; line-height: 1.5; }
+.rec-tags { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 6px; }
+.rec-tag { background: var(--surface2); border: 1px solid var(--border); color: var(--text2); font-size: 11px; padding: 1px 8px; border-radius: 20px; }
+.rec-cost { font-size: 13px; font-weight: 700; color: #16a34a; white-space: nowrap; }
+.rec-due { background: #fef3c7; color: #d97706; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 20px; }
+.rec-overdue { background: #fee2e2; color: #dc2626; }
+.rec-actions { display: flex; gap: 6px; align-items: center; }
+.rec-cat-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 18px; overflow-x: auto; padding-bottom: 4px; }
+.rec-cat-btn { padding: 5px 12px; border-radius: 20px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text2); font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: all .15s; }
+.rec-cat-btn:hover { border-color: var(--brand); color: var(--brand); }
+.rec-cat-btn.active { color: #fff; border-color: transparent; }
+
+/* Documents */
+.doc-list { display: flex; flex-direction: column; gap: 10px; }
+.doc-row { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px 16px; display: flex; align-items: center; gap: 14px; }
+.doc-icon { width: 36px; height: 36px; border-radius: 8px; background: var(--surface2); display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--text3); }
+.doc-info { flex: 1; }
+.doc-title { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+.doc-meta { font-size: 12px; color: var(--text3); }
+.doc-link { color: var(--brand); text-decoration: none; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.doc-link:hover { text-decoration: underline; }
+
+/* Dialog - sibling backdrop pattern to avoid daisyUI .modal clash */
+.dlg-wrap { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.dlg-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.5); backdrop-filter: blur(4px); }
+.dlg { position: relative; z-index: 1; background: var(--surface); border-radius: var(--radius); width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; box-shadow: 0 24px 80px rgba(0,0,0,.25); }
+.dlg-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px 16px; border-bottom: 1px solid var(--border); }
+.dlg-header h2 { font-size: 17px; font-weight: 700; }
+.dlg-body { padding: 20px 24px; }
+.dlg-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+
+.form-field { margin-bottom: 16px; }
+.form-field label { display: block; font-size: 13px; font-weight: 600; color: var(--text2); margin-bottom: 5px; }
+.form-field input, .form-field select, .form-field textarea { width: 100%; padding: 9px 12px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); background: var(--surface2); color: var(--text); font-size: 14px; outline: none; }
+.form-field input:focus, .form-field select:focus, .form-field textarea:focus { border-color: var(--brand); }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+.section-divider { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--text3); margin: 18px 0 10px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+
+.empty-tab { text-align: center; padding: 60px 24px; color: var(--text3); }
+.empty-tab svg { margin: 0 auto 12px; display: block; }
+.empty-tab p { font-size: 14px; }
+.exp-cat-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 0 8px; border-bottom: 2px solid var(--border); margin-bottom: 6px; }
+.exp-row { display: flex; gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--border); align-items: flex-start; }
+.exp-row:last-child { border-bottom: none; }
+.exp-date { width: 76px; flex-shrink: 0; font-size: 12px; color: var(--text3); padding-top: 2px; }
+.exp-amount { font-weight: 700; font-size: 15px; white-space: nowrap; }
+.rpt-check-group { display: flex; flex-direction: column; gap: 10px; }
+.rpt-check { display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; }
+.rpt-check input[type=checkbox] { width: 16px; height: 16px; cursor: pointer; accent-color: var(--brand); }
+.rpt-cats { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; margin-left: 24px; }
+.rpt-cat-chip { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 20px; border: 1.5px solid var(--border); font-size: 12px; font-weight: 600; cursor: pointer; background: var(--surface2); }
+.rpt-cat-chip input { accent-color: var(--brand); }
+
+/* Lightbox */
+.lightbox { position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,.95); display: flex; align-items: center; justify-content: center; }
+.lightbox img { max-width: 100%; max-height: 100vh; object-fit: contain; }
+.lightbox-close { position: absolute; top: 16px; right: 16px; width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,.15); border: none; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+.lightbox-close:hover { background: rgba(255,255,255,.3); }
+.photo-card img { cursor: zoom-in; }
+
+@media (max-width: 700px) {
+  .overview-grid { grid-template-columns: 1fr; }
+  .form-row, .form-row-3 { grid-template-columns: 1fr; }
+  .ped-modal-grid { grid-template-columns: 1fr; }
+  .hero-inner { flex-direction: column; }
+  .hero-photo { width: 100%; height: 200px; }
+  .hero-details { gap: 14px; }
+  .page-wrap { padding: 16px 14px; }
+  .dlg-body { padding: 16px; }
+  .dlg-header { padding: 16px 16px 12px; }
+  .dlg-footer { padding: 12px 16px; }
+  .topbar-name { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+  .mobile-hide { display: none !important; }
+  .tab-btn { padding: 12px 12px; font-size: 13px; }
+  .btn.btn-ghost { padding: 8px 10px; font-size: 12px; }
+  .btn-label { display: none; }
+  .hero-photo-overlay { display: none !important; }
+  .hero-photo-edit-btn { display: flex; }
+}
+</style>
+
+<!-- Top bar -->
+<div class="topbar">
+  <div class="topbar-left">
+    <a class="back-btn" href="/">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+      All Animals
+    </a>
+    <span style="color:var(--border)">|</span>
+    <span class="topbar-name"><%= @animal.name %></span>
+  </div>
+  <div class="topbar-actions">
+    <%= if @is_superuser do %>
+      <button class={"btn-icon #{if @animal.is_favorite, do: "fav-active"}"}
+              phx-click="toggle_favorite" title="Favorite">
+        <svg viewBox="0 0 24 24" fill={if @animal.is_favorite, do: "currentColor", else: "none"} stroke="currentColor" stroke-width="2" width="15" height="15">
+          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+        </svg>
+      </button>
+      <button class="btn btn-ghost" phx-click="open_edit">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        <span class="btn-label">Edit</span>
+      </button>
+    <% end %>
+    <button class="btn btn-ghost" phx-click="open_report" style="font-size:13px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>
+        <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
+      </svg>
+      <span class="btn-label">Report</span>
+    </button>
+    <%= if @is_superuser do %>
+      <a href="/admin/settings" class="btn btn-ghost mobile-hide" style="font-size:13px">Settings</a>
+    <% end %>
+    <a href="https://portal.gimelranch.com" class="btn btn-ghost mobile-hide" style="font-size:13px;display:inline-flex;align-items:center;gap:5px" title="Back to Portal">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      Portal
+    </a>
+    <.link href={~p"/users/log-out"} method="delete" class="btn btn-ghost mobile-hide" style="font-size:13px">Log out</.link>
+  </div>
+</div>
+
+<!-- Hero -->
+<div class="hero">
+  <div class="hero-inner">
+    <div class="hero-photo" style={unless @is_superuser, do: "cursor:default"}>
+      <%= if @animal.cover_photo_url do %>
+        <img src={@animal.cover_photo_url} alt={@animal.name}
+             style={"object-position: #{@animal.cover_position || "center"}"}
+             onerror="this.style.display='none';this.nextElementSibling.style.display='block'"/>
+      <% end %>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48"
+           style={"color:var(--text3);#{if @animal.cover_photo_url, do: "display:none"}"}>
+        <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
+        <polyline points="21 15 16 10 5 21"/>
+      </svg>
+      <%= if @is_superuser do %>
+        <div class="hero-photo-overlay" phx-click="switch_tab" phx-value-tab="photos" style="cursor:pointer">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22">
+            <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+            <circle cx="12" cy="13" r="4"/>
+          </svg>
+          <%= if @animal.cover_photo_url, do: "Change Photo", else: "Add Photo" %>
+        </div>
+        <button class="hero-photo-edit-btn" phx-click="switch_tab" phx-value-tab="photos">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="13" height="13">
+            <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+            <circle cx="12" cy="13" r="4"/>
+          </svg>
+        </button>
+      <% end %>
+    </div>
+    <div class="hero-info">
+      <h1 class="hero-name"><%= @animal.name %></h1>
+      <div class="hero-sub">
+        <span class="badge badge-kind"><%= @animal.kind %></span>
+        <span class={"badge badge-status-#{@animal.status}"}><%= String.capitalize(@animal.status) %></span>
+        <%= if @animal.breed, do: @animal.breed %>
+        <%= if @animal.color, do: "· #{@animal.color}" %>
+      </div>
+      <div class="hero-details">
+        <%= if @animal.sex && @animal.sex != "" do %>
+          <div class="detail-item">
+            <span class="detail-label">Sex</span>
+            <span class="detail-val"><%= String.capitalize(@animal.sex) %></span>
+          </div>
+        <% end %>
+        <%= if Animal.age_label(@animal) do %>
+          <div class="detail-item">
+            <span class="detail-label">Age</span>
+            <span class="detail-val"><%= Animal.age_label(@animal) %></span>
+          </div>
+        <% end %>
+        <%= if @animal.birth_date do %>
+          <div class="detail-item">
+            <span class="detail-label">Born</span>
+            <span class="detail-val"><%= Calendar.strftime(@animal.birth_date, "%b %d, %Y") %></span>
+          </div>
+        <% end %>
+        <%= if @animal.registration_number do %>
+          <div class="detail-item">
+            <span class="detail-label">Reg #</span>
+            <span class="detail-val"><%= @animal.registration_number %></span>
+          </div>
+        <% end %>
+        <%= if @animal.owner do %>
+          <div class="detail-item">
+            <span class="detail-label">Owner</span>
+            <span class="detail-val"><%= @animal.owner %></span>
+          </div>
+        <% end %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Tab bar -->
+<div class="tabs-bar">
+  <div class="tabs-wrap">
+  <div class="tabs-inner">
+    <%= for {id, label, count} <- [
+      {"overview",  "Overview",  nil},
+      {"photos",    "Photos",    length(@animal.photos)},
+      {"pedigree",  "Pedigree",  nil},
+      {"records",   "Records",   length(@animal.records)},
+      {"expenses",  "Expenses",  nil},
+      {"timeline",  "Timeline",  length(@animal.timeline_events)},
+      {"genetics",  "Genetics",  length(@animal.genetics)},
+      {"documents", "Documents", length(@animal.documents)}
+    ] do %>
+      <button class={"tab-btn #{if @tab == id, do: "active"}"}
+              phx-click="switch_tab" phx-value-tab={id}>
+        <%= label %><%= if count && count > 0, do: " (#{count})" %>
+      </button>
+    <% end %>
+  </div>
+  </div>
+</div>
+
+<div class="page-wrap">
+
+  <!-- ── OVERVIEW ─────────────────────────────────────────────────────────── -->
+  <%= if @tab == "overview" do %>
+    <div class="overview-grid">
+      <div class="info-card">
+        <h3>Identity</h3>
+        <div class="info-rows">
+          <%= for {label, val} <- [
+            {"Registration", @animal.registration_number},
+            {"Tattoo", @animal.tattoo},
+            {"Freeze Brand", @animal.freeze_brand},
+            {"Microchip", @animal.microchip},
+            {"DNA ID", @animal.dna_id},
+            {"Breeder", @animal.breeder},
+            {"Location", @animal.location}
+          ], val && val != "" do %>
+            <div class="info-row">
+              <span class="info-row-label"><%= label %></span>
+              <span class="info-row-val"><%= val %></span>
+            </div>
+          <% end %>
+        </div>
+      </div>
+      <div class="info-card">
+        <h3>Physical</h3>
+        <div class="info-rows">
+          <%= if @animal.color do %>
+            <div class="info-row"><span class="info-row-label">Color</span><span class="info-row-val"><%= @animal.color %></span></div>
+          <% end %>
+          <%= if @animal.markings do %>
+            <div class="info-row"><span class="info-row-label">Markings</span><span class="info-row-val"><%= @animal.markings %></span></div>
+          <% end %>
+          <%= if @animal.height_hh do %>
+            <div class="info-row"><span class="info-row-label">Height</span><span class="info-row-val"><%= @animal.height_hh %> hh</span></div>
+          <% end %>
+          <%= if @animal.weight_lbs do %>
+            <div class="info-row"><span class="info-row-label">Weight</span><span class="info-row-val"><%= @animal.weight_lbs %> lbs</span></div>
+          <% end %>
+          <%= if @animal.birth_date do %>
+            <div class="info-row"><span class="info-row-label">Born</span><span class="info-row-val"><%= Calendar.strftime(@animal.birth_date, "%B %d, %Y") %></span></div>
+          <% end %>
+          <%= if @animal.death_date do %>
+            <div class="info-row"><span class="info-row-label">Death</span><span class="info-row-val"><%= Calendar.strftime(@animal.death_date, "%B %d, %Y") %></span></div>
+          <% end %>
+        </div>
+      </div>
+      <%= if @animal.sire || @animal.dam do %>
+        <div class="info-card">
+          <h3>Parents</h3>
+          <div class="info-rows">
+            <%= if @animal.sire do %>
+              <div class="info-row">
+                <span class="info-row-label" style="color:#3b82f6;font-weight:700">Sire</span>
+                <a href={"/animals/#{@animal.sire.id}"} class="info-row-val" style="color:var(--brand);text-decoration:none;font-weight:700"><%= @animal.sire.name %></a>
+              </div>
+            <% end %>
+            <%= if @animal.dam do %>
+              <div class="info-row">
+                <span class="info-row-label" style="color:#ec4899;font-weight:700">Dam</span>
+                <a href={"/animals/#{@animal.dam.id}"} class="info-row-val" style="color:var(--brand);text-decoration:none;font-weight:700"><%= @animal.dam.name %></a>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+    </div>
+    <%= if @animal.notes && @animal.notes != "" do %>
+      <div class="notes-box">
+        <h3>Notes</h3>
+        <p style="font-size:14px;line-height:1.6;color:var(--text2)"><%= @animal.notes %></p>
+      </div>
+    <% end %>
+  <% end %>
+
+  <!-- ── PHOTOS ────────────────────────────────────────────────────────────── -->
+  <%= if @tab == "photos" do %>
+    <%= if length(@animal.photos) > 0 do %>
+      <%= if @is_superuser do %>
+        <p style="font-size:13px;color:var(--text3);margin-bottom:14px">
+          Hover a photo and click <strong>Set Cover</strong> to use it as the profile photo.
+        </p>
+      <% end %>
+      <div class="photo-grid">
+        <%= for photo <- @animal.photos do %>
+          <div>
+            <div class="photo-card" phx-click="open_lightbox" phx-value-url={photo.url} style="cursor:zoom-in">
+              <img src={photo.url} alt={photo.caption || "photo"}/>
+              <%= if photo.is_cover do %>
+                <span class="photo-cover-badge">Cover</span>
+              <% end %>
+              <%= if @is_superuser do %>
+                <div class="photo-actions">
+                  <%= unless photo.is_cover do %>
+                    <button class="btn btn-sm btn-ghost" style="background:rgba(255,255,255,.9);color:#111"
+                            phx-click="set_cover" phx-value-id={photo.id}>Set Cover</button>
+                  <% end %>
+                  <button class="btn btn-sm btn-danger" style="background:rgba(220,38,38,.85);color:#fff"
+                          phx-click="delete_photo" phx-value-id={photo.id}
+                          data-confirm="Delete this photo?">Delete</button>
+                </div>
+              <% end %>
+            </div>
+            <%= if @is_superuser && photo.is_cover do %>
+              <div class="cover-pos-btns">
+                <%= for {label, pos} <- [{"Top", "top"}, {"Mid", "center"}, {"Bot", "bottom"}] do %>
+                  <button class={"cover-pos-btn #{if (@animal.cover_position || "center") == pos, do: "active"}"}
+                          phx-click="set_cover_position" phx-value-pos={pos}><%= label %></button>
+                <% end %>
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
+    <% end %>
+
+    <%= if @is_superuser do %>
+      <.form for={%{}} phx-submit="upload_photos" phx-change="validate_photo">
+        <label class="upload-zone" phx-drop-target={@uploads.photo.ref}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="36" height="36" style="margin:0 auto 10px;display:block;color:var(--text3)">
+            <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
+            <polyline points="21 15 16 10 5 21"/>
+          </svg>
+          <p style="font-size:14px;font-weight:600;margin-bottom:4px">Click to select photos</p>
+          <p style="font-size:12px">JPG, PNG, WebP up to 20 MB each · up to 10 at once</p>
+          <.live_file_input upload={@uploads.photo}/>
+        </label>
+        <%= for entry <- @uploads.photo.entries do %>
+          <div class="upload-entry">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20" style="color:var(--brand)">
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+            </svg>
+            <div style="flex:1">
+              <div class="upload-entry-name"><%= entry.client_name %></div>
+              <div class="upload-progress"><div class="upload-progress-bar" style={"width:#{entry.progress}%"}></div></div>
+            </div>
+            <span class="upload-entry-size"><%= Float.round(entry.client_size / 1_000_000, 1) %> MB</span>
+            <button type="button" phx-click="cancel_upload" phx-value-ref={entry.ref} phx-target="photo"
+                    style="background:none;border:none;cursor:pointer;color:var(--text3)">✕</button>
+          </div>
+          <%= for err <- upload_errors(@uploads.photo, entry) do %>
+            <p style="color:#ef4444;font-size:12px;margin-top:4px"><%= error_to_string(err) %></p>
+          <% end %>
+        <% end %>
+        <%= if length(@uploads.photo.entries) > 0 do %>
+          <div style="margin-top:14px;display:flex;justify-content:flex-end">
+            <button type="submit" class="btn btn-primary">Upload <%= length(@uploads.photo.entries) %> Photo<%= if length(@uploads.photo.entries) != 1, do: "s" %></button>
+          </div>
+        <% end %>
+      </.form>
+    <% end %>
+    <%= if !@is_superuser && length(@animal.photos) == 0 do %>
+      <div class="empty-tab">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40">
+          <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
+          <polyline points="21 15 16 10 5 21"/>
+        </svg>
+        <p>No photos yet.</p>
+      </div>
+    <% end %>
+  <% end %>
+
+  <!-- ── RECORDS ──────────────────────────────────────────────────────────── -->
+  <%= if @tab == "records" do %>
+    <%= if @is_superuser do %>
+      <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
+        <button class="btn btn-primary" phx-click="open_record">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add Record
+        </button>
+      </div>
+    <% end %>
+
+    <!-- Category filter -->
+    <div class="rec-cat-bar">
+      <button class={"rec-cat-btn #{if @record_filter_cat == "", do: "active"}"} style={if @record_filter_cat == "", do: "background:var(--brand)"} phx-click="filter_records" phx-value-cat="">All</button>
+      <%= for cat <- Record.categories() do %>
+        <button class={"rec-cat-btn #{if @record_filter_cat == cat.id, do: "active"}"}
+                style={if @record_filter_cat == cat.id, do: "background:#{cat.color}"}
+                phx-click="filter_records" phx-value-cat={cat.id}>
+          <%= cat.label %>
+        </button>
+      <% end %>
+    </div>
+
+    <% visible_records = if @record_filter_cat == "", do: @animal.records, else: Enum.filter(@animal.records, &(&1.category == @record_filter_cat)) %>
+
+    <%= if length(visible_records) == 0 do %>
+      <div class="empty-tab">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="44" height="44">
+          <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/>
+          <rect x="9" y="3" width="6" height="4" rx="1"/>
+          <line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="12" y2="16"/>
+        </svg>
+        <p>No records yet. Add vaccinations, vet visits, farrier work, coggins, and more.</p>
+      </div>
+    <% else %>
+      <div class="rec-list">
+        <%= for record <- visible_records do %>
+          <div class="rec-row">
+            <div class="rec-type-dot" style={"background:#{Record.category_color(record.category)}"}></div>
+            <div class="rec-info">
+              <div class="rec-title"><%= record.title %></div>
+              <div class="rec-meta">
+                <span class="rec-meta-item" style={"color:#{Record.category_color(record.category)};font-weight:700"}>
+                  <%= @type_label_map[record.record_type] || record.record_type %>
+                </span>
+                <span class="rec-meta-item">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                  <%= Calendar.strftime(record.date, "%b %d, %Y") %>
+                </span>
+                <%= if record.person && record.person != "" do %>
+                  <span class="rec-meta-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    <%= record.person %>
+                  </span>
+                <% end %>
+                <%= if record.location && record.location != "" do %>
+                  <span class="rec-meta-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                    <%= record.location %>
+                  </span>
+                <% end %>
+                <%= if record.created_by && record.created_by != "" do %>
+                  <span class="rec-meta-item" style="color:var(--text3)">by <%= record.created_by %></span>
+                <% end %>
+                <%= if record.cost do %>
+                  <span class="rec-cost">$<%= :erlang.float_to_binary(Decimal.to_float(record.cost), decimals: 2) %></span>
+                <% end %>
+              </div>
+              <%= if record.next_due_date do %>
+                <% today = Date.utc_today()
+                   overdue = Date.compare(record.next_due_date, today) == :lt %>
+                <div style="margin-top:6px">
+                  <span class={"rec-due #{if overdue, do: "rec-overdue"}"}>
+                    <%= if overdue, do: "⚠ Overdue · ", else: "Due · " %><%= Calendar.strftime(record.next_due_date, "%b %d, %Y") %>
+                  </span>
+                </div>
+              <% end %>
+              <%= if record.description && record.description != "" do %>
+                <div class="rec-desc"><%= record.description %></div>
+              <% end %>
+              <%= if record.notes && record.notes != "" do %>
+                <div class="rec-desc" style="color:var(--text3);font-style:italic"><%= record.notes %></div>
+              <% end %>
+              <%= if length(record.tags) > 0 do %>
+                <div class="rec-tags">
+                  <%= for tag <- record.tags do %>
+                    <span class="rec-tag">#<%= tag %></span>
+                  <% end %>
+                </div>
+              <% end %>
+            </div>
+            <%= if @is_superuser do %>
+              <div class="rec-actions">
+                <button class="btn-icon" phx-click="edit_record" phx-value-id={record.id} title="Edit">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                    <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+                    <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                  </svg>
+                </button>
+                <button class="tl-del" phx-click="delete_record" phx-value-id={record.id}
+                        data-confirm="Delete this record?">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                    <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
+                  </svg>
+                </button>
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
+    <% end %>
+  <% end %>
+
+  <!-- ── PEDIGREE ──────────────────────────────────────────────────────────── -->
+  <%= if @tab == "pedigree" do %>
+    <div class="ped-subject-bar">
+      <div class="ped-subject-name"><%= @animal.name %></div>
+      <div class="ped-subject-sub">
+        <%= @animal.breed %><%= if @animal.sex && @animal.sex != "", do: " · #{String.capitalize(@animal.sex)}" %><%= if @animal.birth_date, do: " · b. #{@animal.birth_date.year}" %>
+      </div>
+    </div>
+
+    <div class="ped-chart-wrap" style="margin-top:16px">
+      <div class="ped-chart">
+        <%= for col <- @ped_cols do %>
+          <div class={"ped-col ped-gen#{col.gen}"}>
+            <div class="ped-col-header"><%= col.label %></div>
+            <div class="ped-col-body">
+              <%= for slot <- col.slots do %>
+                <% entry = @pedigree_map[slot] %>
+                <% is_sire = String.starts_with?(slot, "S") %>
+                <div class={"ped-cell #{if is_sire, do: "ped-sire", else: "ped-dam"} #{unless entry, do: "ped-empty"} #{if @is_superuser, do: "ped-clickable"}"}
+                     phx-click={if @is_superuser, do: "ped_edit"}
+                     phx-value-slot={slot}>
+                  <%= if entry do %>
+                    <div class="ped-name"><%= entry.name %></div>
+                    <%= if entry.registration_number && entry.registration_number != "" do %>
+                      <div class="ped-reg"><%= entry.registration_number %></div>
+                    <% end %>
+                    <%= if col.gen <= 3 do %>
+                      <% meta = [entry.breed, entry.birth_year && Integer.to_string(entry.birth_year)] |> Enum.filter(&(&1 && &1 != "")) |> Enum.join(" · ") %>
+                      <%= if meta != "" do %><div class="ped-meta"><%= meta %></div><% end %>
+                    <% end %>
+                    <%= if @is_superuser do %>
+                      <button class="ped-pencil" phx-click="ped_edit" phx-value-slot={slot} title="Edit">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                      </button>
+                    <% end %>
+                  <% else %>
+                    <%= if @is_superuser do %>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12" height="12"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    <% end %>
+                  <% end %>
+                </div>
+              <% end %>
+            </div>
+          </div>
+        <% end %>
+      </div>
+    </div>
+
+    <%= if @is_superuser do %>
+      <div style="margin-top:12px;font-size:12px;color:var(--text3)">
+        Click any cell to add or edit that ancestor. Changes are saved immediately.
+      </div>
+    <% end %>
+
+    <%!-- Pedigree edit modal --%>
+    <%= if @ped_editing do %>
+      <div class="ped-modal-overlay">
+        <div class="ped-modal" phx-click-away="ped_cancel">
+          <div class="ped-modal-title"><%= ped_slot_label(@ped_editing) %></div>
+          <div class="ped-modal-gen">
+            <%= ped_gen_label(String.length(@ped_editing)) %>
+            <span style="margin-left:8px;font-family:monospace;font-size:11px;color:var(--text3)"><%= @ped_editing %></span>
+          </div>
+          <form phx-submit="ped_save" phx-change="ped_change">
+            <input type="hidden" name="entry[slot]" value={@ped_editing}/>
+            <div class="form-field">
+              <label>Name *</label>
+              <input type="text" name="entry[name]" value={@ped_form["name"]} placeholder="Horse name" autofocus autocomplete="off" required/>
+            </div>
+            <div class="ped-modal-grid">
+              <div class="form-field">
+                <label>Reg # / ID</label>
+                <input type="text" name="entry[registration_number]" value={@ped_form["registration_number"]} placeholder="e.g. AQHA 1234567" autocomplete="off"/>
+              </div>
+              <div class="form-field">
+                <label>Birth Year</label>
+                <input type="number" name="entry[birth_year]" value={@ped_form["birth_year"]} placeholder="e.g. 1998" min="1700" max="2100"/>
+              </div>
+              <div class="form-field">
+                <label>Breed</label>
+                <input type="text" name="entry[breed]" value={@ped_form["breed"]} placeholder="e.g. AQHA" autocomplete="off"/>
+              </div>
+              <div class="form-field">
+                <label>Color</label>
+                <input type="text" name="entry[color]" value={@ped_form["color"]} placeholder="e.g. Bay" autocomplete="off"/>
+              </div>
+            </div>
+            <div class="form-field">
+              <label>Notes</label>
+              <input type="text" name="entry[notes]" value={@ped_form["notes"]} placeholder="Optional notes" autocomplete="off"/>
+            </div>
+            <div class="ped-modal-actions">
+              <div>
+                <%= if @pedigree_map[@ped_editing] do %>
+                  <button type="button" class="ped-del-btn"
+                          phx-click="ped_delete" phx-value-slot={@ped_editing}
+                          data-confirm="Remove this ancestor entry?">
+                    Remove
+                  </button>
+                <% end %>
+              </div>
+              <div style="display:flex;gap:8px">
+                <button type="button" class="btn btn-ghost" phx-click="ped_cancel">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    <% end %>
+  <% end %>
+
+  <!-- ── TIMELINE ──────────────────────────────────────────────────────────── -->
+  <%= if @tab == "timeline" do %>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:12px;flex-wrap:wrap">
+      <div class="tl-search-wrap" style="max-width:360px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input type="text" placeholder="Search events…" value={@tl_search}
+               phx-keyup="tl_search"
+               phx-debounce="250"
+               style="padding:9px 12px 9px 36px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-size:14px;outline:none;width:100%"/>
+      </div>
+      <%= if @is_superuser do %>
+        <button class="btn btn-primary" phx-click="open_event">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add Event
+        </button>
+      <% end %>
+    </div>
+
+    <%
+      q = String.downcase(@tl_search)
+      filtered_events = if q == "" do
+        @animal.timeline_events
+      else
+        Enum.filter(@animal.timeline_events, fn e ->
+          String.contains?(String.downcase(e.title || ""), q) or
+          String.contains?(String.downcase(e.description || ""), q) or
+          String.contains?(String.downcase(e.location || ""), q) or
+          String.contains?(String.downcase(TimelineEvent.type_label(e.event_type) || ""), q)
+        end)
+      end
+    %>
+
+    <%= if length(filtered_events) == 0 do %>
+      <div class="empty-tab">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40">
+          <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+          <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+        </svg>
+        <p><%= if q != "", do: "No events match "#{@tl_search}"", else: "No events yet. Add births, sales, competitions, vet visits, and more." %></p>
+      </div>
+    <% else %>
+      <%
+        month_names = ~w(January February March April May June July August September October November December)
+
+        grouped_by_month = filtered_events
+          |> Enum.group_by(fn e ->
+            if e.event_date, do: {e.event_date.year, e.event_date.month}, else: {0, 0}
+          end)
+          |> Enum.sort_by(fn {{yr, mo}, _} -> {-yr, -mo} end)
+
+        by_year = grouped_by_month
+          |> Enum.chunk_by(fn {{yr, _mo}, _} -> yr end)
+      %>
+      <%= for year_groups <- by_year do %>
+        <% {{yr, _}, _} = List.first(year_groups) %>
+        <%= if yr == 0 do %>
+          <div class="tl-month-header" style="margin-top:0">No Date</div>
+        <% else %>
+          <div class="tl-year-header"><%= yr %></div>
+        <% end %>
+
+        <%= for {{_yr, mo}, events} <- year_groups do %>
+          <%= if yr != 0 do %>
+            <div class="tl-month-header">
+              <%= Enum.at(month_names, mo - 1) %>
+              <span style="font-weight:400;opacity:.5"><%= length(events) %> event<%= if length(events) != 1, do: "s" %></span>
+            </div>
+          <% end %>
+          <div class="timeline" style="margin-bottom:8px">
+            <%= for event <- Enum.sort_by(events, fn e -> {e.event_date || ~D[0001-01-01], e.event_time || ~T[00:00:00]} end, :desc) do %>
+              <div class="tl-item">
+                <div class="tl-dot"></div>
+                <div class="tl-card">
+                  <div class="tl-header">
+                    <span class="tl-title"><%= event.title %></span>
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <span class="tl-date">
+                        <%= if event.event_date, do: Calendar.strftime(event.event_date, "%b %d") %>
+                        <%= if event.event_time do %>
+                          <span style="color:var(--text3)"> · <%= Calendar.strftime(event.event_time, "%I:%M %p") %></span>
+                        <% end %>
+                      </span>
+                      <%= if @is_superuser do %>
+                        <button class="tl-del" phx-click="delete_event" phx-value-id={event.id}
+                                data-confirm="Delete this event from the timeline? This cannot be undone.">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
+                            <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
+                          </svg>
+                        </button>
+                      <% end %>
+                    </div>
+                  </div>
+                  <div class="tl-type"><%= TimelineEvent.type_label(event.event_type) %></div>
+                  <%= if event.description && event.description != "" do %>
+                    <div class="tl-desc"><%= event.description %></div>
+                  <% end %>
+                  <%= if event.location && event.location != "" do %>
+                    <div style="font-size:12px;color:var(--text3);margin-top:4px">📍 <%= event.location %></div>
+                  <% end %>
+                  <%= if length(event.photo_urls) > 0 do %>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+                      <%= for url <- event.photo_urls do %>
+                        <img src={url} style="width:72px;height:72px;object-fit:cover;border-radius:6px;border:1px solid var(--border)"/>
+                      <% end %>
+                    </div>
+                  <% end %>
+                </div>
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+      <% end %>
+    <% end %>
+  <% end %>
+
+  <!-- ── GENETICS ──────────────────────────────────────────────────────────── -->
+  <%= if @tab == "genetics" do %>
+    <%= if length(@animal.genetics) == 0 do %>
+      <div class="empty-tab">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40">
+          <path d="M4 4c0 8 4 10 4 16M20 4c0 8-4 10-4 16M8 4H4M20 4h-4M8 20H4M20 20h-4"/>
+        </svg>
+        <p>No genetics panels recorded yet. Use Edit to add panel results.</p>
+      </div>
+    <% else %>
+      <div class="genetics-panels">
+        <%= for g <- @animal.genetics do %>
+          <div class="genetics-card">
+            <div class="genetics-card-header">
+              <div>
+                <div class="genetics-card-title"><%= g.panel_name %></div>
+                <div class="genetics-card-meta"><%= g.lab %><%= if g.test_date, do: " · #{Calendar.strftime(g.test_date, "%b %Y")}" %></div>
+              </div>
+              <%= if g.report_url && g.report_url != "" do %>
+                <a class="doc-link" href={g.report_url} target="_blank">View Report →</a>
+              <% end %>
+            </div>
+            <div class="genetics-results">
+              <%= if g.results do %>
+                <%= for {marker, result} <- g.results do %>
+                  <span class={"result-chip #{result_chip_class(result)}"}><strong><%= marker %></strong> <%= result %></span>
+                <% end %>
+              <% end %>
+            </div>
+            <%= if g.notes && g.notes != "" do %>
+              <div style="margin-top:10px;font-size:13px;color:var(--text2)"><%= g.notes %></div>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
+    <% end %>
+  <% end %>
+
+  <!-- ── DOCUMENTS ─────────────────────────────────────────────────────────── -->
+  <%= if @tab == "documents" do %>
+    <%
+      doc_q = String.downcase(@doc_search)
+      visible_docs = if doc_q == "" do
+        @animal.documents
+      else
+        Enum.filter(@animal.documents, fn d ->
+          date_str = if d.doc_date, do: Calendar.strftime(d.doc_date, "%b %d %Y %B %Y"), else: ""
+          String.contains?(String.downcase(d.title || ""), doc_q) or
+          String.contains?(String.downcase(d.doc_type || ""), doc_q) or
+          String.contains?(String.downcase(date_str), doc_q)
+        end)
+      end
+    %>
+
+    <!-- Search bar -->
+    <%= if length(@animal.documents) > 0 do %>
+      <div class="tl-search-wrap" style="max-width:360px;margin-bottom:16px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input type="text" placeholder="Search documents…" value={@doc_search}
+               phx-keyup="doc_search" phx-debounce="250"
+               style="padding:9px 12px 9px 36px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-size:14px;outline:none;width:100%"/>
+      </div>
+    <% end %>
+
+    <%= if length(@animal.documents) > 0 do %>
+      <div class="doc-list" style="margin-bottom:24px">
+        <%= if length(visible_docs) == 0 do %>
+          <p style="font-size:14px;color:var(--text3);padding:20px 0">No documents match "<%= @doc_search %>".</p>
+        <% end %>
+        <%= for doc <- visible_docs do %>
+          <div class="doc-row">
+            <a href={doc.file_url} target="_blank" class="doc-icon" style="color:var(--brand);text-decoration:none" title="Open document">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="18" height="18">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+              </svg>
+            </a>
+            <div class="doc-info">
+              <a href={doc.file_url} target="_blank" class="doc-title" style="color:inherit;text-decoration:none">
+                <%= doc.title %>
+              </a>
+              <div class="doc-meta" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:4px">
+                <%= if doc.doc_date do %>
+                  <span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;color:var(--text2)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    <%= Calendar.strftime(doc.doc_date, "%b %d, %Y") %>
+                  </span>
+                <% end %>
+                <%= if doc.doc_type && doc.doc_type != "" do %>
+                  <span style="background:var(--brand-muted,#ede9fe);color:var(--brand);font-size:11px;font-weight:700;padding:2px 7px;border-radius:20px;letter-spacing:.02em">
+                    <%= doc.doc_type %>
+                  </span>
+                <% end %>
+                <%= if doc.file_size && doc.file_size > 0 do %>
+                  <span style="font-size:11px;color:var(--text3)"><%= Float.round(doc.file_size / 1_000_000, 1) %> MB</span>
+                <% end %>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <a class="doc-link" href={doc.file_url} target="_blank">Open ↗</a>
+              <%= if @is_superuser do %>
+                <button class="tl-del" phx-click="delete_document" phx-value-id={doc.id}
+                        data-confirm="Delete this document? This cannot be undone.">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
+                    <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
+                  </svg>
+                </button>
+              <% end %>
+            </div>
+          </div>
+        <% end %>
+      </div>
+    <% end %>
+
+    <%= if @is_superuser do %>
+      <!-- Document Type Manager -->
+      <div class="doc-type-manager">
+        <h4>Document Types</h4>
+        <%= if length(@doc_types) > 0 do %>
+          <div class="doc-type-chips">
+            <%= for dt <- @doc_types do %>
+              <span class="doc-type-chip">
+                <%= dt.name %>
+                <button type="button" phx-click="delete_doc_type" phx-value-id={dt.id} title="Remove type"
+                      data-confirm="Remove this document type?">✕</button>
+              </span>
+            <% end %>
+          </div>
+        <% else %>
+          <p style="font-size:13px;color:var(--text3);margin-bottom:10px">No custom types yet. Add your first one below.</p>
+        <% end %>
+        <form phx-submit="add_doc_type" class="doc-type-add">
+          <input type="text" name="name" placeholder="New type name (e.g. Coggins, Bill of Sale…)" autocomplete="off"/>
+          <button type="submit" class="btn btn-primary btn-sm">Add</button>
+        </form>
+      </div>
+
+      <.form for={%{}} phx-submit="upload_document" phx-change="validate_doc">
+        <div class="form-row" style="margin-bottom:10px">
+          <div class="form-field" style="margin-bottom:0">
+            <label>Document Title</label>
+            <input type="text" name="doc[title]" value={@doc_form_title} placeholder="e.g. 2025 Coggins Test"/>
+          </div>
+          <div class="form-field" style="margin-bottom:0">
+            <label>Document Type</label>
+            <select name="doc[doc_type]">
+              <option value="">— Select type —</option>
+              <%= for dt <- @doc_types do %>
+                <option value={dt.name} selected={@doc_form_type == dt.name}><%= dt.name %></option>
+              <% end %>
+            </select>
+          </div>
+        </div>
+        <div class="form-row" style="margin-bottom:14px">
+          <div class="form-field" style="margin-bottom:0">
+            <label>Document Date</label>
+            <input type="date" name="doc[doc_date]" value={@doc_form_date}/>
+          </div>
+          <div class="form-field" style="margin-bottom:0">
+            <%!-- spacer --%>
+          </div>
+        </div>
+        <label class="upload-zone" phx-drop-target={@uploads.document.ref}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="36" height="36" style="margin:0 auto 10px;display:block;color:var(--text3)">
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+          </svg>
+          <p style="font-size:14px;font-weight:600;margin-bottom:4px">Click to select a document</p>
+          <p style="font-size:12px">PDF, Word, JPG, PNG up to 50 MB</p>
+          <.live_file_input upload={@uploads.document}/>
+        </label>
+        <%= for entry <- @uploads.document.entries do %>
+          <div class="upload-entry">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20" style="color:var(--brand)">
+              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+            </svg>
+            <div style="flex:1">
+              <div class="upload-entry-name"><%= entry.client_name %></div>
+              <div class="upload-progress"><div class="upload-progress-bar" style={"width:#{entry.progress}%"}></div></div>
+            </div>
+            <span class="upload-entry-size"><%= Float.round(entry.client_size / 1_000_000, 1) %> MB</span>
+          </div>
+          <%= for err <- upload_errors(@uploads.document, entry) do %>
+            <p style="color:#ef4444;font-size:12px;margin-top:4px"><%= error_to_string(err) %></p>
+          <% end %>
+        <% end %>
+        <%= if length(@uploads.document.entries) > 0 do %>
+          <div style="margin-top:14px;display:flex;justify-content:flex-end">
+            <button type="submit" class="btn btn-primary">Upload Document</button>
+          </div>
+        <% end %>
+      </.form>
+    <% end %>
+    <%= if !@is_superuser && length(@animal.documents) == 0 do %>
+      <div class="empty-tab">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40">
+          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+        </svg>
+        <p>No documents yet.</p>
+      </div>
+    <% end %>
+  <% end %>
+
+  <!-- ── EXPENSES ──────────────────────────────────────────────────────────── -->
+  <%= if @tab == "expenses" do %>
+    <%
+      all_exp = Enum.filter(@animal.records, fn r ->
+        r.cost != nil && Decimal.compare(r.cost, Decimal.new("0")) != :lt
+      end)
+      expense_years = all_exp
+        |> Enum.filter(& &1.date)
+        |> Enum.map(fn r -> Integer.to_string(r.date.year) end)
+        |> Enum.uniq() |> Enum.sort(:desc)
+      year_exp = case @exp_year do
+        "all" -> all_exp
+        yr    -> Enum.filter(all_exp, fn r -> r.date && Integer.to_string(r.date.year) == yr end)
+      end
+      exp_q = String.downcase(@exp_search)
+      filtered_exp = if exp_q == "" do
+        year_exp
+      else
+        Enum.filter(year_exp, fn r ->
+          String.contains?(String.downcase(r.title || ""), exp_q) or
+          String.contains?(String.downcase(r.category || ""), exp_q) or
+          String.contains?(String.downcase(r.record_type || ""), exp_q) or
+          String.contains?(String.downcase(r.person || ""), exp_q) or
+          String.contains?(String.downcase(r.location || ""), exp_q) or
+          Enum.any?(r.tags || [], &String.contains?(String.downcase(&1), exp_q))
+        end)
+      end
+      grand_total = Enum.reduce(filtered_exp, Decimal.new("0"), fn r, acc -> Decimal.add(acc, r.cost) end)
+      by_category = Enum.group_by(filtered_exp, & &1.category)
+      cat_sections = Record.categories()
+        |> Enum.filter(fn cat -> Map.has_key?(by_category, cat.id) end)
+        |> Enum.map(fn cat ->
+          rows = by_category[cat.id] |> Enum.sort_by(& &1.date, {:desc, Date})
+          total = Enum.reduce(rows, Decimal.new("0"), fn r, acc -> Decimal.add(acc, r.cost) end)
+          {cat, rows, total}
+        end)
+    %>
+
+    <%= if length(all_exp) == 0 do %>
+      <div class="empty-tab">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40">
+          <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
+        </svg>
+        <p>No expenses recorded yet.</p>
+        <p style="margin-top:6px;font-size:13px">Add a record with a cost to start tracking expenses.</p>
+      </div>
+    <% else %>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;flex-wrap:wrap;gap:14px">
+        <div>
+          <div style="font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:700;margin-bottom:4px">Total Expenses</div>
+          <div style="font-size:30px;font-weight:800"><%= format_cost(grand_total) %></div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class={"btn btn-sm #{if @exp_year == "all", do: "btn-primary", else: "btn-ghost"}"}
+                  phx-click="exp_year" phx-value-year="all">All time</button>
+          <%= for yr <- expense_years do %>
+            <button class={"btn btn-sm #{if @exp_year == yr, do: "btn-primary", else: "btn-ghost"}"}
+                    phx-click="exp_year" phx-value-year={yr}><%= yr %></button>
+          <% end %>
+        </div>
+      </div>
+
+      <div class="tl-search-wrap" style="max-width:360px;margin-bottom:24px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text3)">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input type="text" placeholder="Search expenses…" value={@exp_search}
+               phx-keyup="exp_search" phx-debounce="250"
+               style="width:100%;padding:9px 12px 9px 36px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-size:14px;outline:none"/>
+      </div>
+
+      <%= if length(filtered_exp) == 0 do %>
+        <p style="color:var(--text3);font-size:14px">No expenses match "<%= @exp_search %>".</p>
+      <% else %>
+        <%= for {cat, rows, cat_total} <- cat_sections do %>
+          <div style="margin-bottom:28px">
+            <div class="exp-cat-header">
+              <div style="display:flex;align-items:center;gap:8px">
+                <div style={"width:10px;height:10px;border-radius:50%;background:#{cat.color};flex-shrink:0"}></div>
+                <span style="font-weight:700;font-size:15px"><%= cat.label %></span>
+                <span style="font-size:13px;color:var(--text3)">(<%= length(rows) %> <%= if length(rows) == 1, do: "item", else: "items" %>)</span>
+              </div>
+              <span style="font-weight:700;font-size:15px"><%= format_cost(cat_total) %></span>
+            </div>
+            <%= for r <- rows do %>
+              <div class="exp-row">
+                <div class="exp-date">
+                  <%= if r.date, do: Calendar.strftime(r.date, "%b %d\n'%y") %>
+                </div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:14px;font-weight:600"><%= r.title %></div>
+                  <div style="font-size:12px;color:var(--text2);margin-top:2px;display:flex;gap:6px;flex-wrap:wrap">
+                    <span><%= @type_label_map[r.record_type] || r.record_type %></span>
+                    <%= if r.person && r.person != "" do %><span>· <%= r.person %></span><% end %>
+                    <%= if r.location && r.location != "" do %><span>· <%= r.location %></span><% end %>
+                  </div>
+                  <%= if r.tags != [] do %>
+                    <div style="display:flex;gap:4px;margin-top:5px;flex-wrap:wrap">
+                      <%= for tag <- r.tags do %>
+                        <span class="tag"><%= tag %></span>
+                      <% end %>
+                    </div>
+                  <% end %>
+                </div>
+                <div class="exp-amount"><%= format_cost(r.cost) %></div>
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+      <% end %>
+    <% end %>
+  <% end %>
+
+</div>
+
+<!-- ── Report Modal ────────────────────────────────────────────────────────── -->
+<%= if @report_modal do %>
+  <div class="dlg-wrap">
+    <div class="dlg-backdrop" phx-click="close_report"></div>
+    <div class="dlg" style="max-width:520px">
+      <div class="dlg-header">
+        <h2>Generate Report — <%= @animal.name %></h2>
+        <button class="btn-icon" phx-click="close_report">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <form method="get" action={~p"/animals/#{@animal.id}/report"} target="_blank">
+        <div class="dlg-body">
+          <div class="section-divider" style="margin-top:0">Sections to include</div>
+          <div class="rpt-check-group">
+            <label class="rpt-check">
+              <input type="checkbox" name="profile" value="1" checked/>
+              <span>Animal Profile &amp; Photo</span>
+            </label>
+            <label class="rpt-check">
+              <input type="checkbox" name="photos" value="1"/>
+              <span>All Photos</span>
+            </label>
+            <label class="rpt-check">
+              <input type="checkbox" name="pedigree" value="1" checked/>
+              <span>Pedigree</span>
+            </label>
+            <label class="rpt-check">
+              <input type="checkbox" name="timeline" value="1"/>
+              <span>Timeline Events</span>
+            </label>
+            <div>
+              <label class="rpt-check">
+                <input type="checkbox" name="records" value="1" checked/>
+                <span>Records</span>
+              </label>
+              <div class="rpt-cats">
+                <%= for cat <- Record.categories() do %>
+                  <label class="rpt-cat-chip" style={"border-color:#{cat.color}20;color:#{cat.color}"}>
+                    <input type="checkbox" name="record_cats[]" value={cat.id} style="accent-color:#{cat.color}" checked/>
+                    <%= cat.label %>
+                  </label>
+                <% end %>
+              </div>
+            </div>
+            <label class="rpt-check">
+              <input type="checkbox" name="expenses" value="1" checked/>
+              <span>Expense Summary</span>
+            </label>
+            <label class="rpt-check">
+              <input type="checkbox" name="documents" value="1"/>
+              <span>Documents List</span>
+            </label>
+          </div>
+
+          <div class="section-divider">Date range (optional)</div>
+          <div class="form-row">
+            <div class="form-field" style="margin-bottom:0">
+              <label>From</label>
+              <input type="date" name="from"/>
+            </div>
+            <div class="form-field" style="margin-bottom:0">
+              <label>To</label>
+              <input type="date" name="to"/>
+            </div>
+          </div>
+          <p style="font-size:12px;color:var(--text3);margin-top:10px">
+            Opens in a new tab. Use your browser's Print → Save as PDF to export.
+          </p>
+        </div>
+        <div class="dlg-footer" style="justify-content:flex-end">
+          <button type="button" class="btn btn-ghost" phx-click="close_report">Cancel</button>
+          <button type="submit" class="btn btn-primary">Open Report →</button>
+        </div>
+      </form>
+    </div>
+  </div>
+<% end %>
+
+<!-- ── Edit Modal (superuser only) ────────────────────────────────────────── -->
+<%= if @edit_modal && @is_superuser do %>
+  <div class="dlg-wrap">
+    <div class="dlg-backdrop" phx-click="close_edit"></div>
+    <div class="dlg">
+      <div class="dlg-header">
+        <h2>Edit <%= @animal.name %></h2>
+        <button class="btn-icon" phx-click="close_edit">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <.form for={@animal_changeset} phx-submit="save_animal">
+        <div class="dlg-body">
+          <div class="section-divider">Basic Info</div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Name *</label>
+              <input type="text" name="animal[name]" value={@animal.name} required/>
+            </div>
+            <div class="form-field">
+              <label>Species *</label>
+              <select name="animal[kind]" required>
+                <option value="horse" selected={@animal.kind == "horse"}>Horse</option>
+                <option value="cattle" selected={@animal.kind == "cattle"}>Cattle</option>
+                <option value="dog" selected={@animal.kind == "dog"}>Dog</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Sex</label>
+              <select name="animal[sex]">
+                <option value="">—</option>
+                <%= for opt <- ~w(mare stallion gelding colt filly female male) do %>
+                  <option value={opt} selected={@animal.sex == opt}><%= String.capitalize(opt) %></option>
+                <% end %>
+              </select>
+            </div>
+            <div class="form-field">
+              <label>Status</label>
+              <select name="animal[status]">
+                <%= for opt <- ~w(active retired sold deceased) do %>
+                  <option value={opt} selected={@animal.status == opt}><%= String.capitalize(opt) %></option>
+                <% end %>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Breed</label>
+              <input type="text" name="animal[breed]" value={@animal.breed}/>
+            </div>
+            <div class="form-field">
+              <label>Color</label>
+              <input type="text" name="animal[color]" value={@animal.color}/>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Birth Date</label>
+              <input type="date" name="animal[birth_date]" value={@animal.birth_date}/>
+            </div>
+            <div class="form-field">
+              <label>Death Date</label>
+              <input type="date" name="animal[death_date]" value={@animal.death_date}/>
+            </div>
+          </div>
+
+          <div class="section-divider">Identity</div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Registration #</label>
+              <input type="text" name="animal[registration_number]" value={@animal.registration_number}/>
+            </div>
+            <div class="form-field">
+              <label>DNA ID</label>
+              <input type="text" name="animal[dna_id]" value={@animal.dna_id}/>
+            </div>
+          </div>
+          <div class="form-row-3">
+            <div class="form-field">
+              <label>Tattoo</label>
+              <input type="text" name="animal[tattoo]" value={@animal.tattoo}/>
+            </div>
+            <div class="form-field">
+              <label>Freeze Brand</label>
+              <input type="text" name="animal[freeze_brand]" value={@animal.freeze_brand}/>
+            </div>
+            <div class="form-field">
+              <label>Microchip</label>
+              <input type="text" name="animal[microchip]" value={@animal.microchip}/>
+            </div>
+          </div>
+
+          <div class="section-divider">Physical</div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Markings</label>
+              <input type="text" name="animal[markings]" value={@animal.markings}/>
+            </div>
+            <div class="form-field">
+              <label>Height (hh)</label>
+              <input type="number" step="0.1" name="animal[height_hh]" value={@animal.height_hh}/>
+            </div>
+          </div>
+          <div class="form-field" style="max-width:50%">
+            <label>Weight (lbs)</label>
+            <input type="number" name="animal[weight_lbs]" value={@animal.weight_lbs}/>
+          </div>
+
+          <div class="section-divider">Pedigree</div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Sire (father)</label>
+              <select name="animal[sire_id]">
+                <option value="">None / Unknown</option>
+                <%= for a <- @all_animals do %>
+                  <option value={a.id} selected={@animal.sire_id == a.id}><%= a.name %></option>
+                <% end %>
+              </select>
+            </div>
+            <div class="form-field">
+              <label>Dam (mother)</label>
+              <select name="animal[dam_id]">
+                <option value="">None / Unknown</option>
+                <%= for a <- @all_animals do %>
+                  <option value={a.id} selected={@animal.dam_id == a.id}><%= a.name %></option>
+                <% end %>
+              </select>
+            </div>
+          </div>
+
+          <div class="section-divider">Ownership</div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Breeder</label>
+              <input type="text" name="animal[breeder]" value={@animal.breeder}/>
+            </div>
+            <div class="form-field">
+              <label>Owner</label>
+              <input type="text" name="animal[owner]" value={@animal.owner}/>
+            </div>
+          </div>
+          <div class="form-field">
+            <label>Location</label>
+            <input type="text" name="animal[location]" value={@animal.location}/>
+          </div>
+
+          <div class="section-divider">Notes</div>
+          <div class="form-field">
+            <textarea name="animal[notes]" rows="4" placeholder="Additional notes…"><%= @animal.notes %></textarea>
+          </div>
+        </div>
+        <div class="dlg-footer">
+          <button type="button" class="btn btn-danger" phx-click="delete_animal"
+                  data-confirm="Delete this animal permanently? This cannot be undone.">Delete</button>
+          <div style="display:flex;gap:10px">
+            <button type="button" class="btn btn-ghost" phx-click="close_edit">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+          </div>
+        </div>
+      </.form>
+    </div>
+  </div>
+<% end %>
+
+<!-- ── Record Modal ───────────────────────────────────────────────────────── -->
+<%= if @record_modal do %>
+  <% editing = @record_editing %>
+  <div class="dlg-wrap">
+    <div class="dlg-backdrop" phx-click="close_record"></div>
+    <div class="dlg" style="max-width:580px">
+      <div class="dlg-header">
+        <h2><%= if editing, do: "Edit Record", else: "Add Record" %></h2>
+        <button class="btn-icon" phx-click="close_record">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <.form for={@record_changeset} phx-submit="save_record" phx-change="validate_record_doc">
+        <div class="dlg-body">
+          <div class="form-row">
+            <div class="form-field">
+              <label>Record Type *</label>
+              <select name="record[record_type]" required>
+                <option value="">Select type…</option>
+                <%= for cat <- Record.categories() do %>
+                  <% cat_types = @record_types_by_cat[cat.id] || [] %>
+                  <%= if cat_types != [] do %>
+                    <optgroup label={cat.label}>
+                      <%= for type <- cat_types do %>
+                        <option value={type.slug} selected={editing && editing.record_type == type.slug}>
+                          <%= type.label %>
+                        </option>
+                      <% end %>
+                    </optgroup>
+                  <% end %>
+                <% end %>
+              </select>
+            </div>
+            <div class="form-field">
+              <label>Date *</label>
+              <input type="date" name="record[date]" value={editing && editing.date} required/>
+            </div>
+          </div>
+
+          <div class="form-field">
+            <label>Title *</label>
+            <input type="text" name="record[title]"
+                   value={editing && editing.title}
+                   placeholder="e.g. Annual West Nile Vaccination" required/>
+          </div>
+
+          <div class="form-field">
+            <label>Description</label>
+            <textarea name="record[description]" rows="2"
+                      placeholder="What was done, findings, results…"><%= editing && editing.description %></textarea>
+          </div>
+
+          <div class="form-row">
+            <div class="form-field">
+              <label>Veterinarian / Person</label>
+              <input type="text" name="record[person]"
+                     value={editing && editing.person}
+                     placeholder="Dr. Smith / Jake's Farrier"/>
+            </div>
+            <div class="form-field">
+              <label>Location</label>
+              <input type="text" name="record[location]"
+                     value={editing && editing.location}
+                     placeholder="Clinic name or address"/>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-field">
+              <label>Cost ($)</label>
+              <input type="number" step="0.01" name="record[cost]"
+                     value={editing && editing.cost}
+                     placeholder="0.00"/>
+            </div>
+            <div class="form-field">
+              <label>Next Due Date</label>
+              <input type="date" name="record[next_due_date]" value={editing && editing.next_due_date}/>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-field">
+              <label>Created By</label>
+              <input type="text" name="record[created_by]"
+                     value={editing && editing.created_by}
+                     placeholder="Your name"/>
+            </div>
+            <div class="form-field">
+              <label>Tags <span style="font-weight:400;color:var(--text3)">(comma separated)</span></label>
+              <input type="text" name="record[tags]"
+                     value={editing && Enum.join(editing.tags || [], ", ")}
+                     placeholder="west nile, annual, spring"/>
+            </div>
+          </div>
+
+          <div class="form-field">
+            <label>Notes</label>
+            <textarea name="record[notes]" rows="2"
+                      placeholder="Any additional notes…"><%= editing && editing.notes %></textarea>
+          </div>
+
+          <div class="section-divider" style="margin-top:18px">Attachments <span style="font-weight:400;color:var(--text3)">(optional)</span></div>
+          <p style="font-size:12px;color:var(--text3);margin-bottom:8px">
+            Files are named after this record's title, typed by record type, and dated to the record date — then appear in the Documents tab.
+          </p>
+          <label class="upload-zone" phx-drop-target={@uploads.record_doc.ref} style="padding:14px 16px;gap:8px;flex-direction:row;justify-content:flex-start;text-align:left">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20" style="flex-shrink:0;color:var(--text3)">
+              <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
+            </svg>
+            <span style="font-size:13px;color:var(--text2)">Click to attach files, or drag and drop</span>
+            <.live_file_input upload={@uploads.record_doc} style="display:none"/>
+          </label>
+          <%= for entry <- @uploads.record_doc.entries do %>
+            <div class="upload-entry" style="margin-top:6px">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16" style="color:var(--brand);flex-shrink:0">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+              </svg>
+              <div style="flex:1;min-width:0">
+                <div class="upload-entry-name" style="font-size:12px"><%= entry.client_name %></div>
+                <div class="upload-progress"><div class="upload-progress-bar" style={"width:#{entry.progress}%"}></div></div>
+              </div>
+              <span class="upload-entry-size" style="font-size:11px"><%= Float.round(entry.client_size / 1_000_000, 1) %> MB</span>
+            </div>
+            <%= for err <- upload_errors(@uploads.record_doc, entry) do %>
+              <p style="color:#ef4444;font-size:12px;margin-top:2px"><%= error_to_string(err) %></p>
+            <% end %>
+          <% end %>
+        </div>
+        <div class="dlg-footer" style="justify-content:flex-end">
+          <button type="button" class="btn btn-ghost" phx-click="close_record">Cancel</button>
+          <button type="submit" class="btn btn-primary"><%= if editing, do: "Save Changes", else: "Add Record" %></button>
+        </div>
+      </.form>
+    </div>
+  </div>
+<% end %>
+
+<!-- ── Add Event Modal ─────────────────────────────────────────────────────── -->
+<%= if @event_modal do %>
+  <div class="dlg-wrap">
+    <div class="dlg-backdrop" phx-click="close_event"></div>
+    <div class="dlg" style="max-width:440px">
+      <div class="dlg-header">
+        <h2>Add Timeline Event</h2>
+        <button class="btn-icon" phx-click="close_event">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <.form for={@event_changeset} phx-submit="save_event">
+        <div class="dlg-body">
+          <div class="form-field">
+            <label>Title *</label>
+            <input type="text" name="timeline_event[title]" placeholder="e.g. AQHA Barrel Race – 1st Place" required/>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Event Type</label>
+              <select name="timeline_event[event_type]">
+                <%= for type <- TimelineEvent.event_types() do %>
+                  <option value={type}><%= TimelineEvent.type_label(type) %></option>
+                <% end %>
+              </select>
+            </div>
+            <div class="form-field">
+              <label>Date</label>
+              <input type="date" name="timeline_event[event_date]"/>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Time <span style="font-weight:400;color:var(--text3)">(optional)</span></label>
+              <input type="time" name="timeline_event[event_time]"/>
+            </div>
+            <div class="form-field">
+              <label>Location</label>
+              <input type="text" name="timeline_event[location]" placeholder="City, State or venue"/>
+            </div>
+          </div>
+          <div class="form-field">
+            <label>Description</label>
+            <textarea name="timeline_event[description]" rows="3" placeholder="Details, story, context…"></textarea>
+          </div>
+        </div>
+        <div class="dlg-footer" style="justify-content:flex-end">
+          <button type="button" class="btn btn-ghost" phx-click="close_event">Cancel</button>
+          <button type="submit" class="btn btn-primary">Add Event</button>
+        </div>
+      </.form>
+    </div>
+  </div>
+<% end %>
+
+<%= if @lightbox_url do %>
+  <div class="lightbox" phx-click="close_lightbox">
+    <button class="lightbox-close" phx-click="close_lightbox">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="20" height="20">
+        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    </button>
+    <img src={@lightbox_url} alt="Photo" phx-click="close_lightbox" style="cursor:zoom-out"/>
+  </div>
+<% end %>

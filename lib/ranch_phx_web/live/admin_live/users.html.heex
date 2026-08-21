@@ -1,0 +1,162 @@
+<style>
+:root {
+  --brand: #8b5cf6; --brand-soft: #ede9fe; --surface: #ffffff; --surface2: #f9fafb;
+  --border: #e5e7eb; --text: #111827; --text2: #6b7280; --text3: #9ca3af;
+  --radius: 12px; --radius-sm: 8px;
+}
+[data-theme="dark"] {
+  --brand: #a78bfa; --brand-soft: #2e1065; --surface: #1e1e2e; --surface2: #16161e;
+  --border: #2d2d3d; --text: #e2e8f0; --text2: #94a3b8; --text3: #64748b;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--surface2); color: var(--text); }
+.topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 20px; height: 56px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+.topbar-left { display: flex; align-items: center; gap: 12px; }
+.back-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: var(--text2); text-decoration: none; font-weight: 500; }
+.back-btn:hover { color: var(--brand); }
+.topbar-title { font-size: 16px; font-weight: 700; }
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: var(--radius-sm); border: none; cursor: pointer; font-size: 14px; font-weight: 600; transition: opacity .15s; }
+.btn:hover { opacity: .85; }
+.btn-primary { background: var(--brand); color: #fff; }
+.btn-ghost { background: none; border: 1.5px solid var(--border); color: var(--text2); }
+.btn-danger { background: #fee2e2; color: #dc2626; border: none; }
+.btn-sm { padding: 5px 10px; font-size: 12px; }
+.page-wrap { max-width: 820px; margin: 0 auto; padding: 32px 20px; }
+.section-title { font-size: 22px; font-weight: 800; margin-bottom: 6px; }
+.section-sub { font-size: 14px; color: var(--text2); margin-bottom: 28px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 24px; }
+.card h3 { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--text3); margin-bottom: 16px; }
+.user-table { width: 100%; border-collapse: collapse; }
+.user-table th { text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--text3); padding: 0 0 10px; border-bottom: 1px solid var(--border); }
+.user-table td { padding: 14px 0; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.user-table tr:last-child td { border-bottom: none; }
+.user-email { font-size: 14px; font-weight: 600; }
+.user-since { font-size: 12px; color: var(--text3); margin-top: 2px; }
+.role-badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+.role-superuser { background: #ede9fe; color: #7c3aed; }
+.role-viewer { background: #f3f4f6; color: #6b7280; }
+.you-chip { background: #dbeafe; color: #2563eb; font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 20px; margin-left: 6px; vertical-align: middle; }
+.add-form { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: end; }
+.form-field label { display: block; font-size: 13px; font-weight: 600; color: var(--text2); margin-bottom: 5px; }
+.form-field input, .form-field select { width: 100%; padding: 9px 12px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); background: var(--surface2); color: var(--text); font-size: 14px; outline: none; }
+.form-field input:focus, .form-field select:focus { border-color: var(--brand); }
+.error-msg { color: #dc2626; font-size: 13px; margin-top: 8px; }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+.status-confirmed { background: #22c55e; }
+.status-pending { background: #f59e0b; }
+@media (max-width: 600px) { .add-form { grid-template-columns: 1fr; } }
+</style>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <a class="back-btn" href="/">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+      Back
+    </a>
+    <span style="color:var(--border)">|</span>
+    <span class="topbar-title">User Management</span>
+  </div>
+  <div style="font-size:13px;color:var(--text2)">
+    Signed in as <strong><%= @current_scope.user.email %></strong>
+  </div>
+</div>
+
+<div class="page-wrap">
+  <div class="section-title">Users</div>
+  <p class="section-sub">Manage who has access to Gimel Ranch records. Superusers have full access; viewers are read-only.</p>
+
+  <!-- User list -->
+  <div class="card">
+    <h3><%= length(@users) %> user<%= if length(@users) != 1, do: "s" %></h3>
+    <table class="user-table">
+      <thead>
+        <tr>
+          <th>Email</th>
+          <th>Role</th>
+          <th>Status</th>
+          <th style="text-align:right">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <%= for user <- @users do %>
+          <tr>
+            <td>
+              <div class="user-email">
+                <%= user.email %>
+                <%= if user.id == @current_scope.user.id do %>
+                  <span class="you-chip">you</span>
+                <% end %>
+              </div>
+              <div class="user-since">Added <%= Calendar.strftime(user.inserted_at, "%b %d, %Y") %></div>
+            </td>
+            <td>
+              <span class={"role-badge role-#{user.role}"}><%= user.role %></span>
+            </td>
+            <td>
+              <span class={"status-dot #{if user.confirmed_at, do: "status-confirmed", else: "status-pending"}"}></span>
+              <%= if user.confirmed_at, do: "Active", else: "Pending login" %>
+            </td>
+            <td style="text-align:right">
+              <%= if user.id != @current_scope.user.id do %>
+                <div style="display:flex;gap:6px;justify-content:flex-end;align-items:center">
+                  <%= if user.role == "viewer" do %>
+                    <button class="btn btn-ghost btn-sm"
+                            phx-click="set_role" phx-value-id={user.id} phx-value-role="superuser">
+                      Make Superuser
+                    </button>
+                  <% else %>
+                    <button class="btn btn-ghost btn-sm"
+                            phx-click="set_role" phx-value-id={user.id} phx-value-role="viewer">
+                      Make Viewer
+                    </button>
+                  <% end %>
+                  <button class="btn btn-danger btn-sm"
+                          phx-click="delete_user" phx-value-id={user.id}
+                          onclick="return confirm('Remove this user? They will lose access immediately.')">
+                    Remove
+                  </button>
+                </div>
+              <% end %>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Add user -->
+  <div class="card">
+    <h3>Add a user</h3>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:16px">
+      Enter their email address and assign a role. They'll log in by requesting a magic link at <strong>/users/log-in</strong>.
+    </p>
+    <form phx-submit="add_user">
+      <div class="add-form">
+        <div class="form-field">
+          <label>Email address</label>
+          <input type="email" name="email" placeholder="name@example.com" required autocomplete="off"/>
+        </div>
+        <div class="form-field">
+          <label>Role</label>
+          <select name="role">
+            <option value="viewer">Viewer (read-only)</option>
+            <option value="superuser">Superuser (full access)</option>
+          </select>
+        </div>
+        <div class="form-field" style="padding-top:22px">
+          <button type="submit" class="btn btn-primary">Add User</button>
+        </div>
+      </div>
+    </form>
+    <%= if @error do %>
+      <p class="error-msg"><%= @error %></p>
+    <% end %>
+  </div>
+
+  <p style="font-size:13px;color:var(--text3);text-align:center">
+    Viewers see all animal records but cannot add, edit, or delete anything.
+    Superusers have full access including this user management page.
+  </p>
+</div>

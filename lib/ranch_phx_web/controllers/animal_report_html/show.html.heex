@@ -1,0 +1,395 @@
+<div class="print-page">
+
+  <%!-- ── Page header ─────────────────────────────────────────────────────── --%>
+  <div class="rpt-header">
+    <div>
+      <div class="rpt-title"><%= @animal.name %></div>
+      <div class="rpt-subtitle">Gimel Ranch <%= String.capitalize(@animal.kind || "Animal") %> Report</div>
+    </div>
+    <div class="rpt-meta">
+      Generated <%= Calendar.strftime(@generated_at, "%B %d, %Y") %><br/>
+      <%= if @date_from || @date_to do %>
+        <% fr = if @date_from, do: Calendar.strftime(@date_from, "%b %d, %Y"), else: "All dates" %>
+        <% to = if @date_to, do: Calendar.strftime(@date_to, "%b %d, %Y"), else: "present" %>
+        <%= fr %> – <%= to %>
+      <% end %>
+    </div>
+  </div>
+
+  <%!-- ── Profile ─────────────────────────────────────────────────────────── --%>
+  <%= if @sections.profile do %>
+    <div class="rpt-section clearfix">
+      <div class="rpt-section-title"><%= String.capitalize(@animal.kind || "Animal") %> Profile</div>
+      <%= if @animal.cover_photo_url do %>
+        <img src={@animal.cover_photo_url} class="rpt-photo" alt={@animal.name}/>
+      <% end %>
+      <div class="profile-grid">
+        <div class="profile-row">
+          <div class="profile-label">Name</div>
+          <div><strong><%= @animal.name %></strong></div>
+        </div>
+        <div class="profile-row">
+          <div class="profile-label">Kind</div>
+          <div><%= String.capitalize(@animal.kind || "") %></div>
+        </div>
+        <%= if @animal.breed && @animal.breed != "" do %>
+          <div class="profile-row">
+            <div class="profile-label">Breed</div>
+            <div><%= @animal.breed %></div>
+          </div>
+        <% end %>
+        <%= if @animal.color && @animal.color != "" do %>
+          <div class="profile-row">
+            <div class="profile-label">Color</div>
+            <div><%= @animal.color %></div>
+          </div>
+        <% end %>
+        <%= if @animal.sex && @animal.sex != "" do %>
+          <div class="profile-row">
+            <div class="profile-label">Sex</div>
+            <div><%= String.capitalize(@animal.sex) %></div>
+          </div>
+        <% end %>
+        <%= if @animal.birth_date do %>
+          <div class="profile-row">
+            <div class="profile-label">Date of Birth</div>
+            <div><%= Calendar.strftime(@animal.birth_date, "%B %d, %Y") %></div>
+          </div>
+        <% end %>
+        <%= if @animal.registration_number && @animal.registration_number != "" do %>
+          <div class="profile-row">
+            <div class="profile-label">Registration #</div>
+            <div><%= @animal.registration_number %></div>
+          </div>
+        <% end %>
+        <%= if @animal.owner && @animal.owner != "" do %>
+          <div class="profile-row">
+            <div class="profile-label">Owner</div>
+            <div><%= @animal.owner %></div>
+          </div>
+        <% end %>
+        <div class="profile-row">
+          <div class="profile-label">Status</div>
+          <div><%= String.capitalize(@animal.status || "") %></div>
+        </div>
+      </div>
+    </div>
+  <% end %>
+
+  <%!-- ── Photos ──────────────────────────────────────────────────────────── --%>
+  <%= if @sections.photos && length(@animal.photos) > 0 do %>
+    <div class="rpt-section">
+      <div class="rpt-section-title">Photos</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8pt;margin-top:8pt">
+        <%= for photo <- @animal.photos do %>
+          <div style="break-inside:avoid">
+            <img src={photo.url} alt={photo.caption || ""}
+                 style="width:100%;height:120pt;object-fit:cover;border-radius:4pt;border:1pt solid #e5e7eb"/>
+            <%= if photo.caption && photo.caption != "" do %>
+              <p style="font-size:7pt;color:#6b7280;margin-top:3pt;text-align:center"><%= photo.caption %></p>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
+    </div>
+  <% end %>
+
+  <%!-- ── Pedigree ─────────────────────────────────────────────────────────── --%>
+  <%= if @sections.pedigree do %>
+    <div class="rpt-section">
+      <div class="rpt-section-title">Pedigree</div>
+      <%
+        p = fn slot -> @pedigree_map[slot] end
+        # Returns a compact "Breed · Year · Color" string for any entry
+        meta = fn e ->
+          if e do
+            [e.breed, e.birth_year && Integer.to_string(e.birth_year), e.color]
+            |> Enum.filter(&(&1 && &1 != ""))
+            |> Enum.join(" · ")
+          else "" end
+        end
+      %>
+      <table style="width:100%;border-collapse:collapse;font-size:9.5pt">
+        <%!-- Subject row --%>
+        <tr>
+          <td style="width:18%;padding:4pt 7pt;border:1pt solid #ccc;vertical-align:middle;background:#f9fafb" rowspan="8">
+            <div style="font-size:8pt;text-transform:uppercase;letter-spacing:.06em;color:#888;margin-bottom:3pt">Subject</div>
+            <div style="font-weight:800;font-size:11pt"><%= @animal.name %></div>
+            <%= if @animal.registration_number && @animal.registration_number != "" do %>
+              <div style="font-size:8pt;color:#666;margin-top:2pt"><%= @animal.registration_number %></div>
+            <% end %>
+            <%= if @animal.birth_date do %>
+              <div style="font-size:8pt;color:#888">b. <%= @animal.birth_date.year %></div>
+            <% end %>
+          </td>
+          <%!-- Gen 1 sire spans 4 rows --%>
+          <% e = p.("S") %>
+          <td style="width:20%;padding:4pt 7pt;border:1pt solid #ccc;border-left:3pt solid #3b82f6;vertical-align:middle" rowspan="4">
+            <div style="font-size:7pt;text-transform:uppercase;color:#3b82f6;font-weight:700;letter-spacing:.05em;margin-bottom:2pt">Sire</div>
+            <div style="font-weight:700"><%= if e, do: e.name, else: "—" %></div>
+            <%= if e && e.registration_number && e.registration_number != "" do %><div style="font-size:8pt;color:#666"><%= e.registration_number %></div><% end %>
+            <% m = meta.(e) %><%= if m != "" do %><div style="font-size:8pt;color:#888"><%= m %></div><% end %>
+          </td>
+          <%!-- Gen 2 SS spans 2 rows --%>
+          <% e = p.("SS") %>
+          <td style="width:20%;padding:4pt 7pt;border:1pt solid #ccc;border-left:2pt solid #93c5fd;vertical-align:middle" rowspan="2">
+            <div style="font-size:7pt;text-transform:uppercase;color:#93c5fd;font-weight:700;margin-bottom:2pt">Sire's Sire</div>
+            <div style="font-weight:600"><%= if e, do: e.name, else: "—" %></div>
+            <%= if e && e.registration_number && e.registration_number != "" do %><div style="font-size:8pt;color:#666"><%= e.registration_number %></div><% end %>
+            <% m = meta.(e) %><%= if m != "" do %><div style="font-size:7.5pt;color:#888"><%= m %></div><% end %>
+          </td>
+          <%!-- Gen 3 SSS --%>
+          <% e = p.("SSS") %>
+          <td style="width:22%;padding:4pt 7pt;border:1pt solid #ccc;border-left:2pt solid #dbeafe;vertical-align:middle">
+            <div style="font-size:7pt;color:#93c5fd;margin-bottom:1pt">Sire's Sire's Sire</div>
+            <div style="font-weight:600;font-size:9pt"><%= if e, do: e.name, else: "—" %></div>
+            <%= if e && e.registration_number && e.registration_number != "" do %><div style="font-size:7.5pt;color:#666"><%= e.registration_number %></div><% end %>
+            <% m = meta.(e) %><%= if m != "" do %><div style="font-size:7pt;color:#888"><%= m %></div><% end %>
+          </td>
+        </tr>
+        <%!-- SSD --%>
+        <tr>
+          <% e = p.("SSD") %>
+          <td style="padding:4pt 7pt;border:1pt solid #ccc;border-left:2pt solid #dbeafe;vertical-align:middle">
+            <div style="font-size:7pt;color:#93c5fd;margin-bottom:1pt">Sire's Sire's Dam</div>
+            <div style="font-weight:600;font-size:9pt"><%= if e, do: e.name, else: "—" %></div>
+            <%= if e && e.registration_number && e.registration_number != "" do %><div style="font-size:7.5pt;color:#666"><%= e.registration_number %></div><% end %>
+            <% m = meta.(e) %><%= if m != "" do %><div style="font-size:7pt;color:#888"><%= m %></div><% end %>
+          </td>
+        </tr>
+        <%!-- SD + SDS --%>
+        <tr>
+          <% e = p.("SD") %>
+          <td style="padding:4pt 7pt;border:1pt solid #ccc;border-left:2pt solid #93c5fd;vertical-align:middle" rowspan="2">
+            <div style="font-size:7pt;text-transform:uppercase;color:#93c5fd;font-weight:700;margin-bottom:2pt">Sire's Dam</div>
+            <div style="font-weight:600"><%= if e, do: e.name, else: "—" %></div>
+            <%= if e && e.registration_number && e.registration_number != "" do %><div style="font-size:8pt;color:#666"><%= e.registration_number %></div><% end %>
+            <% m = meta.(e) %><%= if m != "" do %><div style="font-size:7.5pt;color:#888"><%= m %></div><% end %>
+          </td>
+          <% e = p.("SDS") %>
+          <td style="padding:4pt 7pt;border:1pt solid #ccc;border-left:2pt solid #dbeafe;vertical-align:middle">
+            <div style="font-size:7pt;color:#93c5fd;margin-bottom:1pt">Sire's Dam's Sire</div>
+            <div style="font-weight:600;font-size:9pt"><%= if e, do: e.name, else: "—" %></div>
+            <%= if e && e.registration_number && e.registration_number != "" do %><div style="font-size:7.5pt;color:#666"><%= e.registration_number %></div><% end %>
+            <% m = meta.(e) %><%= if m != "" do %><div style="font-size:7pt;color:#888"><%= m %></div><% end %>
+          </td>
+        </tr>
+        <%!-- SDD --%>
+        <tr>
+          <% e = p.("SDD") %>
+          <td style="padding:4pt 7pt;border:1pt solid #ccc;border-left:2pt solid #dbeafe;vertical-align:middle">
+            <div style="font-size:7pt;color:#93c5fd;margin-bottom:1pt">Sire's Dam's Dam</div>
+            <div style="font-weight:600;font-size:9pt"><%= if e, do: e.name, else: "—" %></div>
+            <%= if e && e.registration_number && e.registration_number != "" do %><div style="font-size:7.5pt;color:#666"><%= e.registration_number %></div><% end %>
+            <% m = meta.(e) %><%= if m != "" do %><div style="font-size:7pt;color:#888"><%= m %></div><% end %>
+          </td>
+        </tr>
+        <%!-- Dam side — same structure --%>
+        <tr>
+          <% e = p.("D") %>
+          <td style="padding:4pt 7pt;border:1pt solid #ccc;border-left:3pt solid #ec4899;vertical-align:middle" rowspan="4">
+            <div style="font-size:7pt;text-transform:uppercase;color:#ec4899;font-weight:700;letter-spacing:.05em;margin-bottom:2pt">Dam</div>
+            <div style="font-weight:700"><%= if e, do: e.name, else: "—" %></div>
+            <%= if e && e.registration_number && e.registration_number != "" do %><div style="font-size:8pt;color:#666"><%= e.registration_number %></div><% end %>
+            <% m = meta.(e) %><%= if m != "" do %><div style="font-size:8pt;color:#888"><%= m %></div><% end %>
+          </td>
+          <% e = p.("DS") %>
+          <td style="padding:4pt 7pt;border:1pt solid #ccc;border-left:2pt solid #f9a8d4;vertical-align:middle" rowspan="2">
+            <div style="font-size:7pt;text-transform:uppercase;color:#f9a8d4;font-weight:700;margin-bottom:2pt">Dam's Sire</div>
+            <div style="font-weight:600"><%= if e, do: e.name, else: "—" %></div>
+            <%= if e && e.registration_number && e.registration_number != "" do %><div style="font-size:8pt;color:#666"><%= e.registration_number %></div><% end %>
+            <% m = meta.(e) %><%= if m != "" do %><div style="font-size:7.5pt;color:#888"><%= m %></div><% end %>
+          </td>
+          <% e = p.("DSS") %>
+          <td style="padding:4pt 7pt;border:1pt solid #ccc;border-left:2pt solid #fce7f3;vertical-align:middle">
+            <div style="font-size:7pt;color:#f9a8d4;margin-bottom:1pt">Dam's Sire's Sire</div>
+            <div style="font-weight:600;font-size:9pt"><%= if e, do: e.name, else: "—" %></div>
+            <%= if e && e.registration_number && e.registration_number != "" do %><div style="font-size:7.5pt;color:#666"><%= e.registration_number %></div><% end %>
+            <% m = meta.(e) %><%= if m != "" do %><div style="font-size:7pt;color:#888"><%= m %></div><% end %>
+          </td>
+        </tr>
+        <tr>
+          <% e = p.("DSD") %>
+          <td style="padding:4pt 7pt;border:1pt solid #ccc;border-left:2pt solid #fce7f3;vertical-align:middle">
+            <div style="font-size:7pt;color:#f9a8d4;margin-bottom:1pt">Dam's Sire's Dam</div>
+            <div style="font-weight:600;font-size:9pt"><%= if e, do: e.name, else: "—" %></div>
+            <%= if e && e.registration_number && e.registration_number != "" do %><div style="font-size:7.5pt;color:#666"><%= e.registration_number %></div><% end %>
+            <% m = meta.(e) %><%= if m != "" do %><div style="font-size:7pt;color:#888"><%= m %></div><% end %>
+          </td>
+        </tr>
+        <tr>
+          <% e = p.("DD") %>
+          <td style="padding:4pt 7pt;border:1pt solid #ccc;border-left:2pt solid #f9a8d4;vertical-align:middle" rowspan="2">
+            <div style="font-size:7pt;text-transform:uppercase;color:#f9a8d4;font-weight:700;margin-bottom:2pt">Dam's Dam</div>
+            <div style="font-weight:600"><%= if e, do: e.name, else: "—" %></div>
+            <%= if e && e.registration_number && e.registration_number != "" do %><div style="font-size:8pt;color:#666"><%= e.registration_number %></div><% end %>
+            <% m = meta.(e) %><%= if m != "" do %><div style="font-size:7.5pt;color:#888"><%= m %></div><% end %>
+          </td>
+          <% e = p.("DDS") %>
+          <td style="padding:4pt 7pt;border:1pt solid #ccc;border-left:2pt solid #fce7f3;vertical-align:middle">
+            <div style="font-size:7pt;color:#f9a8d4;margin-bottom:1pt">Dam's Dam's Sire</div>
+            <div style="font-weight:600;font-size:9pt"><%= if e, do: e.name, else: "—" %></div>
+            <%= if e && e.registration_number && e.registration_number != "" do %><div style="font-size:7.5pt;color:#666"><%= e.registration_number %></div><% end %>
+            <% m = meta.(e) %><%= if m != "" do %><div style="font-size:7pt;color:#888"><%= m %></div><% end %>
+          </td>
+        </tr>
+        <tr>
+          <% e = p.("DDD") %>
+          <td style="padding:4pt 7pt;border:1pt solid #ccc;border-left:2pt solid #fce7f3;vertical-align:middle">
+            <div style="font-size:7pt;color:#f9a8d4;margin-bottom:1pt">Dam's Dam's Dam</div>
+            <div style="font-weight:600;font-size:9pt"><%= if e, do: e.name, else: "—" %></div>
+            <%= if e && e.registration_number && e.registration_number != "" do %><div style="font-size:7.5pt;color:#666"><%= e.registration_number %></div><% end %>
+            <% m = meta.(e) %><%= if m != "" do %><div style="font-size:7pt;color:#888"><%= m %></div><% end %>
+          </td>
+        </tr>
+      </table>
+    </div>
+  <% end %>
+
+  <%!-- ── Timeline ────────────────────────────────────────────────────────── --%>
+  <%= if @sections.timeline && length(@animal.timeline_events) > 0 do %>
+    <div class="rpt-section">
+      <div class="rpt-section-title">Timeline</div>
+      <table class="rpt-table">
+        <thead>
+          <tr>
+            <th style="width:90pt">Date</th>
+            <th>Event</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <%= for event <- Enum.sort_by(@animal.timeline_events, & &1.event_date, {:desc, Date}) do %>
+            <tr>
+              <td><%= if event.event_date, do: Calendar.strftime(event.event_date, "%b %d, %Y") %></td>
+              <td><strong><%= event.title %></strong></td>
+              <td style="color:#555"><%= event.description %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% end %>
+
+  <%!-- ── Records ─────────────────────────────────────────────────────────── --%>
+  <%= if @sections.records && length(@records) > 0 do %>
+    <div class="rpt-section">
+      <div class="rpt-section-title">Records</div>
+      <%= for {cat, rows} <- @records do %>
+        <div style="margin-bottom: 14pt">
+          <div style="font-size:10pt;font-weight:bold;text-transform:uppercase;letter-spacing:.06em;color:#555;margin-bottom:4pt;padding-bottom:2pt;border-bottom:0.5pt solid #ddd">
+            <%= cat.label %>
+          </div>
+          <table class="rpt-table">
+            <thead>
+              <tr>
+                <th style="width:75pt">Date</th>
+                <th>Title</th>
+                <th>Type</th>
+                <th>By / Location</th>
+                <th style="width:60pt;text-align:right">Cost</th>
+              </tr>
+            </thead>
+            <tbody>
+              <%= for r <- rows do %>
+                <tr>
+                  <td><%= if r.date, do: Calendar.strftime(r.date, "%b %d, %Y") %></td>
+                  <td>
+                    <strong><%= r.title %></strong>
+                    <%= if r.notes && r.notes != "" do %>
+                      <div style="font-size:9pt;color:#666;margin-top:2pt"><%= r.notes %></div>
+                    <% end %>
+                    <%= if r.tags != [] do %>
+                      <div style="margin-top:3pt">
+                        <%= for tag <- r.tags do %>
+                          <span class="tag"><%= tag %></span>
+                        <% end %>
+                      </div>
+                    <% end %>
+                  </td>
+                  <td style="color:#555"><%= @type_label_map[r.record_type] || r.record_type %></td>
+                  <td style="color:#555;font-size:9pt">
+                    <%= r.person %><%= if r.person && r.person != "" && r.location && r.location != "", do: " · " %><%= r.location %>
+                  </td>
+                  <td style="text-align:right">
+                    <%= if r.cost, do: RanchPhxWeb.AnimalReportController.format_cost(r.cost) %>
+                  </td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      <% end %>
+    </div>
+  <% end %>
+
+  <%!-- ── Expenses ─────────────────────────────────────────────────────────── --%>
+  <%= if @sections.expenses && length(@expense_by_cat) > 0 do %>
+    <div class="rpt-section">
+      <div class="rpt-section-title">Expense Summary</div>
+      <div style="margin-bottom:12pt">
+        <span style="font-size:9pt;color:#777;text-transform:uppercase;letter-spacing:.06em">Total Expenses</span><br/>
+        <span class="exp-total"><%= RanchPhxWeb.AnimalReportController.format_cost(@expense_grand_total) %></span>
+      </div>
+      <%= for {cat, rows, cat_total} <- @expense_by_cat do %>
+        <div class="exp-cat-title">
+          <span><%= cat.label %></span>
+          <span class="exp-cat-total"><%= RanchPhxWeb.AnimalReportController.format_cost(cat_total) %></span>
+        </div>
+        <table class="rpt-table">
+          <tbody>
+            <%= for r <- rows do %>
+              <tr>
+                <td style="width:75pt;color:#777"><%= if r.date, do: Calendar.strftime(r.date, "%b %d, %Y") %></td>
+                <td>
+                  <%= r.title %>
+                  <%= if r.tags != [] do %>
+                    — <%= Enum.join(r.tags, ", ") %>
+                  <% end %>
+                </td>
+                <td style="color:#777;font-size:9pt"><%= @type_label_map[r.record_type] || r.record_type %></td>
+                <td style="text-align:right;font-weight:bold"><%= RanchPhxWeb.AnimalReportController.format_cost(r.cost) %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      <% end %>
+    </div>
+  <% end %>
+
+  <%!-- ── Documents ───────────────────────────────────────────────────────── --%>
+  <%= if @sections.documents && length(@animal.documents) > 0 do %>
+    <div class="rpt-section">
+      <div class="rpt-section-title">Documents</div>
+      <table class="rpt-table">
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Type</th>
+            <th style="width:90pt">Date</th>
+            <th style="width:60pt">Size</th>
+          </tr>
+        </thead>
+        <tbody>
+          <%= for doc <- @animal.documents do %>
+            <tr>
+              <td><%= doc.title %></td>
+              <td style="color:#555"><%= doc.doc_type %></td>
+              <td><%= if doc.doc_date, do: Calendar.strftime(doc.doc_date, "%b %d, %Y") %></td>
+              <td style="color:#777">
+                <%= if doc.file_size && doc.file_size > 0, do: "#{Float.round(doc.file_size / 1_000_000, 1)} MB" %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% end %>
+
+  <%!-- ── Footer ─────────────────────────────────────────────────────────── --%>
+  <div style="margin-top:24pt;padding-top:8pt;border-top:1pt solid #ccc;font-size:8pt;color:#aaa;display:flex;justify-content:space-between">
+    <span>Gimel Ranch <%= String.capitalize(@animal.kind || "Animal") %> Report — <%= @animal.name %></span>
+    <span>Generated <%= Calendar.strftime(@generated_at, "%B %d, %Y at %H:%M UTC") %></span>
+  </div>
+
+</div>
