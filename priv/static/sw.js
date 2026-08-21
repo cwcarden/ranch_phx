@@ -1,4 +1,4 @@
-const SHELL_CACHE = "ranch-shell-v1";
+const SHELL_CACHE = "ranch-shell-v2";
 const DOCS_CACHE = "ranch-docs-v1";
 const SHELL_ASSETS = ["/offline.html", "/assets/css/app.css", "/assets/js/app.js", "/manifest.json"];
 

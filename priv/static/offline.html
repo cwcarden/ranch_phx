@@ -7,7 +7,7 @@
 <link rel="manifest" href="/manifest.json" />
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="theme-color" content="#FD4F00" />
+<meta name="theme-color" content="#8b5cf6" />
 <style>
   :root {
     --brand: #8b5cf6; --brand-soft: #ede9fe; --surface: #ffffff; --surface2: #f9fafb;
@@ -63,6 +63,20 @@
     text-align: center; padding: 60px 20px; color: var(--text2); font-size: 14px;
     background: var(--surface); border: 1.5px dashed var(--border); border-radius: var(--radius);
   }
+  .pdf-viewer-overlay {
+    display: none; position: fixed; inset: 0; background: #000; z-index: 9999;
+    flex-direction: column;
+  }
+  .pdf-viewer-bar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 16px; background: var(--surface); border-bottom: 1.5px solid var(--border);
+  }
+  .pdf-viewer-title { font-size: 14px; font-weight: 600; color: var(--text); }
+  .pdf-viewer-close {
+    background: var(--brand); border: none; color: #fff; font-size: 14px; font-weight: 700;
+    padding: 10px 16px; border-radius: var(--radius-sm); cursor: pointer;
+  }
+  .pdf-viewer-frame { flex: 1; border: none; width: 100%; background: #fff; }
 </style>
 </head>
 <body>
@@ -75,6 +89,14 @@
   </header>
 
   <div id="content"></div>
+
+  <div id="pdf-viewer-overlay" class="pdf-viewer-overlay">
+    <div class="pdf-viewer-bar">
+      <span id="pdf-viewer-title" class="pdf-viewer-title"></span>
+      <button class="pdf-viewer-close" onclick="closePdfViewer()">✕ Close</button>
+    </div>
+    <iframe id="pdf-viewer-frame" class="pdf-viewer-frame" src="about:blank"></iframe>
+  </div>
 
   <script>
     const STORAGE_KEY = "gimelRanchOfflineDocs";
@@ -96,6 +118,24 @@
     function saveDocs(docs) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(docs));
     }
+
+    function openPdfViewer(event, url, title) {
+      event.preventDefault();
+      document.getElementById("pdf-viewer-frame").src = url;
+      document.getElementById("pdf-viewer-title").textContent = title || "";
+      document.getElementById("pdf-viewer-overlay").style.display = "flex";
+    }
+    window.openPdfViewer = openPdfViewer;
+
+    function closePdfViewer() {
+      document.getElementById("pdf-viewer-overlay").style.display = "none";
+      document.getElementById("pdf-viewer-frame").src = "about:blank";
+    }
+    window.closePdfViewer = closePdfViewer;
+
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") closePdfViewer();
+    });
 
     async function removeDoc(url) {
       const docs = loadDocs().filter((d) => d.url !== url);
@@ -136,14 +176,14 @@
         const rows = byHorse[horseName].map((doc) => `
           <div class="doc-row">
             <div class="doc-info">
-              <a class="doc-title" href="${escapeHtml(doc.url)}" target="_blank">${escapeHtml(doc.title || "Untitled")}</a>
+              <a class="doc-title" href="${escapeHtml(doc.url)}" onclick="openPdfViewer(event, this.href, this.textContent)">${escapeHtml(doc.title || "Untitled")}</a>
               <div class="doc-meta">
                 ${doc.docType ? `<span class="doc-type-badge">${escapeHtml(doc.docType)}</span>` : ""}
                 ${doc.cachedAt ? `<span class="doc-date">Saved ${new Date(doc.cachedAt).toLocaleDateString()}</span>` : ""}
               </div>
             </div>
             <div class="doc-actions">
-              <a class="doc-open" href="${escapeHtml(doc.url)}" target="_blank">Open ↗</a>
+              <a class="doc-open" href="${escapeHtml(doc.url)}" onclick="openPdfViewer(event, this.href, '${escapeHtml(doc.title || 'Untitled').replace(/'/g, "\\'")}')">Open</a>
               <button class="doc-remove" onclick="removeDoc('${escapeHtml(doc.url).replace(/'/g, "\\'")}')">Remove</button>
             </div>
           </div>

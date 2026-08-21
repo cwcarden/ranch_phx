@@ -27,6 +27,32 @@ import topbar from "../vendor/topbar"
 const OFFLINE_DOCS_KEY = "gimelRanchOfflineDocs"
 const DOCS_CACHE = "ranch-docs-v1"
 
+// Installed as a standalone PWA, there's no browser chrome (no back button,
+// no address bar) — navigating straight to a PDF traps the user there with
+// no way back. Open documents in an in-page viewer instead.
+window.openPdfViewer = function (event, url, title) {
+  event.preventDefault()
+  const frame = document.getElementById("pdf-viewer-frame")
+  const overlay = document.getElementById("pdf-viewer-overlay")
+  const titleEl = document.getElementById("pdf-viewer-title")
+  if (!frame || !overlay) return
+  frame.src = url
+  if (titleEl) titleEl.textContent = title || ""
+  overlay.style.display = "flex"
+}
+
+window.closePdfViewer = function () {
+  const frame = document.getElementById("pdf-viewer-frame")
+  const overlay = document.getElementById("pdf-viewer-overlay")
+  if (!frame || !overlay) return
+  overlay.style.display = "none"
+  frame.src = "about:blank"
+}
+
+window.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") window.closePdfViewer()
+})
+
 function loadOfflineDocs() {
   try {
     return JSON.parse(localStorage.getItem(OFFLINE_DOCS_KEY) || "[]")
