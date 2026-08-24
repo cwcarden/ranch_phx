@@ -112,6 +112,18 @@ window.addEventListener("keydown", (e) => {
   if (e.key === "Escape") window.closePdfViewer()
 })
 
+// Swap a broken hero photo (cover_photo_url points at a missing/corrupt
+// file) for the placeholder icon. Only touches the DOM when loading
+// actually fails, rather than always rendering a hidden placeholder next
+// to the <img> — a hidden sibling there was interfering with the image's
+// paint in some browsers even though it never became visible.
+window.handleHeroPhotoError = function (img) {
+  img.outerHTML =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48" style="color:var(--text3)">' +
+    '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>' +
+    '<polyline points="21 15 16 10 5 21"/></svg>'
+}
+
 function loadOfflineDocs() {
   try {
     return JSON.parse(localStorage.getItem(OFFLINE_DOCS_KEY) || "[]")

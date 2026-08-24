@@ -43,14 +43,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 
 .hero { background: var(--surface); border-bottom: 1px solid var(--border); }
 .hero-inner { max-width: 1100px; margin: 0 auto; padding: 24px 20px; display: flex; align-items: flex-start; gap: 24px; }
-.hero-photo { width: 130px; height: 130px; border-radius: var(--radius); overflow: hidden; flex-shrink: 0; background: var(--surface2); display: flex; align-items: center; justify-content: center; border: 2px solid var(--border); position: relative; cursor: pointer; }
-.hero-photo img { width: 100%; height: 100%; object-fit: cover; object-position: center; }
+.animal-cover-photo { width: 130px; height: 130px; border-radius: var(--radius); overflow: hidden; flex-shrink: 0; background: var(--surface2); display: flex; align-items: center; justify-content: center; border: 2px solid var(--border); position: relative; cursor: pointer; }
+.animal-cover-photo img { width: 100%; height: 100%; object-fit: cover; object-position: center; }
 .cover-pos-btns { display: flex; gap: 4px; margin-top: 6px; }
 .cover-pos-btn { flex: 1; padding: 4px 0; border-radius: 4px; border: 1px solid var(--border); background: var(--surface); color: var(--text2); font-size: 11px; cursor: pointer; }
 .cover-pos-btn.active { background: var(--brand); color: #fff; border-color: var(--brand); }
-.hero-photo-overlay { position: absolute; inset: 0; background: rgba(0,0,0,.55); display: none; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: #fff; font-size: 11px; font-weight: 700; cursor: pointer; }
-.hero-photo:hover .hero-photo-overlay { display: flex; }
-.hero-photo-edit-btn { position: absolute; bottom: 6px; right: 6px; width: 28px; height: 28px; border-radius: 50%; background: rgba(0,0,0,.6); border: none; color: #fff; cursor: pointer; display: none; align-items: center; justify-content: center; }
+.animal-cover-photo-overlay { position: absolute; inset: 0; background: rgba(0,0,0,.55); display: none; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: #fff; font-size: 11px; font-weight: 700; cursor: pointer; }
+.animal-cover-photo:hover .animal-cover-photo-overlay { display: flex; }
+.animal-cover-photo-edit-btn { position: absolute; bottom: 6px; right: 6px; width: 28px; height: 28px; border-radius: 50%; background: rgba(0,0,0,.6); border: none; color: #fff; cursor: pointer; display: none; align-items: center; justify-content: center; }
 .hero-info { flex: 1; }
 .hero-name { font-size: 26px; font-weight: 800; margin-bottom: 4px; }
 .hero-sub { font-size: 14px; color: var(--text2); margin-bottom: 14px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -299,7 +299,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   .form-row, .form-row-3 { grid-template-columns: 1fr; }
   .ped-modal-grid { grid-template-columns: 1fr; }
   .hero-inner { flex-direction: column; }
-  .hero-photo { width: 100%; height: 200px; }
+  .animal-cover-photo { width: 100%; height: 200px; }
   .hero-details { gap: 14px; }
   .page-wrap { padding: 16px 14px; }
   .dlg-body { padding: 16px; }
@@ -310,8 +310,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   .tab-btn { padding: 12px 12px; font-size: 13px; }
   .btn.btn-ghost { padding: 8px 10px; font-size: 12px; }
   .btn-label { display: none; }
-  .hero-photo-overlay { display: none !important; }
-  .hero-photo-edit-btn { display: flex; }
+  .animal-cover-photo-overlay { display: none !important; }
+  .animal-cover-photo-edit-btn { display: flex; }
 }
 
 /* Bottom tab bar — mobile/tablet nav, replaces the scrolling top tab row */
@@ -399,26 +399,26 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 <!-- Hero -->
 <div class="hero">
   <div class="hero-inner">
-    <div class="hero-photo" style={unless @is_superuser, do: "cursor:default"}>
+    <div class="animal-cover-photo" style={unless @is_superuser, do: "cursor:default"}>
       <%= if @animal.cover_photo_url do %>
         <img src={@animal.cover_photo_url} alt={@animal.name}
              style={"object-position: #{@animal.cover_position || "center"}"}
-             onerror="this.style.display='none';this.nextElementSibling.style.display='block'"/>
+             onerror="handleHeroPhotoError(this)"/>
+      <% else %>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48" style="color:var(--text3)">
+          <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
+          <polyline points="21 15 16 10 5 21"/>
+        </svg>
       <% end %>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48"
-           style={"color:var(--text3);#{if @animal.cover_photo_url, do: "display:none"}"}>
-        <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
-        <polyline points="21 15 16 10 5 21"/>
-      </svg>
       <%= if @is_superuser do %>
-        <div class="hero-photo-overlay" phx-click="switch_tab" phx-value-tab="photos" style="cursor:pointer">
+        <div class="animal-cover-photo-overlay" phx-click="switch_tab" phx-value-tab="photos" style="cursor:pointer">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22">
             <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
             <circle cx="12" cy="13" r="4"/>
           </svg>
           <%= if @animal.cover_photo_url, do: "Change Photo", else: "Add Photo" %>
         </div>
-        <button class="hero-photo-edit-btn" phx-click="switch_tab" phx-value-tab="photos">
+        <button class="animal-cover-photo-edit-btn" phx-click="switch_tab" phx-value-tab="photos">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="13" height="13">
             <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
             <circle cx="12" cy="13" r="4"/>
