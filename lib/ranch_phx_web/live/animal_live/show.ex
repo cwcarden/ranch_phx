@@ -26,6 +26,7 @@ defmodule RanchPhxWeb.AnimalLive.Show do
      |> assign(:tl_search, "")
      |> assign(:record_types_by_cat, Animals.list_record_types_by_category())
      |> assign(:type_label_map, Animals.record_type_label_map())
+     |> assign(:categories, Record.categories())
      |> assign(:exp_year, Integer.to_string(Date.utc_today().year))
      |> assign(:exp_search, "")
      |> assign(:report_modal, false)
@@ -36,6 +37,15 @@ defmodule RanchPhxWeb.AnimalLive.Show do
      |> assign(:doc_types, Animals.list_doc_types())
      |> assign(:new_doc_type, "")
      |> assign(:is_superuser, Scope.superuser?(socket.assigns[:current_scope]))
+     |> assign(:show_more, false)
+     |> assign(:show_type_manager, false)
+     |> assign(:adding_category, false)
+     |> assign(:new_category_label, "")
+     |> assign(:new_category_color, "#6366f1")
+     |> assign(:category_error, nil)
+     |> assign(:adding_type_cat, nil)
+     |> assign(:new_type_label, "")
+     |> assign(:type_error, nil)
      |> assign(:pedigree_map, Animals.list_pedigree_entries(animal.id))
      |> assign(:ped_cols, pedigree_cols())
      |> assign(:ped_editing, nil)
@@ -51,7 +61,15 @@ defmodule RanchPhxWeb.AnimalLive.Show do
 
   @impl true
   def handle_event("switch_tab", %{"tab" => tab}, socket) do
-    {:noreply, assign(socket, :tab, tab)}
+    {:noreply, socket |> assign(:tab, tab) |> assign(:show_more, false)}
+  end
+
+  def handle_event("toggle_more", _params, socket) do
+    {:noreply, assign(socket, :show_more, !socket.assigns.show_more)}
+  end
+
+  def handle_event("close_more", _params, socket) do
+    {:noreply, assign(socket, :show_more, false)}
   end
 
   def handle_event("open_edit", _params, socket) do
@@ -260,6 +278,96 @@ defmodule RanchPhxWeb.AnimalLive.Show do
 
   def handle_event("filter_records", %{"cat" => cat}, socket) do
     {:noreply, assign(socket, :record_filter_cat, cat)}
+  end
+
+  def handle_event("toggle_type_manager", _params, socket) do
+    {:noreply, assign(socket, :show_type_manager, !socket.assigns.show_type_manager)}
+  end
+
+  def handle_event("start_add_category", _params, socket) do
+    {:noreply, assign(socket, adding_category: true, new_category_label: "", new_category_color: "#6366f1", category_error: nil)}
+  end
+
+  def handle_event("cancel_add_category", _params, socket) do
+    {:noreply, assign(socket, adding_category: false, category_error: nil)}
+  end
+
+  def handle_event("update_category_label", %{"value" => label}, socket) do
+    {:noreply, assign(socket, new_category_label: label, category_error: nil)}
+  end
+
+  def handle_event("pick_category_color", %{"color" => color}, socket) do
+    {:noreply, assign(socket, :new_category_color, color)}
+  end
+
+  def handle_event("save_category", _params, socket) do
+    label = String.trim(socket.assigns.new_category_label)
+
+    if label == "" do
+      {:noreply, assign(socket, :category_error, "Label cannot be blank.")}
+    else
+      slug = label |> String.downcase() |> String.replace(~r/[^a-z0-9]+/, "_") |> String.trim("_")
+
+      case Animals.create_category(%{slug: slug, label: label, color: socket.assigns.new_category_color, position: 999}) do
+        {:ok, _} ->
+          {:noreply,
+           socket
+           |> assign(adding_category: false, new_category_label: "", category_error: nil)
+           |> assign(:categories, Record.categories())}
+
+        {:error, cs} ->
+          msg = cs.errors |> Enum.map(fn {f, {m, _}} -> "#{f}: #{m}" end) |> Enum.join(", ")
+          {:noreply, assign(socket, :category_error, msg)}
+      end
+    end
+  end
+
+  def handle_event("delete_category", %{"id" => id}, socket) do
+    Animals.get_category!(String.to_integer(id)) |> Animals.delete_category()
+    {:noreply, assign(socket, :categories, Record.categories())}
+  end
+
+  def handle_event("start_add_type", %{"cat" => cat}, socket) do
+    {:noreply, assign(socket, adding_type_cat: cat, new_type_label: "", type_error: nil)}
+  end
+
+  def handle_event("cancel_add_type", _params, socket) do
+    {:noreply, assign(socket, adding_type_cat: nil, type_error: nil)}
+  end
+
+  def handle_event("update_type_label", %{"value" => label}, socket) do
+    {:noreply, assign(socket, new_type_label: label, type_error: nil)}
+  end
+
+  def handle_event("save_type", %{"cat" => cat}, socket) do
+    label = String.trim(socket.assigns.new_type_label)
+
+    if label == "" do
+      {:noreply, assign(socket, :type_error, "Label cannot be blank.")}
+    else
+      slug = label |> String.downcase() |> String.replace(~r/[^a-z0-9]+/, "_") |> String.trim("_")
+
+      case Animals.create_record_type(%{category: cat, slug: slug, label: label, position: 999}) do
+        {:ok, _} ->
+          {:noreply,
+           socket
+           |> assign(adding_type_cat: nil, new_type_label: "", type_error: nil)
+           |> assign(:record_types_by_cat, Animals.list_record_types_by_category())
+           |> assign(:type_label_map, Animals.record_type_label_map())}
+
+        {:error, cs} ->
+          msg = cs.errors |> Enum.map(fn {f, {m, _}} -> "#{f}: #{m}" end) |> Enum.join(", ")
+          {:noreply, assign(socket, :type_error, msg)}
+      end
+    end
+  end
+
+  def handle_event("delete_record_type", %{"id" => id}, socket) do
+    Animals.get_record_type!(String.to_integer(id)) |> Animals.delete_record_type()
+    {:noreply,
+     socket
+     |> assign(:record_types_by_cat, Animals.list_record_types_by_category())
+     |> assign(:type_label_map, Animals.record_type_label_map())}
   end
 
   def handle_event("open_record", _params, socket) do

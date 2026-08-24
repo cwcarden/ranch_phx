@@ -1,7 +1,7 @@
 defmodule RanchPhx.Animals do
   import Ecto.Query
   alias RanchPhx.Repo
-  alias RanchPhx.Animals.{Animal, TimelineEvent, Record, Genetics, Document, DocType, Photo, RecordType, PedigreeEntry}
+  alias RanchPhx.Animals.{Animal, TimelineEvent, Record, Genetics, Document, DocType, Photo, RecordType, RecordCategory, PedigreeEntry}
 
   # ── Animals ────────────────────────────────────────────────────────────────
 
@@ -241,6 +241,25 @@ defmodule RanchPhx.Animals do
   end
 
   def delete_record_type(%RecordType{} = rt), do: Repo.delete(rt)
+
+  # ── Record Categories ──────────────────────────────────────────────────────
+
+  def list_categories do
+    from(rc in RecordCategory, order_by: [asc: rc.position, asc: rc.label])
+    |> Repo.all()
+  end
+
+  def get_category!(id), do: Repo.get!(RecordCategory, id)
+
+  def create_category(attrs) do
+    %RecordCategory{} |> RecordCategory.changeset(attrs) |> Repo.insert()
+  end
+
+  def update_category(%RecordCategory{} = rc, attrs) do
+    rc |> RecordCategory.changeset(attrs) |> Repo.update()
+  end
+
+  def delete_category(%RecordCategory{} = rc), do: Repo.delete(rc)
 
   # ── Private filters ────────────────────────────────────────────────────────
 

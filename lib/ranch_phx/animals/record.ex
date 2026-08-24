@@ -22,26 +22,27 @@ defmodule RanchPhx.Animals.Record do
     timestamps()
   end
 
-  # Static category metadata only — types live in the record_types DB table.
-  @categories [
-    %{id: "identification", label: "Identification", color: "#6366f1"},
-    %{id: "health",         label: "Health",         color: "#2563eb"},
-    %{id: "hoof_care",      label: "Hoof Care",      color: "#d97706"},
-    %{id: "training",       label: "Training",       color: "#7c3aed"},
-    %{id: "performance",    label: "Performance",    color: "#0891b2"},
-    %{id: "nutrition",      label: "Nutrition",      color: "#16a34a"},
-    %{id: "breeding",       label: "Breeding",       color: "#ec4899"},
-    %{id: "transportation", label: "Transportation", color: "#64748b"},
-    %{id: "media",          label: "Media",          color: "#0ea5e9"},
-    %{id: "journal",        label: "Journal",        color: "#78716c"}
-  ]
-
-  def categories, do: @categories
+  # Categories live in the record_categories DB table (customizable, same as
+  # types) — kept shaped as %{id, label, color} here so existing call sites
+  # (category filter bar, add-record form) don't need to change. `db_id` and
+  # `is_builtin` are extra, for the inline category manager.
+  def categories do
+    RanchPhx.Repo.all(
+      from rc in RanchPhx.Animals.RecordCategory,
+      order_by: [asc: rc.position, asc: rc.label]
+    )
+    |> Enum.map(&%{id: &1.slug, label: &1.label, color: &1.color, db_id: &1.id, is_builtin: &1.is_builtin})
+  end
 
   def category_color(cat_id) do
-    case Enum.find(@categories, &(&1.id == cat_id)) do
-      nil -> "#6b7280"
-      cat -> cat.color
+    case RanchPhx.Repo.one(
+      from rc in RanchPhx.Animals.RecordCategory,
+      where: rc.slug == ^cat_id,
+      select: rc.color,
+      limit: 1
+    ) do
+      nil   -> "#6b7280"
+      color -> color
     end
   end
 
