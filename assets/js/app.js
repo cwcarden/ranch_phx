@@ -57,7 +57,12 @@ async function renderPdfPages(container, url) {
       currentPdfDoc = null
     }
     const pdfjsLib = await loadPdfjs()
-    const pdf = await pdfjsLib.getDocument({url}).promise
+    // Loading from a fully-cached (often offline) copy, not streaming over a
+    // real connection — disable PDF.js's range/streaming fetch strategy so
+    // it just does one plain GET. The Cache API doesn't reliably serve
+    // partial/range responses from a whole cached Response (inconsistent in
+    // Safari especially), which caused intermittent render failures.
+    const pdf = await pdfjsLib.getDocument({url, disableRange: true, disableStream: true}).promise
     currentPdfDoc = pdf
     container.innerHTML = ""
     const width = container.clientWidth || window.innerWidth

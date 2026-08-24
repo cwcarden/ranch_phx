@@ -59,9 +59,16 @@
     padding: 4px 8px;
   }
   .doc-remove:hover { color: #ef4444; }
+  .doc-remove:disabled { color: var(--border); cursor: not-allowed; }
+  .doc-remove:disabled:hover { color: var(--border); }
   .empty-state {
     text-align: center; padding: 60px 20px; color: var(--text2); font-size: 14px;
     background: var(--surface); border: 1.5px dashed var(--border); border-radius: var(--radius);
+  }
+  .offline-note {
+    font-size: 12.5px; color: var(--text2); background: var(--surface2);
+    border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+    padding: 8px 12px; margin-bottom: 16px;
   }
   .pdf-viewer-overlay {
     display: none; position: fixed; inset: 0; background: #000; z-index: 9999;
@@ -146,7 +153,12 @@
           currentPdfDoc = null;
         }
         const pdfjsLib = await loadPdfjs();
-        const pdf = await pdfjsLib.getDocument({url}).promise;
+        // Loading from a fully-cached (often offline) copy, not streaming over
+        // a real connection — disable PDF.js's range/streaming fetch strategy
+        // so it just does one plain GET. The Cache API doesn't reliably serve
+        // partial/range responses from a whole cached Response (inconsistent
+        // in Safari especially), which caused intermittent render failures.
+        const pdf = await pdfjsLib.getDocument({url, disableRange: true, disableStream: true}).promise;
         currentPdfDoc = pdf;
         container.innerHTML = "";
         const width = container.clientWidth || window.innerWidth;
@@ -191,7 +203,12 @@
       if (e.key === "Escape") closePdfViewer();
     });
 
+    // Removing a saved document is only safe when online — offline, it can't
+    // be re-saved if removed by mistake, and you'd lose access to it for the
+    // rest of the trip. The button is disabled while offline as a guard
+    // against accidental taps; this check guards against any stale DOM too.
     async function removeDoc(url) {
+      if (!navigator.onLine) return;
       const docs = loadDocs().filter((d) => d.url !== url);
       saveDocs(docs);
       if ("caches" in window) {
@@ -201,6 +218,9 @@
       render();
     }
     window.removeDoc = removeDoc;
+
+    window.addEventListener("online", render);
+    window.addEventListener("offline", render);
 
     function escapeHtml(s) {
       const div = document.createElement("div");
@@ -226,6 +246,7 @@
         (byHorse[key] = byHorse[key] || []).push(doc);
       }
 
+      const online = navigator.onLine;
       const sections = Object.keys(byHorse).sort().map((horseName) => {
         const rows = byHorse[horseName].map((doc) => `
           <div class="doc-row">
@@ -238,7 +259,7 @@
             </div>
             <div class="doc-actions">
               <a class="doc-open" href="${escapeHtml(doc.url)}" onclick="openPdfViewer(event, this.href, '${escapeHtml(doc.title || 'Untitled').replace(/'/g, "\\'")}')">Open</a>
-              <button class="doc-remove" onclick="removeDoc('${escapeHtml(doc.url).replace(/'/g, "\\'")}')">Remove</button>
+              <button class="doc-remove" ${online ? "" : "disabled"} title="${online ? "" : "Reconnect to remove"}" onclick="removeDoc('${escapeHtml(doc.url).replace(/'/g, "\\'")}')">Remove</button>
             </div>
           </div>
         `).join("");
@@ -249,7 +270,8 @@
         </div>`;
       }).join("");
 
-      content.innerHTML = sections;
+      const note = online ? "" : `<div class="offline-note">You're offline — removing saved documents is disabled until you reconnect, so you can't accidentally lose access to one mid-trip.</div>`;
+      content.innerHTML = note + sections;
     }
 
     render();
