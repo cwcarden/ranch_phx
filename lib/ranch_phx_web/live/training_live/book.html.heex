@@ -235,6 +235,107 @@
     </div>
   </div>
 
+  <%!-- Working on --%>
+  <div class="tr-card" id="working-on">
+    <div class="tr-row" style="margin-bottom:6px">
+      <h2>Working on</h2>
+      <button
+        :if={@is_superuser and is_nil(@editing_issue)}
+        class="tr-btn tr-btn-small"
+        phx-click="new_issue"
+      >
+        + Add
+      </button>
+    </div>
+
+    <.issue_form :if={@editing_issue == :new} form={@issue_form} activities={@activities} />
+
+    <% open = Enum.reject(@issues, &(&1.status == "solved")) %>
+    <% solved = Enum.filter(@issues, &(&1.status == "solved")) %>
+    <p :if={open == [] and @editing_issue != :new} class="tr-muted">
+      Nothing yet. Add a problem you're working through, like “Picking up left hind”. Each
+      session can mark it better, same or worse.
+    </p>
+
+    <div
+      :for={i <- open ++ if(@show_solved, do: solved, else: [])}
+      class="tr-session"
+      id={"issue-#{i.id}"}
+    >
+      <%= if @editing_issue == i.id do %>
+        <.issue_form form={@issue_form} activities={@activities} issue_id={i.id} />
+      <% else %>
+        <div class="tr-row">
+          <b>{i.title}</b>
+          <span class={"tr-status st-#{i.status}"}>{String.capitalize(i.status)}</span>
+        </div>
+        <p :if={issue_meta(i) != ""} class="tr-muted">{issue_meta(i)}</p>
+        <p class="tr-muted" style="font-size:14px">
+          Since {Calendar.strftime(i.opened_on, "%b %-d")}
+          <span :if={i.solved_on}>· solved {Calendar.strftime(i.solved_on, "%b %-d")}</span>
+          <span :if={i.marks != []}>
+            · {length(i.marks)} {if length(i.marks) == 1, do: "session", else: "sessions"}
+          </span>
+        </p>
+        <div :if={i.marks != []} class="tr-trend" aria-label="Last sessions, newest first">
+          <span
+            :for={m <- Enum.take(i.marks, 8)}
+            class={"tr-mark mk-#{m.progress}"}
+            title={"#{fmt_date(m.session.date, @today)}: #{m.progress}"}
+          >
+            {progress_icon(m.progress)}
+          </span>
+        </div>
+        <p :if={i.notes && i.notes != ""} style="margin-top:4px;white-space:pre-line">
+          {i.notes}
+        </p>
+
+        <div :if={@issue_history == i.id} class="tr-history">
+          <div :for={m <- i.marks} class="tr-muted" style="font-size:15px">
+            <b class={"tr-res mk-#{m.progress}"}>
+              {progress_icon(m.progress)} {String.capitalize(m.progress)}
+            </b>
+            · {fmt_date(m.session.date, @today)}<span :if={m.note}> · {m.note}</span>
+          </div>
+        </div>
+
+        <div class="tr-row" style="justify-content:flex-start;gap:4px;margin-top:6px">
+          <button
+            :if={i.marks != []}
+            class="tr-link-btn"
+            style="padding-left:0"
+            phx-click="toggle_issue_history"
+            phx-value-id={i.id}
+          >
+            {if @issue_history == i.id, do: "Hide history", else: "History"}
+          </button>
+          <%= if @is_superuser do %>
+            <button
+              :for={{v, l} <- issue_statuses()}
+              :if={v != i.status}
+              class="tr-btn tr-btn-small"
+              phx-click="issue_status"
+              phx-value-id={i.id}
+              phx-value-status={v}
+            >
+              {if v == "solved", do: "✓ Solved", else: l}
+            </button>
+            <button class="tr-link-btn" phx-click="edit_issue" phx-value-id={i.id}>Edit</button>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+
+    <button
+      :if={solved != []}
+      class="tr-link-btn"
+      style="padding:0;margin-top:8px"
+      phx-click="toggle_solved"
+    >
+      {if @show_solved, do: "Hide", else: "Show"} solved ({length(solved)})
+    </button>
+  </div>
+
   <%!-- Where he is now --%>
   <div class="tr-card" id="now">
     <div class="tr-label">
@@ -458,6 +559,44 @@
         />
       </div>
 
+      <% loggable = loggable_issues(@issues, @params) %>
+      <div :if={loggable != []} class="tr-field">
+        <span class="tr-label">
+          Working on <span class="tr-muted" style="font-weight:400">How did it go today?</span>
+        </span>
+        <div :for={i <- loggable} class="tr-detail" style="margin:0" id={"mark-#{i.id}"}>
+          <b>{i.title}</b>
+          <div class="tr-pills tr-pills-sm">
+            <label class="tr-pill">
+              <input
+                type="radio"
+                name={"session[issues][#{i.id}][progress]"}
+                value=""
+                checked={mark(@params, i.id, "progress") in [nil, ""]}
+              />
+              <span>Not today</span>
+            </label>
+            <label :for={{v, l} <- progress_options()} class={"tr-pill mk-#{v}"}>
+              <input
+                type="radio"
+                name={"session[issues][#{i.id}][progress]"}
+                value={v}
+                checked={mark(@params, i.id, "progress") == v}
+              />
+              <span>{l}</span>
+            </label>
+          </div>
+          <input
+            :if={mark(@params, i.id, "progress") not in [nil, ""]}
+            type="text"
+            name={"session[issues][#{i.id}][note]"}
+            value={mark(@params, i.id, "note")}
+            placeholder="What you tried, what changed (optional)"
+            class="tr-detail-note"
+          />
+        </div>
+      </div>
+
       <div class="tr-field">
         <label for="session_minutes">Minutes</label>
         <div class="tr-pills">
@@ -605,6 +744,13 @@
         <span :if={a.result} class={"tr-res res-#{a.result}"}>{String.capitalize(a.result)}</span>
         <span :if={a.side}>{String.capitalize(a.side)} side</span>
         <span :if={a.note}>· {a.note}</span>
+      </div>
+      <div :for={m <- s.issue_marks} class="tr-muted" style="font-size:15px;margin-top:2px">
+        {m.issue.title}:
+        <b class={"tr-res mk-#{m.progress}"}>
+          {progress_icon(m.progress)} {String.capitalize(m.progress)}
+        </b>
+        <span :if={m.note}>· {m.note}</span>
       </div>
       <div :if={s.tags != []}>
         <span :for={t <- s.tags} class={"tr-tag #{if health_tag?(@tags, t), do: "sore"}"}>

@@ -12,10 +12,12 @@ defmodule RanchPhx.Training do
     Book,
     Goal,
     Horse,
+    Issue,
     Program,
     Routine,
     Session,
     SessionActivity,
+    SessionIssue,
     SessionPhoto,
     Stage,
     Tag
@@ -233,14 +235,14 @@ defmodule RanchPhx.Training do
         where: s.book_id == ^book_id,
         order_by: [desc: s.date, desc: s.inserted_at],
         limit: ^limit,
-        preload: [:photos, activities: :activity]
+        preload: [:photos, activities: :activity, issue_marks: :issue]
     )
   end
 
   def get_session!(book_id, id) do
     Session
     |> Repo.get_by!(id: id, book_id: book_id)
-    |> Repo.preload([:photos, activities: :activity])
+    |> Repo.preload([:photos, activities: :activity, issue_marks: :issue])
   end
 
   def last_session(book_id), do: book_id |> list_sessions(1) |> List.first()
@@ -250,7 +252,8 @@ defmodule RanchPhx.Training do
   @doc """
   Insert, or update the session with the same client_id (safe to re-send, and how
   edits are saved). `attrs["activities"]` is a list of maps with "activity_id" and
-  optional "result", "side", "note"; they replace the session's activities.
+  optional "result", "side", "note"; `attrs["issues"]` is a list of maps with
+  "issue_id", "progress" and optional "note". Both replace what the session had.
   """
   def save_session(attrs) do
     activities = attrs |> Map.get("activities", []) |> Enum.with_index()
@@ -259,6 +262,9 @@ defmodule RanchPhx.Training do
     activity_changesets =
       for {a, i} <- activities,
           do: SessionActivity.changeset(%SessionActivity{}, Map.put(a, "position", i))
+
+    mark_changesets =
+      for m <- Map.get(attrs, "issues", []), do: SessionIssue.changeset(%SessionIssue{}, m)
 
     cond do
       activities == [] ->
@@ -277,6 +283,14 @@ defmodule RanchPhx.Training do
            "have an invalid result or side"
          )}
 
+      Enum.any?(mark_changesets, &(not &1.valid?)) ->
+        {:error,
+         Ecto.Changeset.add_error(
+           %{changeset | action: :insert},
+           :working_on,
+           "has an invalid better / same / worse"
+         )}
+
       true ->
         Repo.transaction(fn ->
           session =
@@ -291,11 +305,15 @@ defmodule RanchPhx.Training do
 
           Repo.delete_all(from sa in SessionActivity, where: sa.session_id == ^session.id)
 
-          for cs <- activity_changesets do
+          Repo.delete_all(from si in SessionIssue, where: si.session_id == ^session.id)
+
+          for cs <- activity_changesets ++ mark_changesets do
             cs |> Ecto.Changeset.put_change(:session_id, session.id) |> Repo.insert!()
           end
 
-          Repo.preload(session, [:photos, activities: :activity], force: true)
+          Repo.preload(session, [:photos, activities: :activity, issue_marks: :issue],
+            force: true
+          )
         end)
     end
   end
@@ -509,6 +527,57 @@ defmodule RanchPhx.Training do
   end
 
   def delete_goal(%Goal{} = goal), do: Repo.delete(goal)
+
+  # ── Working on ──────────────────────────────────────────────────────────────
+
+  @doc "A horse's issues, open ones first, each with its session marks (newest first)."
+  def list_issues(horse_id) do
+    marks =
+      from m in SessionIssue,
+        join: s in assoc(m, :session),
+        order_by: [desc: s.date, desc: s.id],
+        preload: [session: s]
+
+    Repo.all(
+      from i in Issue,
+        where: i.horse_id == ^horse_id,
+        order_by: [
+          asc: fragment("CASE ? WHEN 'solved' THEN 1 ELSE 0 END", i.status),
+          asc: i.opened_on,
+          asc: i.id
+        ],
+        preload: [:activity, marks: ^marks]
+    )
+  end
+
+  def get_issue!(horse_id, id), do: Repo.get_by!(Issue, id: id, horse_id: horse_id)
+
+  def change_issue(%Issue{} = issue, attrs \\ %{}), do: Issue.changeset(issue, attrs)
+
+  def create_issue(horse_id, attrs, %Date{} = today) do
+    %Issue{}
+    |> Issue.changeset(
+      attrs
+      |> Map.put_new("opened_on", today)
+      |> Map.merge(%{"horse_id" => horse_id, "status" => "open"})
+    )
+    |> Repo.insert()
+  end
+
+  def update_issue(%Issue{} = issue, attrs) do
+    issue |> Issue.changeset(Map.drop(attrs, ["horse_id", "status"])) |> Repo.update()
+  end
+
+  @doc "Open, improving or solved. Solved issues remember the day."
+  def set_issue_status(%Issue{} = issue, status, %Date{} = date) do
+    solved_on = if status == "solved", do: date
+
+    issue
+    |> Issue.changeset(%{"status" => status, "solved_on" => solved_on})
+    |> Repo.update()
+  end
+
+  def delete_issue(%Issue{} = issue), do: Repo.delete(issue)
 
   # ── Routines ────────────────────────────────────────────────────────────────
 

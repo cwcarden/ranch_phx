@@ -16,6 +16,7 @@ defmodule RanchPhx.Training.Session do
 
     has_many :activities, RanchPhx.Training.SessionActivity, preload_order: [asc: :position]
     has_many :photos, RanchPhx.Training.SessionPhoto, preload_order: [asc: :position, asc: :id]
+    has_many :issue_marks, RanchPhx.Training.SessionIssue
 
     timestamps()
   end

@@ -196,6 +196,56 @@ defmodule RanchPhxWeb.TrainingLiveTest do
     refute File.exists?(Path.join(static, p2.url))
   end
 
+  test "working on: add an item, mark it in a session, see the history", %{
+    conn: conn,
+    animal: animal
+  } do
+    book = start_book(animal)
+    {:ok, view, _html} = live(conn, ~p"/training/#{book.id}")
+
+    view |> element("#working-on button", "+ Add") |> render_click()
+
+    view
+    |> form("#issue-form-new",
+      issue: %{title: "Picking up left hind", activity_id: act("feet").id, side: "left"}
+    )
+    |> render_submit()
+
+    assert [%{id: issue_id, title: "Picking up left hind"}] = Training.list_issues(book.horse_id)
+    assert has_element?(view, "#mark-#{issue_id}")
+
+    view
+    |> form("#session-form",
+      session: %{
+        activity_ids: [act("feet").id],
+        issues: %{"#{issue_id}" => %{progress: "better"}}
+      }
+    )
+    |> render_change()
+
+    html =
+      view
+      |> form("#session-form",
+        session: %{
+          activity_ids: [act("feet").id],
+          issues: %{"#{issue_id}" => %{progress: "better", note: "Held it longer"}}
+        }
+      )
+      |> render_submit()
+
+    assert html =~ "Session saved"
+
+    assert [%{marks: [%{progress: "better", note: "Held it longer"}]}] =
+             Training.list_issues(book.horse_id)
+
+    view |> element("#issue-#{issue_id} button", "History") |> render_click()
+    assert render(view) =~ "Held it longer"
+
+    view |> element("#issue-#{issue_id} button", "Solved") |> render_click()
+    assert [%{status: "solved"}] = Training.list_issues(book.horse_id)
+    refute has_element?(view, "#mark-#{issue_id}")
+  end
+
   defp start_book(animal) do
     [program | _] = Training.list_programs()
 

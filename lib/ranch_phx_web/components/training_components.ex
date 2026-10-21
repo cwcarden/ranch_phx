@@ -165,6 +165,88 @@ defmodule RanchPhxWeb.TrainingComponents do
     """
   end
 
+  @doc "Add/edit form for one Working on item."
+  attr :form, :any, required: true
+  attr :activities, :list, required: true
+  attr :issue_id, :any, default: nil
+
+  def issue_form(assigns) do
+    ~H"""
+    <.form
+      for={@form}
+      as={:issue}
+      id={"issue-form-#{@issue_id || "new"}"}
+      phx-submit="save_issue"
+      style="margin:8px 0 4px"
+    >
+      <div class="tr-field">
+        <label for={"issue_title_#{@issue_id}"}>What are you working on?</label>
+        <input
+          type="text"
+          id={"issue_title_#{@issue_id}"}
+          name="issue[title]"
+          value={@form[:title].value}
+          placeholder="e.g. Picking up left hind"
+          required
+        />
+        <span :for={{msg, _} <- @form[:title].errors} class="tr-error">{msg}</span>
+      </div>
+      <div class="tr-two">
+        <div class="tr-field">
+          <label for={"issue_activity_#{@issue_id}"}>Activity</label>
+          <select id={"issue_activity_#{@issue_id}"} name="issue[activity_id]">
+            <option value="">–</option>
+            <option
+              :for={a <- Enum.reject(@activities, & &1.archived)}
+              value={a.id}
+              selected={"#{a.id}" == "#{@form[:activity_id].value}"}
+            >
+              {a.name}
+            </option>
+          </select>
+        </div>
+        <div class="tr-field">
+          <label for={"issue_side_#{@issue_id}"}>Side</label>
+          <select id={"issue_side_#{@issue_id}"} name="issue[side]">
+            <option value="">–</option>
+            <option
+              :for={{v, l} <- [{"left", "Left"}, {"right", "Right"}, {"both", "Both"}]}
+              value={v}
+              selected={@form[:side].value == v}
+            >
+              {l}
+            </option>
+          </select>
+        </div>
+      </div>
+      <div class="tr-field">
+        <label for={"issue_notes_#{@issue_id}"}>Notes (optional)</label>
+        <textarea
+          id={"issue_notes_#{@issue_id}"}
+          name="issue[notes]"
+          placeholder="What it looks like, what you've tried…"
+        >{@form[:notes].value}</textarea>
+      </div>
+      <div class="tr-row" style="justify-content:flex-start">
+        <button type="submit" class="tr-btn tr-btn-primary tr-btn-small">
+          {if @issue_id, do: "Save", else: "Add"}
+        </button>
+        <button type="button" class="tr-btn tr-btn-small" phx-click="cancel_issue">Cancel</button>
+        <button
+          :if={@issue_id}
+          type="button"
+          class="tr-link-btn"
+          phx-click="delete_issue"
+          phx-value-id={@issue_id}
+          data-confirm="Delete this and its history from every session?"
+        >
+          Delete
+        </button>
+      </div>
+    </.form>
+    """
+  end
+
   def styles(assigns) do
     ~H"""
     <style>
@@ -253,6 +335,22 @@ defmodule RanchPhxWeb.TrainingComponents do
       .tr-pill.tag-health input:checked + span { background: var(--warn); border-color: var(--warn); }
       .tr-detail-note { width: 100%; min-height: 44px; padding: 8px 12px; border: 1.5px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); font-size: 16px; }
       .tr-res { font-weight: 700; }
+      .tr-status { font-size: 13px; font-weight: 700; padding: 2px 10px; border-radius: 12px; background: var(--surface2); border: 1px solid var(--border); }
+      .tr-status.st-open { color: #dc2626; }
+      .tr-status.st-improving { color: #d97706; }
+      .tr-status.st-solved { color: #16a34a; }
+      .tr-trend { display: flex; gap: 4px; margin-top: 6px; }
+      .tr-mark { width: 26px; height: 26px; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; color: #fff; font-size: 15px; }
+      .tr-mark.mk-better { background: #16a34a; }
+      .tr-mark.mk-same { background: #9ca3af; }
+      .tr-mark.mk-worse { background: #dc2626; }
+      .tr-res.mk-better { color: #16a34a; }
+      .tr-res.mk-same { color: var(--text2); }
+      .tr-res.mk-worse { color: #dc2626; }
+      .tr-pill.mk-better input:checked + span { background: #16a34a; border-color: #16a34a; }
+      .tr-pill.mk-same input:checked + span { background: #6b7280; border-color: #6b7280; }
+      .tr-pill.mk-worse input:checked + span { background: #dc2626; border-color: #dc2626; }
+      .tr-history { margin-top: 8px; padding: 10px 12px; border-radius: 10px; background: var(--surface2); display: grid; gap: 4px; }
       .tr-thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 6px; margin-top: 8px; }
       .tr-thumb { position: relative; aspect-ratio: 1; border-radius: 10px; overflow: hidden; background: var(--surface2); border: none; padding: 0; cursor: pointer; }
       .tr-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }

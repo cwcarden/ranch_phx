@@ -2,7 +2,7 @@ defmodule RanchPhxWeb.TrainingLive.Book do
   use RanchPhxWeb, :live_view
   import RanchPhxWeb.TrainingComponents
   alias RanchPhx.Training
-  alias RanchPhx.Training.{Goal, SessionActivity}
+  alias RanchPhx.Training.{Goal, Issue, SessionActivity, SessionIssue}
   alias RanchPhx.Accounts.Scope
   alias RanchPhxWeb.Uploads
 
@@ -27,6 +27,10 @@ defmodule RanchPhxWeb.TrainingLive.Book do
      |> assign(:goal_form, nil)
      |> assign(:editing_goal, nil)
      |> assign(:show_done_goals, false)
+     |> assign(:issue_form, nil)
+     |> assign(:editing_issue, nil)
+     |> assign(:issue_history, nil)
+     |> assign(:show_solved, false)
      |> assign(:naming_routine, false)
      |> assign(:managing_routines, false)
      |> assign(:routine_error, nil)
@@ -66,7 +70,8 @@ defmodule RanchPhxWeb.TrainingLive.Book do
 
     with true <- socket.assigns.is_superuser,
          :ok <- photos_ready(socket),
-         {:ok, session} <- Training.save_session(to_attrs(params, socket.assigns.book.id)) do
+         {:ok, session} <-
+           Training.save_session(to_attrs(params, socket.assigns.book.id, socket.assigns.issues)) do
       save_session_photos(socket, session)
 
       {:noreply,
@@ -128,7 +133,11 @@ defmodule RanchPhxWeb.TrainingLive.Book do
         "activity_ids" => Enum.map(s.activities, &"#{&1.activity_id}"),
         "details" => details,
         "tags" => s.tags,
-        "note" => s.note || ""
+        "note" => s.note || "",
+        "issues" =>
+          Map.new(s.issue_marks, fn m ->
+            {"#{m.issue_id}", %{"progress" => m.progress, "note" => m.note || ""}}
+          end)
       })
       |> put_minutes(s.minutes)
 
@@ -220,6 +229,79 @@ defmodule RanchPhxWeb.TrainingLive.Book do
   def handle_event("delete_routine", %{"id" => id}, socket) do
     if socket.assigns.is_superuser, do: Training.delete_routine(socket.assigns.book.horse_id, id)
     {:noreply, load(socket)}
+  end
+
+  # ── Working on ──────────────────────────────────────────────────────────────
+
+  def handle_event("new_issue", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:editing_issue, :new)
+     |> assign(:issue_form, to_form(Training.change_issue(%Issue{})))}
+  end
+
+  def handle_event("edit_issue", %{"id" => id}, socket) do
+    issue = Training.get_issue!(socket.assigns.book.horse_id, id)
+
+    {:noreply,
+     socket
+     |> assign(:editing_issue, issue.id)
+     |> assign(:issue_form, to_form(Training.change_issue(issue)))}
+  end
+
+  def handle_event("cancel_issue", _params, socket) do
+    {:noreply, socket |> assign(:editing_issue, nil) |> assign(:issue_form, nil)}
+  end
+
+  def handle_event("save_issue", %{"issue" => params}, socket) do
+    %{book: book, editing_issue: editing, today: today} = socket.assigns
+
+    params =
+      params
+      |> Map.take(["title", "activity_id", "side", "notes"])
+      |> Map.new(fn {k, v} -> {k, blank_to_nil(v)} end)
+
+    result =
+      cond do
+        not socket.assigns.is_superuser -> :skip
+        editing == :new -> Training.create_issue(book.horse_id, params, today)
+        true -> book.horse_id |> Training.get_issue!(editing) |> Training.update_issue(params)
+      end
+
+    case result do
+      {:error, cs} ->
+        {:noreply, assign(socket, :issue_form, to_form(cs))}
+
+      _ ->
+        {:noreply, socket |> assign(:editing_issue, nil) |> assign(:issue_form, nil) |> load()}
+    end
+  end
+
+  def handle_event("issue_status", %{"id" => id, "status" => status}, socket) do
+    if socket.assigns.is_superuser do
+      socket.assigns.book.horse_id
+      |> Training.get_issue!(id)
+      |> Training.set_issue_status(status, socket.assigns.today)
+    end
+
+    {:noreply, load(socket)}
+  end
+
+  def handle_event("delete_issue", %{"id" => id}, socket) do
+    if socket.assigns.is_superuser do
+      socket.assigns.book.horse_id |> Training.get_issue!(id) |> Training.delete_issue()
+    end
+
+    {:noreply, socket |> assign(:editing_issue, nil) |> assign(:issue_form, nil) |> load()}
+  end
+
+  def handle_event("toggle_issue_history", %{"id" => id}, socket) do
+    id = String.to_integer(id)
+    {:noreply, update(socket, :issue_history, &if(&1 == id, do: nil, else: id))}
+  end
+
+  def handle_event("toggle_solved", _params, socket) do
+    {:noreply, update(socket, :show_solved, &(!&1))}
   end
 
   # ── Goals ───────────────────────────────────────────────────────────────────
@@ -375,6 +457,7 @@ defmodule RanchPhxWeb.TrainingLive.Book do
       |> Map.update("tags", [], &clean_list/1)
       |> Map.update("activity_ids", [], &clean_list/1)
       |> Map.put_new("details", %{})
+      |> Map.put_new("issues", %{})
 
     params =
       case target do
@@ -395,7 +478,15 @@ defmodule RanchPhxWeb.TrainingLive.Book do
   defp pick(typed, chip) when typed in [nil, ""], do: chip
   defp pick(typed, _chip), do: typed
 
-  defp to_attrs(params, book_id) do
+  defp to_attrs(params, book_id, issues) do
+    known = MapSet.new(issues, &"#{&1.id}")
+
+    marks =
+      for {id, m} <- params["issues"],
+          MapSet.member?(known, id),
+          m["progress"] in ~w(better same worse),
+          do: %{"issue_id" => id, "progress" => m["progress"], "note" => blank_to_nil(m["note"])}
+
     activities =
       for id <- params["activity_ids"] do
         d = Map.get(params["details"], id, %{})
@@ -412,6 +503,7 @@ defmodule RanchPhxWeb.TrainingLive.Book do
     |> Map.take(["client_id", "date", "minutes", "tags", "note"])
     |> Map.put("book_id", book_id)
     |> Map.put("activities", activities)
+    |> Map.put("issues", marks)
   end
 
   defp blank_to_nil(v) when v in [nil, ""], do: nil
@@ -431,7 +523,8 @@ defmodule RanchPhxWeb.TrainingLive.Book do
       "minutes_typed" => "",
       "minutes" => nil,
       "tags" => [],
-      "note" => ""
+      "note" => "",
+      "issues" => %{}
     }
   end
 
@@ -502,6 +595,7 @@ defmodule RanchPhxWeb.TrainingLive.Book do
     |> assign(:week, Training.week_summary(book.id, today))
     |> assign(:sessions, sessions)
     |> assign(:routines, Training.list_routines(book.horse_id))
+    |> assign(:issues, Training.list_issues(book.horse_id))
     |> put_activity_options()
     |> put_warnings()
   end
@@ -560,6 +654,26 @@ defmodule RanchPhxWeb.TrainingLive.Book do
   end
 
   def results, do: SessionActivity.results()
+  def progress_options, do: SessionIssue.progress_options()
+  def issue_statuses, do: Issue.statuses()
+
+  def mark(params, id, key), do: get_in(params, ["issues", "#{id}", key])
+
+  @doc "Issues shown on the log form: open ones, plus any this session already marks."
+  def loggable_issues(issues, params) do
+    Enum.filter(issues, &(&1.status != "solved" or Map.has_key?(params["issues"], "#{&1.id}")))
+  end
+
+  def progress_icon("better"), do: "↑"
+  def progress_icon("same"), do: "="
+  def progress_icon("worse"), do: "↓"
+
+  def issue_meta(issue) do
+    [issue.activity && issue.activity.name, issue.side && "#{String.capitalize(issue.side)} side"]
+    |> Enum.reject(&is_nil/1)
+    |> Enum.join(" · ")
+  end
+
   def sides, do: SessionActivity.sides()
 
   def detail(params, id, key), do: get_in(params, ["details", "#{id}", key])

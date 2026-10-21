@@ -252,4 +252,50 @@ defmodule RanchPhx.TrainingTest do
     Training.delete_routine(book.horse_id, r.id)
     assert Training.list_routines(book.horse_id) == []
   end
+
+  test "working on: sessions mark issues better / same / worse, newest first" do
+    book = book(horse())
+
+    {:ok, hind} =
+      Training.create_issue(
+        book.horse_id,
+        %{"title" => "Picking up left hind", "side" => "left"},
+        ~D[2026-10-01]
+      )
+
+    {:ok, flag} =
+      Training.create_issue(book.horse_id, %{"title" => "Flag on the left"}, ~D[2026-10-05])
+
+    log = fn date, marks ->
+      Training.save_session(%{
+        "book_id" => book.id,
+        "client_id" => Ecto.UUID.generate(),
+        "date" => date,
+        "activities" => [%{"activity_id" => act("feet").id}],
+        "issues" => marks
+      })
+    end
+
+    {:ok, _} = log.("2026-10-10", [%{"issue_id" => hind.id, "progress" => "worse"}])
+
+    {:ok, _} =
+      log.("2026-10-12", [
+        %{"issue_id" => hind.id, "progress" => "better", "note" => "Leaned on him less"},
+        %{"issue_id" => flag.id, "progress" => "same"}
+      ])
+
+    assert {:error, cs} = log.("2026-10-13", [%{"issue_id" => hind.id, "progress" => "great"}])
+    assert errors_on(cs).working_on
+
+    {:ok, _} = Training.set_issue_status(flag, "solved", ~D[2026-10-14])
+
+    assert [first, second] = Training.list_issues(book.horse_id)
+    assert first.id == hind.id
+    assert Enum.map(first.marks, & &1.progress) == ["better", "worse"]
+    assert hd(first.marks).note == "Leaned on him less"
+    assert %{status: "solved", solved_on: ~D[2026-10-14]} = second
+
+    [latest | _] = Training.list_sessions(book.id)
+    assert length(latest.issue_marks) == 2
+  end
 end
