@@ -45,4 +45,15 @@ defmodule RanchPhxWeb.Uploads do
       Logger.error("photo upload failed: #{Exception.message(e)}")
       nil
   end
+
+  @doc "Delete a saved training photo file. Ignores anything outside uploads/training/."
+  def delete_file("/uploads/training/" <> rest = _url) do
+    unless String.contains?(rest, "..") do
+      File.rm(Path.join([@uploads_dir, "training", rest]))
+    end
+
+    :ok
+  end
+
+  def delete_file(_url), do: :ok
 end

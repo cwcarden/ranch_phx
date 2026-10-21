@@ -45,6 +45,7 @@ defmodule RanchPhxWeb.TrainingComponents do
   @doc "Big take-or-choose-photo button with a preview. On iPhone it offers the camera or library."
   attr :upload, :any, required: true
   attr :label, :string, default: "Take or choose a photo"
+  attr :cancel_event, :string, default: "cancel_photo"
 
   def photo_picker(assigns) do
     ~H"""
@@ -64,7 +65,7 @@ defmodule RanchPhxWeb.TrainingComponents do
         </svg>
         {@label}
       </label>
-      <div :for={entry <- @upload.entries} class="tr-preview">
+      <div :for={entry <- @upload.entries} class="tr-preview" id={"preview-#{entry.ref}"}>
         <.live_img_preview entry={entry} />
         <div style="flex:1">
           <div :if={entry.progress > 0 and entry.progress < 100} class="tr-muted">
@@ -75,7 +76,7 @@ defmodule RanchPhxWeb.TrainingComponents do
         <button
           type="button"
           class="tr-link-btn"
-          phx-click="cancel_photo"
+          phx-click={@cancel_event}
           phx-value-ref={entry.ref}
         >
           Remove
@@ -252,6 +253,13 @@ defmodule RanchPhxWeb.TrainingComponents do
       .tr-pill.tag-health input:checked + span { background: var(--warn); border-color: var(--warn); }
       .tr-detail-note { width: 100%; min-height: 44px; padding: 8px 12px; border: 1.5px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); font-size: 16px; }
       .tr-res { font-weight: 700; }
+      .tr-thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 6px; margin-top: 8px; }
+      .tr-thumb { position: relative; aspect-ratio: 1; border-radius: 10px; overflow: hidden; background: var(--surface2); border: none; padding: 0; cursor: pointer; }
+      .tr-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+      .tr-thumb-x { position: absolute; top: 4px; right: 4px; width: 32px; height: 32px; border-radius: 50%; border: none; background: rgba(0,0,0,.6); color: #fff; font-size: 16px; cursor: pointer; }
+      .tr-lightbox { position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,.92); display: flex; align-items: center; justify-content: center; padding: 16px; }
+      .tr-lightbox img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px; }
+      .tr-lightbox-close { position: fixed; top: max(12px, env(safe-area-inset-top)); right: 12px; width: 48px; height: 48px; border-radius: 50%; border: none; background: rgba(255,255,255,.2); color: #fff; font-size: 22px; cursor: pointer; }
       .tr-list-row { display: flex; align-items: center; gap: 4px; min-height: 52px; border-top: 1px solid var(--border); flex-wrap: wrap; }
       .tr-icon-btn { width: 40px; height: 40px; border-radius: 10px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text2); font-size: 18px; cursor: pointer; }
       .tr-icon-btn:disabled { opacity: .3; cursor: default; }

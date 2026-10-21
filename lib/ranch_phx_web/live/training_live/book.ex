@@ -30,10 +30,19 @@ defmodule RanchPhxWeb.TrainingLive.Book do
      |> assign(:naming_routine, false)
      |> assign(:managing_routines, false)
      |> assign(:routine_error, nil)
+     |> assign(:lightbox, nil)
      |> allow_upload(:photo,
        accept: Uploads.image_types(),
        max_entries: 1,
        max_file_size: 20_000_000
+     )
+     # Uploads start as soon as photos are picked, so they're done by the time
+     # the rest of the form is filled in.
+     |> allow_upload(:session_photos,
+       accept: Uploads.image_types(),
+       max_entries: 8,
+       max_file_size: 25_000_000,
+       auto_upload: true
      )
      |> reset_form()
      |> load()}
@@ -56,7 +65,10 @@ defmodule RanchPhxWeb.TrainingLive.Book do
     params = normalize(params, nil, socket.assigns.params)
 
     with true <- socket.assigns.is_superuser,
-         {:ok, _session} <- Training.save_session(to_attrs(params, socket.assigns.book.id)) do
+         :ok <- photos_ready(socket),
+         {:ok, session} <- Training.save_session(to_attrs(params, socket.assigns.book.id)) do
+      save_session_photos(socket, session)
+
       {:noreply,
        socket
        |> put_flash(
@@ -68,6 +80,9 @@ defmodule RanchPhxWeb.TrainingLive.Book do
     else
       false ->
         {:noreply, socket}
+
+      {:uploading, msg} ->
+        {:noreply, socket |> assign(:params, params) |> assign(:errors, [msg])}
 
       {:error, changeset} ->
         errors =
@@ -119,6 +134,7 @@ defmodule RanchPhxWeb.TrainingLive.Book do
 
     {:noreply,
      socket
+     |> assign(:editing_photos, s.photos)
      |> assign(:editing, s.id)
      |> assign(:params, params)
      |> assign(:errors, [])
@@ -131,9 +147,32 @@ defmodule RanchPhxWeb.TrainingLive.Book do
   end
 
   def handle_event("delete_session", %{"id" => id}, socket) do
-    if socket.assigns.is_superuser, do: Training.delete_session(socket.assigns.book.id, id)
+    if socket.assigns.is_superuser do
+      socket.assigns.book.id |> Training.delete_session(id) |> Enum.each(&Uploads.delete_file/1)
+    end
+
     {:noreply, load(socket)}
   end
+
+  # ── Session photos ──────────────────────────────────────────────────────────
+
+  def handle_event("cancel_session_photo", %{"ref" => ref}, socket) do
+    {:noreply, cancel_upload(socket, :session_photos, ref)}
+  end
+
+  def handle_event("remove_photo", %{"id" => id}, socket) do
+    with true <- socket.assigns.is_superuser,
+         {:ok, url} <- Training.delete_session_photo(socket.assigns.book.id, id) do
+      Uploads.delete_file(url)
+    end
+
+    {:noreply, load(socket)}
+  end
+
+  def handle_event("open_photo", %{"url" => url}, socket),
+    do: {:noreply, assign(socket, :lightbox, url)}
+
+  def handle_event("close_photo", _params, socket), do: {:noreply, assign(socket, :lightbox, nil)}
 
   # ── Routines ────────────────────────────────────────────────────────────────
 
@@ -310,6 +349,22 @@ defmodule RanchPhxWeb.TrainingLive.Book do
 
   # ── Form state ──────────────────────────────────────────────────────────────
 
+  defp photos_ready(socket) do
+    if Enum.all?(socket.assigns.uploads.session_photos.entries, & &1.done?),
+      do: :ok,
+      else: {:uploading, "Photos are still uploading. Give it a moment, then save again."}
+  end
+
+  defp save_session_photos(socket, session) do
+    urls =
+      consume_uploaded_entries(socket, :session_photos, fn %{path: tmp}, entry ->
+        {:ok, Uploads.save_image(tmp, entry.client_name, "training/sessions/#{session.id}")}
+      end)
+      |> Enum.reject(&is_nil/1)
+
+    Training.add_session_photos(session, urls)
+  end
+
   # The form sends everything each time; hidden "" placeholders mean "none picked".
   # Minutes and the date come from a quick-pick button or the typed box, whichever
   # was touched last. The client_id stays the one generated (or edited) server-side.
@@ -422,6 +477,7 @@ defmodule RanchPhxWeb.TrainingLive.Book do
     socket
     |> assign(:params, blank_params(socket.assigns.today, date))
     |> assign(:editing, nil)
+    |> assign(:editing_photos, [])
     |> assign(:errors, [])
     |> assign(:warnings, [])
   end
@@ -432,11 +488,19 @@ defmodule RanchPhxWeb.TrainingLive.Book do
 
   defp load(socket) do
     %{book: book, today: today} = socket.assigns
+    sessions = Training.list_sessions(book.id)
+
+    editing_photos =
+      case Enum.find(sessions, &(&1.id == socket.assigns[:editing])) do
+        nil -> []
+        s -> s.photos
+      end
 
     socket
+    |> assign(:editing_photos, editing_photos)
     |> assign(:progress, Training.progress(book, today))
     |> assign(:week, Training.week_summary(book.id, today))
-    |> assign(:sessions, Training.list_sessions(book.id))
+    |> assign(:sessions, sessions)
     |> assign(:routines, Training.list_routines(book.horse_id))
     |> put_activity_options()
     |> put_warnings()

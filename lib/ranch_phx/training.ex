@@ -16,6 +16,7 @@ defmodule RanchPhx.Training do
     Routine,
     Session,
     SessionActivity,
+    SessionPhoto,
     Stage,
     Tag
   }
@@ -232,14 +233,14 @@ defmodule RanchPhx.Training do
         where: s.book_id == ^book_id,
         order_by: [desc: s.date, desc: s.inserted_at],
         limit: ^limit,
-        preload: [activities: :activity]
+        preload: [:photos, activities: :activity]
     )
   end
 
   def get_session!(book_id, id) do
     Session
     |> Repo.get_by!(id: id, book_id: book_id)
-    |> Repo.preload(activities: :activity)
+    |> Repo.preload([:photos, activities: :activity])
   end
 
   def last_session(book_id), do: book_id |> list_sessions(1) |> List.first()
@@ -294,14 +295,55 @@ defmodule RanchPhx.Training do
             cs |> Ecto.Changeset.put_change(:session_id, session.id) |> Repo.insert!()
           end
 
-          Repo.preload(session, [activities: :activity], force: true)
+          Repo.preload(session, [:photos, activities: :activity], force: true)
         end)
     end
   end
 
+  @doc "Delete a session. Returns the URLs of its photos so the files can be removed."
   def delete_session(book_id, session_id) do
+    urls =
+      Repo.all(
+        from p in SessionPhoto,
+          join: s in assoc(p, :session),
+          where: s.id == ^session_id and s.book_id == ^book_id,
+          select: p.url
+      )
+
     from(s in Session, where: s.id == ^session_id and s.book_id == ^book_id)
     |> Repo.delete_all()
+
+    urls
+  end
+
+  # ── Session photos ──────────────────────────────────────────────────────────
+
+  def add_session_photos(%Session{} = session, urls) do
+    start =
+      Repo.one(
+        from p in SessionPhoto,
+          where: p.session_id == ^session.id,
+          select: coalesce(max(p.position), -1)
+      ) + 1
+
+    for {url, i} <- Enum.with_index(urls) do
+      Repo.insert!(%SessionPhoto{session_id: session.id, url: url, position: start + i})
+    end
+  end
+
+  @doc "Remove one photo from a session in this book. Returns `{:ok, url}` or `:error`."
+  def delete_session_photo(book_id, photo_id) do
+    photo =
+      Repo.one(
+        from p in SessionPhoto,
+          join: s in assoc(p, :session),
+          where: p.id == ^photo_id and s.book_id == ^book_id
+      )
+
+    case photo do
+      nil -> :error
+      p -> with {:ok, _} <- Repo.delete(p), do: {:ok, p.url}
+    end
   end
 
   @doc "Sessions and minutes in the 7 days ending on `date`."

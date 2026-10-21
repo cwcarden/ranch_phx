@@ -511,6 +511,30 @@
         >{@params["note"]}</textarea>
       </div>
 
+      <div class="tr-field">
+        <span class="tr-label">Photos</span>
+        <div :if={@editing_photos != []} class="tr-thumbs" style="margin:0 0 8px">
+          <div :for={p <- @editing_photos} class="tr-thumb" id={"edit-photo-#{p.id}"}>
+            <img src={p.url} alt="Session photo" loading="lazy" />
+            <button
+              type="button"
+              class="tr-thumb-x"
+              phx-click="remove_photo"
+              phx-value-id={p.id}
+              data-confirm="Remove this photo?"
+              aria-label="Remove photo"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+        <.photo_picker
+          upload={@uploads.session_photos}
+          label="Add photos"
+          cancel_event="cancel_session_photo"
+        />
+      </div>
+
       <div :for={w <- @warnings} class="tr-warn" style="margin-bottom:10px">{w}</div>
       <div :for={e <- @errors} class="tr-error" style="margin-bottom:10px">{e}</div>
       <p
@@ -588,6 +612,18 @@
         </span>
       </div>
       <p :if={s.note && s.note != ""} style="margin-top:6px;white-space:pre-line">{s.note}</p>
+      <div :if={s.photos != []} class="tr-thumbs">
+        <button
+          :for={p <- s.photos}
+          type="button"
+          class="tr-thumb"
+          phx-click="open_photo"
+          phx-value-url={p.url}
+          aria-label="View photo"
+        >
+          <img src={p.url} alt="Session photo" loading="lazy" />
+        </button>
+      </div>
       <div
         :if={@is_superuser}
         class="tr-row"
@@ -613,4 +649,18 @@
       </div>
     </div>
   </div>
+</div>
+
+<div
+  :if={@lightbox}
+  class="tr-lightbox"
+  id="lightbox"
+  phx-click="close_photo"
+  phx-window-keydown="close_photo"
+  phx-key="Escape"
+>
+  <img src={@lightbox} alt="Session photo" />
+  <button type="button" class="tr-lightbox-close" phx-click="close_photo" aria-label="Close">
+    ✕
+  </button>
 </div>

@@ -15,6 +15,7 @@ defmodule RanchPhx.Training.Session do
     field :source, :string, default: "typed"
 
     has_many :activities, RanchPhx.Training.SessionActivity, preload_order: [asc: :position]
+    has_many :photos, RanchPhx.Training.SessionPhoto, preload_order: [asc: :position, asc: :id]
 
     timestamps()
   end

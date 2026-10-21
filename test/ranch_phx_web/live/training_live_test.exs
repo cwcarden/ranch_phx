@@ -147,6 +147,55 @@ defmodule RanchPhxWeb.TrainingLiveTest do
     assert Enum.any?(Training.list_activities(), &(&1.name == "Clippers"))
   end
 
+  test "add photos to a session and while editing it, view one, then remove it",
+       %{conn: conn, animal: animal} do
+    book = start_book(animal)
+    feet = "#{act("feet").id}"
+    today = Date.to_iso8601(Date.utc_today())
+    static = Application.app_dir(:ranch_phx, "priv/static")
+    {:ok, view, _html} = live(conn, ~p"/training/#{book.id}")
+
+    # The save is sent as the event itself: re-serializing a form that holds a
+    # file input in the test client would start a fresh upload.
+    view
+    |> file_input("#session-form", :session_photos, [
+      %{name: "barn.jpg", content: "fake jpeg", type: "image/jpeg"}
+    ])
+    |> render_upload("barn.jpg")
+
+    render_submit(view, "save", %{"session" => %{"activity_ids" => [feet], "date_chip" => today}})
+
+    assert [%{id: session_id, photos: [p1]}] = Training.list_sessions(book.id)
+    assert p1.url =~ "/uploads/training/sessions/#{session_id}/"
+    assert File.exists?(Path.join(static, p1.url))
+
+    view |> element("#session-#{session_id} a", "Edit") |> render_click()
+
+    view
+    |> file_input("#session-form", :session_photos, [
+      %{name: "feet.png", content: "fake png", type: "image/png"}
+    ])
+    |> render_upload("feet.png")
+
+    render_submit(view, "save", %{"session" => %{"activity_ids" => [feet], "date_chip" => today}})
+    assert [%{id: ^session_id, photos: [^p1, p2]}] = Training.list_sessions(book.id)
+
+    view |> element("#session-#{session_id} button[phx-value-url='#{p2.url}']") |> render_click()
+    assert has_element?(view, "#lightbox img[src='#{p2.url}']")
+    view |> element("#lightbox button", "✕") |> render_click()
+    refute has_element?(view, "#lightbox")
+
+    view |> element("#session-#{session_id} a", "Edit") |> render_click()
+    view |> element("#edit-photo-#{p1.id} button") |> render_click()
+    assert [%{photos: [^p2]}] = Training.list_sessions(book.id)
+    refute File.exists?(Path.join(static, p1.url))
+
+    view |> element("button", "Cancel") |> render_click()
+    view |> element("#session-#{session_id} button", "Delete") |> render_click()
+    assert Training.list_sessions(book.id) == []
+    refute File.exists?(Path.join(static, p2.url))
+  end
+
   defp start_book(animal) do
     [program | _] = Training.list_programs()
 
