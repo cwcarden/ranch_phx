@@ -42,3 +42,7 @@ config :phoenix,
 
 # Swoosh test adapter needs no HTTP client
 config :swoosh, :api_client, false
+
+# The Coach calls a stub instead of the Claude API in tests.
+config :ranch_phx, :anthropic_api_key, "test-key"
+config :ranch_phx, :coach_req_options, plug: {Req.Test, RanchPhx.Training.Coach}, retry: false

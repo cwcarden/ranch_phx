@@ -335,6 +335,9 @@ defmodule RanchPhxWeb.TrainingComponents do
       .tr-pill.tag-health input:checked + span { background: var(--warn); border-color: var(--warn); }
       .tr-detail-note { width: 100%; min-height: 44px; padding: 8px 12px; border: 1.5px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); font-size: 16px; }
       .tr-res { font-weight: 700; }
+      .tr-chip { min-height: 40px; padding: 0 14px; border-radius: 20px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text); font-size: 15px; cursor: pointer; text-align: left; }
+      .tr-chip:disabled { opacity: .5; }
+      .tr-answer { margin-top: 14px; padding: 14px; border-radius: 12px; background: var(--surface2); border: 1px solid var(--border); }
       .tr-status { font-size: 13px; font-weight: 700; padding: 2px 10px; border-radius: 12px; background: var(--surface2); border: 1px solid var(--border); }
       .tr-status.st-open { color: #dc2626; }
       .tr-status.st-improving { color: #d97706; }

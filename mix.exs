@@ -66,7 +66,8 @@ defmodule RanchPhx.MixProject do
       {:dns_cluster, "~> 0.2.0"},
       {:bandit, "~> 1.5"},
       {:swoosh, "~> 1.5"},
-      {:finch, "~> 0.13"}
+      {:finch, "~> 0.13"},
+      {:req, "~> 0.5"}
     ]
   end
 

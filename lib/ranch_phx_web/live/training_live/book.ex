@@ -2,6 +2,7 @@ defmodule RanchPhxWeb.TrainingLive.Book do
   use RanchPhxWeb, :live_view
   import RanchPhxWeb.TrainingComponents
   alias RanchPhx.Training
+  alias RanchPhx.Training.Coach
   alias RanchPhx.Training.{Goal, Issue, SessionActivity, SessionIssue}
   alias RanchPhx.Accounts.Scope
   alias RanchPhxWeb.Uploads
@@ -35,6 +36,11 @@ defmodule RanchPhxWeb.TrainingLive.Book do
      |> assign(:managing_routines, false)
      |> assign(:routine_error, nil)
      |> assign(:lightbox, nil)
+     |> assign(:coach_on, Coach.configured?())
+     |> assign(:coach_answers, Coach.recent(book.id))
+     |> assign(:coach_question, "")
+     |> assign(:coach_loading, nil)
+     |> assign(:coach_error, nil)
      |> allow_upload(:photo,
        accept: Uploads.image_types(),
        max_entries: 1,
@@ -231,6 +237,14 @@ defmodule RanchPhxWeb.TrainingLive.Book do
     {:noreply, load(socket)}
   end
 
+  # ── Coach ───────────────────────────────────────────────────────────────────
+
+  def handle_event("coach_ask", %{"question" => q}, socket), do: {:noreply, ask_coach(socket, q)}
+  def handle_event("coach_suggest", %{"q" => q}, socket), do: {:noreply, ask_coach(socket, q)}
+
+  def handle_event("coach_typing", %{"question" => q}, socket),
+    do: {:noreply, assign(socket, :coach_question, q)}
+
   # ── Working on ──────────────────────────────────────────────────────────────
 
   def handle_event("new_issue", _params, socket) do
@@ -426,6 +440,47 @@ defmodule RanchPhxWeb.TrainingLive.Book do
       {:noreply, reload_book(socket)}
     else
       {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_async(:coach, {:ok, {:ok, message}}, socket) do
+    {:noreply,
+     socket
+     |> assign(:coach_loading, nil)
+     |> assign(:coach_question, "")
+     |> update(:coach_answers, &Enum.take([message | &1], 5))}
+  end
+
+  def handle_async(:coach, {:ok, {:error, reason}}, socket) do
+    {:noreply,
+     socket |> assign(:coach_loading, nil) |> assign(:coach_error, Coach.error_message(reason))}
+  end
+
+  def handle_async(:coach, {:exit, reason}, socket) do
+    require Logger
+    Logger.error("Coach crashed: #{inspect(reason)}")
+
+    {:noreply,
+     socket
+     |> assign(:coach_loading, nil)
+     |> assign(:coach_error, "Something went wrong asking the Coach. Try again.")}
+  end
+
+  # Runs in the background: the lookups can take several seconds.
+  defp ask_coach(socket, question) do
+    %{book: book, today: today, is_superuser: superuser?, coach_loading: loading} = socket.assigns
+    question = String.trim(question || "")
+
+    cond do
+      not superuser? or loading != nil or question == "" ->
+        socket
+
+      true ->
+        socket
+        |> assign(:coach_loading, question)
+        |> assign(:coach_error, nil)
+        |> start_async(:coach, fn -> Coach.ask(book, question, today) end)
     end
   end
 
@@ -651,6 +706,16 @@ defmodule RanchPhxWeb.TrainingLive.Book do
 
   def date_chips(today) do
     [{Date.to_iso8601(today), "Today"}, {Date.to_iso8601(Date.add(today, -1)), "Yesterday"}]
+  end
+
+  def coach_suggestions(book) do
+    [
+      "What should I work on this week?",
+      "How's he been on his left side lately?",
+      "Is he ready for the next stage?",
+      if(book.horse.foaled_on, do: "Anything I'm overdoing for his age?")
+    ]
+    |> Enum.reject(&is_nil/1)
   end
 
   def results, do: SessionActivity.results()
