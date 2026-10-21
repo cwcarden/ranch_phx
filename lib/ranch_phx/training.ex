@@ -6,7 +6,7 @@ defmodule RanchPhx.Training do
   import Ecto.Query
   alias RanchPhx.Repo
   alias RanchPhx.Animals.Animal
-  alias RanchPhx.Training.{Book, Program, Session, Stage}
+  alias RanchPhx.Training.{Book, Horse, Program, Session, Stage}
 
   # ── Dates ───────────────────────────────────────────────────────────────────
 
@@ -51,32 +51,87 @@ defmodule RanchPhx.Training do
   def list_active_books do
     Repo.all(
       from b in Book,
-        join: a in assoc(b, :animal),
+        join: h in assoc(b, :horse),
         where: b.status == "active",
-        order_by: a.name,
-        preload: [animal: a, program: :stages]
+        order_by: h.name,
+        preload: [horse: h, program: :stages]
     )
   end
 
   def get_book!(id) do
     Book
     |> Repo.get!(id)
-    |> Repo.preload([:animal, program: :stages])
+    |> Repo.preload([:horse, program: :stages])
   end
 
   def active_book_for_animal(animal_id) do
-    Repo.one(from b in Book, where: b.animal_id == ^animal_id and b.status == "active")
+    Repo.one(
+      from b in Book,
+        join: h in assoc(b, :horse),
+        where: h.animal_id == ^animal_id and b.status == "active"
+    )
   end
 
   def change_book(%Book{} = book, attrs \\ %{}), do: Book.changeset(book, attrs)
 
-  def create_book(attrs) do
+  @doc """
+  Start a book. `horse_attrs` either names a ranch animal (`"animal_id"`), whose
+  training profile is reused or created from the ranch record, or describes an
+  outside horse. Returns `{:ok, book}` or `{:error, :horse | :book, changeset}`.
+  """
+  def start_book(horse_attrs, book_attrs) do
+    Ecto.Multi.new()
+    |> Ecto.Multi.run(:horse, fn _repo, _ -> find_or_create_horse(horse_attrs) end)
+    |> Ecto.Multi.run(:book, fn _repo, %{horse: horse} ->
+      create_book(Map.put(book_attrs, "horse_id", horse.id))
+    end)
+    |> Repo.transaction()
+    |> case do
+      {:ok, %{book: book}} -> {:ok, book}
+      {:error, step, changeset, _} -> {:error, step, changeset}
+    end
+  end
+
+  defp find_or_create_horse(%{"animal_id" => id}) when id not in [nil, ""] do
+    case Repo.get_by(Horse, animal_id: id) do
+      %Horse{} = horse ->
+        {:ok, horse}
+
+      nil ->
+        animal = Repo.get!(Animal, id)
+
+        create_horse(%{
+          animal_id: animal.id,
+          name: animal.name,
+          foaled_on: animal.birth_date,
+          sex: animal.sex,
+          breed: animal.breed,
+          color: animal.color,
+          owner: animal.owner
+        })
+        |> case do
+          {:ok, horse} ->
+            {:ok, horse |> Horse.photo_changeset(animal.cover_photo_url) |> Repo.update!()}
+
+          error ->
+            error
+        end
+    end
+  end
+
+  defp find_or_create_horse(attrs), do: create_horse(Map.delete(attrs, "animal_id"))
+
+  defp create_book(attrs) do
     %Book{} |> Book.changeset(attrs) |> Repo.insert()
   end
 
-  @doc "Active horses that don't have an open book yet."
-  def horses_without_book do
-    open = from b in Book, where: b.status == "active", select: b.animal_id
+  @doc "Active ranch horses that aren't in an open training book."
+  def ranch_horses_without_book do
+    open =
+      from b in Book,
+        join: h in assoc(b, :horse),
+        where: b.status == "active" and not is_nil(h.animal_id),
+        select: h.animal_id
 
     Repo.all(
       from a in Animal,
@@ -84,6 +139,19 @@ defmodule RanchPhx.Training do
         order_by: a.name
     )
   end
+
+  # ── Horses ──────────────────────────────────────────────────────────────────
+
+  def get_horse!(id), do: Repo.get!(Horse, id)
+
+  def change_horse(%Horse{} = horse, attrs \\ %{}), do: Horse.changeset(horse, attrs)
+
+  def create_horse(attrs), do: %Horse{} |> Horse.changeset(attrs) |> Repo.insert()
+
+  def update_horse(%Horse{} = horse, attrs), do: horse |> Horse.changeset(attrs) |> Repo.update()
+
+  def set_horse_photo(%Horse{} = horse, url),
+    do: horse |> Horse.photo_changeset(url) |> Repo.update()
 
   @doc "Pin the book to a stage (ready early / not ready yet). `nil` follows age again."
   def set_stage_override(%Book{} = book, stage_id) do
@@ -97,7 +165,7 @@ defmodule RanchPhx.Training do
   pinned to a stage. Returns a map with the stage, the next stage, and how far off it is.
   """
   def progress(%Book{program: %Program{stages: stages}} = book, %Date{} = date) do
-    months = age_in_months(book.animal.birth_date, date)
+    months = age_in_months(book.horse.foaled_on, date)
     by_age = stage_for_age(stages, months)
     current = Enum.find(stages, &(&1.id == book.stage_override_id)) || by_age
     next = current && Enum.find(stages, &(&1.position == current.position + 1))

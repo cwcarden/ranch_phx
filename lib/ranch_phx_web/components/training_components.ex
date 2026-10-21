@@ -30,6 +30,67 @@ defmodule RanchPhxWeb.TrainingComponents do
     """
   end
 
+  attr :horse, :map, required: true
+  attr :size, :integer, default: 64
+
+  def horse_photo(assigns) do
+    ~H"""
+    <div class="tr-photo" style={"width:#{@size}px;height:#{@size}px"}>
+      <img :if={@horse.photo_url} src={@horse.photo_url} alt={@horse.name} />
+      <span :if={is_nil(@horse.photo_url)}>{String.first(@horse.name || "?")}</span>
+    </div>
+    """
+  end
+
+  @doc "Big take-or-choose-photo button with a preview. On iPhone it offers the camera or library."
+  attr :upload, :any, required: true
+  attr :label, :string, default: "Take or choose a photo"
+
+  def photo_picker(assigns) do
+    ~H"""
+    <div class="tr-picker">
+      <label class="tr-btn" style="width:100%">
+        <.live_file_input upload={@upload} class="tr-file" />
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          width="18"
+          height="18"
+        >
+          <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
+          <circle cx="12" cy="13" r="4" />
+        </svg>
+        {@label}
+      </label>
+      <div :for={entry <- @upload.entries} class="tr-preview">
+        <.live_img_preview entry={entry} />
+        <div style="flex:1">
+          <div :if={entry.progress > 0 and entry.progress < 100} class="tr-muted">
+            Uploading {entry.progress}%
+          </div>
+          <div :for={err <- upload_errors(@upload, entry)} class="tr-error">{upload_error(err)}</div>
+        </div>
+        <button
+          type="button"
+          class="tr-link-btn"
+          phx-click="cancel_photo"
+          phx-value-ref={entry.ref}
+        >
+          Remove
+        </button>
+      </div>
+      <div :for={err <- upload_errors(@upload)} class="tr-error">{upload_error(err)}</div>
+    </div>
+    """
+  end
+
+  defp upload_error(:too_large), do: "That photo is too big (20 MB max)."
+  defp upload_error(:not_accepted), do: "That file type isn't a photo."
+  defp upload_error(:too_many_files), do: "Just one photo."
+  defp upload_error(err), do: "Upload problem: #{err}"
+
   def styles(assigns) do
     ~H"""
     <style>
@@ -95,6 +156,18 @@ defmodule RanchPhxWeb.TrainingComponents do
       .tr-tag { display: inline-block; padding: 2px 10px; border-radius: 12px; background: var(--surface2); border: 1px solid var(--border); font-size: 13px; margin: 4px 4px 0 0; }
       .tr-tag.sore { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
       .tr-link-btn { background: none; border: none; color: var(--text3); font-size: 14px; cursor: pointer; min-height: 40px; padding: 0 8px; }
+
+      .tr-horse-head { display: flex; gap: 14px; align-items: center; }
+      .tr-photo { flex: none; border-radius: 12px; overflow: hidden; background: var(--brand-soft); color: var(--brand); display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 700; }
+      .tr-photo img { width: 100%; height: 100%; object-fit: cover; }
+      .tr-segment { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 4px; border-radius: 12px; background: var(--surface2); border: 1px solid var(--border); }
+      .tr-segment button { min-height: 44px; border: none; border-radius: 9px; background: none; font-size: 16px; font-weight: 600; color: var(--text2); cursor: pointer; }
+      .tr-segment button.on { background: var(--surface); color: var(--brand); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+      .tr-two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+      .tr-file { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
+      .tr-picker .tr-btn { position: relative; }
+      .tr-preview { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
+      .tr-preview img { width: 72px; height: 72px; object-fit: cover; border-radius: 10px; }
     </style>
     """
   end

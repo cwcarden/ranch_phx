@@ -16,10 +16,9 @@ defmodule RanchPhx.TrainingTest do
     [program | _] = Training.list_programs()
 
     {:ok, book} =
-      Training.create_book(%{
-        animal_id: animal.id,
-        program_id: program.id,
-        started_on: ~D[2026-10-21]
+      Training.start_book(%{"animal_id" => animal.id}, %{
+        "program_id" => program.id,
+        "started_on" => ~D[2026-10-21]
       })
 
     Training.get_book!(book.id)
@@ -64,15 +63,42 @@ defmodule RanchPhx.TrainingTest do
     book(animal)
     [program | _] = Training.list_programs()
 
-    assert {:error, changeset} =
-             Training.create_book(%{
-               animal_id: animal.id,
-               program_id: program.id,
-               started_on: ~D[2026-10-21]
+    assert {:error, :book, changeset} =
+             Training.start_book(%{"animal_id" => animal.id}, %{
+               "program_id" => program.id,
+               "started_on" => ~D[2026-10-21]
              })
 
-    assert "already has an open training book" in errors_on(changeset).animal_id
-    assert Training.horses_without_book() == []
+    assert "already has an open training book" in errors_on(changeset).horse_id
+    assert Training.ranch_horses_without_book() == []
+  end
+
+  test "a ranch horse's profile is copied from the ranch record" do
+    book = book(horse(%{owner: "Gimel Ranch"}))
+    assert %{name: "Asher", foaled_on: ~D[2025-05-10], owner: "Gimel Ranch"} = book.horse
+    assert Training.active_book_for_animal(book.horse.animal_id).id == book.id
+  end
+
+  test "an outside horse gets its own profile" do
+    [program | _] = Training.list_programs()
+
+    {:ok, book} =
+      Training.start_book(
+        %{"name" => "Smokey", "foaled_on" => "2024-08-01", "owner" => "J. Smith"},
+        %{"program_id" => program.id, "started_on" => "2026-10-21"}
+      )
+
+    book = Training.get_book!(book.id)
+    assert %{name: "Smokey", animal_id: nil, owner: "J. Smith"} = book.horse
+    assert Training.progress(book, ~D[2026-10-21]).stage.name == "Backing & first rides"
+
+    assert {:error, :horse, changeset} =
+             Training.start_book(%{"name" => " "}, %{
+               "program_id" => program.id,
+               "started_on" => "2026-10-21"
+             })
+
+    assert errors_on(changeset).name
   end
 
   test "re-sending a session with the same client_id updates it instead of duplicating" do

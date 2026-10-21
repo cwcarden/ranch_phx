@@ -10,13 +10,21 @@
   </div>
 
   <a :for={c <- @cards} class="tr-card tr-horse" href={~p"/training/#{c.book.id}"}>
-    <div class="tr-row">
-      <h2>{c.book.animal.name}</h2>
-      <span class="tr-muted">{Training.age_label(c.progress.age_months)}</span>
+    <div class="tr-horse-head">
+      <.horse_photo horse={c.book.horse} size={64} />
+      <div style="flex:1;min-width:0">
+        <div class="tr-row">
+          <h2>{c.book.horse.name}</h2>
+          <span class="tr-muted">{Training.age_label(c.progress.age_months)}</span>
+        </div>
+        <p :if={c.progress.stage} style="margin-top:2px;font-weight:600;color:var(--brand)">
+          Stage {c.progress.stage_number}: {c.progress.stage.name}
+        </p>
+        <p :if={c.book.horse.owner && is_nil(c.book.horse.animal_id)} class="tr-muted">
+          Owner: {c.book.horse.owner}
+        </p>
+      </div>
     </div>
-    <p :if={c.progress.stage} style="margin-top:4px;font-weight:600;color:var(--brand)">
-      Stage {c.progress.stage_number}: {c.progress.stage.name}
-    </p>
     <div class="tr-stats">
       <div class="tr-stat">
         <b>
@@ -47,63 +55,160 @@
         <button class="tr-link-btn" phx-click="close_new">Cancel</button>
       </div>
 
-      <%= if @horses == [] do %>
-        <p class="tr-muted">
-          Every active horse already has a book. Add the horse on the ranch page first
-          (kind: horse, status: active).
-        </p>
-      <% else %>
-        <.form for={@book_form} phx-submit="create_book">
+      <div class="tr-segment" style="margin-bottom:16px">
+        <button
+          type="button"
+          class={if @source == "ranch", do: "on"}
+          phx-click="set_source"
+          phx-value-source="ranch"
+        >
+          Ranch horse
+        </button>
+        <button
+          type="button"
+          class={if @source == "other", do: "on"}
+          phx-click="set_source"
+          phx-value-source="other"
+        >
+          Another horse
+        </button>
+      </div>
+
+      <.form for={%{}} id="new-book-form" phx-change="validate" phx-submit="create_book">
+        <%= if @source == "ranch" do %>
+          <%= if @ranch_horses == [] do %>
+            <p class="tr-muted" style="margin-bottom:16px">
+              Every active ranch horse already has a book. Use “Another horse” for a horse
+              that isn't on the ranch.
+            </p>
+          <% else %>
+            <div class="tr-field">
+              <label for="book_animal_id">Horse</label>
+              <select id="book_animal_id" name="book[animal_id]" required>
+                <option value="">Pick a horse…</option>
+                <option
+                  :for={h <- @ranch_horses}
+                  value={h.id}
+                  selected={"#{h.id}" == "#{@selected_animal_id}"}
+                >
+                  {h.name}{if h.birth_date,
+                    do: " (#{Training.age_label(Training.age_in_months(h.birth_date, @today))})"}
+                </option>
+              </select>
+            </div>
+          <% end %>
+        <% else %>
           <div class="tr-field">
-            <label for="book_animal_id">Horse</label>
-            <select id="book_animal_id" name="book[animal_id]" required>
-              <option value="">Pick a horse…</option>
-              <option
-                :for={h <- @horses}
-                value={h.id}
-                selected={"#{h.id}" == "#{@book_form[:animal_id].value}"}
-              >
-                {h.name}{if h.birth_date,
-                  do: " (#{Training.age_label(Training.age_in_months(h.birth_date, @today))})"}
-              </option>
-            </select>
-            <span :for={{msg, _} <- @book_form[:animal_id].errors} class="tr-error">{msg}</span>
-          </div>
-          <div class="tr-field">
-            <label for="book_program_id">Program</label>
-            <select id="book_program_id" name="book[program_id]" required>
-              <option
-                :for={p <- @programs}
-                value={p.id}
-                selected={"#{p.id}" == "#{@book_form[:program_id].value}"}
-              >
-                {p.name}
-              </option>
-            </select>
-          </div>
-          <div class="tr-field">
-            <label for="book_goal">Goal (optional)</label>
+            <label for="horse_name">Name</label>
             <input
               type="text"
-              id="book_goal"
-              name="book[goal]"
-              value={@book_form[:goal].value}
-              placeholder="e.g. NRCHA Stallion Stakes, non-pro"
+              id="horse_name"
+              name="horse[name]"
+              value={@horse_form[:name].value}
+              autocomplete="off"
+              required
             />
+            <span :for={{msg, _} <- @horse_form[:name].errors} class="tr-error">{msg}</span>
           </div>
           <div class="tr-field">
-            <label for="book_goal_date">Goal date (optional)</label>
+            <label for="horse_foaled_on">Foaling date</label>
             <input
               type="date"
-              id="book_goal_date"
-              name="book[goal_date]"
-              value={@book_form[:goal_date].value}
+              id="horse_foaled_on"
+              name="horse[foaled_on]"
+              value={@horse_form[:foaled_on].value}
+            />
+            <span class="tr-muted" style="font-size:14px">
+              The stage follows his age. If you only know the year, use Jan 1.
+            </span>
+          </div>
+          <div class="tr-field">
+            <label for="horse_sex">Sex</label>
+            <select id="horse_sex" name="horse[sex]">
+              <option value="">–</option>
+              <option value="stallion">Stud / colt</option>
+              <option value="gelding">Gelding</option>
+              <option value="mare">Mare / filly</option>
+            </select>
+          </div>
+          <div class="tr-field">
+            <label for="horse_owner">Owner</label>
+            <input
+              type="text"
+              id="horse_owner"
+              name="horse[owner]"
+              value={@horse_form[:owner].value}
             />
           </div>
-          <input type="hidden" name="book[started_on]" value={@book_form[:started_on].value} />
-          <button type="submit" class="tr-btn tr-btn-primary tr-btn-block">Start book</button>
-        </.form>
-      <% end %>
+          <div class="tr-two">
+            <div class="tr-field">
+              <label for="horse_breed">Breed</label>
+              <input
+                type="text"
+                id="horse_breed"
+                name="horse[breed]"
+                value={@horse_form[:breed].value}
+              />
+            </div>
+            <div class="tr-field">
+              <label for="horse_color">Color</label>
+              <input
+                type="text"
+                id="horse_color"
+                name="horse[color]"
+                value={@horse_form[:color].value}
+              />
+            </div>
+          </div>
+          <div class="tr-field">
+            <span class="tr-label">Photo</span>
+            <.photo_picker upload={@uploads.photo} />
+          </div>
+        <% end %>
+
+        <div class="tr-field">
+          <label for="book_program_id">Program</label>
+          <select id="book_program_id" name="book[program_id]" required>
+            <option
+              :for={p <- @programs}
+              value={p.id}
+              selected={"#{p.id}" == "#{@book_form[:program_id].value}"}
+            >
+              {p.name}
+            </option>
+          </select>
+        </div>
+        <div class="tr-field">
+          <label for="book_goal">Goal (optional)</label>
+          <input
+            type="text"
+            id="book_goal"
+            name="book[goal]"
+            value={@book_form[:goal].value}
+            placeholder="e.g. NRCHA Stallion Stakes, non-pro"
+          />
+        </div>
+        <div class="tr-field">
+          <label for="book_goal_date">Goal date (optional)</label>
+          <input
+            type="date"
+            id="book_goal_date"
+            name="book[goal_date]"
+            value={@book_form[:goal_date].value}
+          />
+        </div>
+        <span :for={{msg, _} <- @book_form[:horse_id].errors} class="tr-error">
+          This horse {msg}.
+        </span>
+        <input type="hidden" name="book[started_on]" value={@book_form[:started_on].value} />
+        <button
+          type="submit"
+          class="tr-btn tr-btn-primary tr-btn-block"
+          phx-disable-with="Starting…"
+        >
+          Start book
+        </button>
+      </.form>
     </div>
   <% end %>
 </div>

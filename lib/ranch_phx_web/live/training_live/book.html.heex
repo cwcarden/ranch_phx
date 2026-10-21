@@ -1,5 +1,5 @@
 <.styles />
-<.topbar back={~p"/training"} back_label="Training" title={@book.animal.name} />
+<.topbar back={~p"/training"} back_label="Training" title={@book.horse.name} />
 
 <div class="tr-wrap">
   <div
@@ -10,6 +10,154 @@
     phx-value-key="info"
   >
     {Phoenix.Flash.get(@flash, :info)}
+  </div>
+
+  <%!-- The horse --%>
+  <div class="tr-card" id="profile">
+    <%= if @profile_form do %>
+      <div class="tr-row" style="margin-bottom:14px">
+        <h2>Edit profile</h2>
+        <button class="tr-link-btn" phx-click="cancel_profile">Cancel</button>
+      </div>
+      <.form
+        for={@profile_form}
+        as={:horse}
+        id="profile-form"
+        phx-change="validate_profile"
+        phx-submit="save_profile"
+      >
+        <div class="tr-field">
+          <label for="horse_name">Name</label>
+          <input
+            type="text"
+            id="horse_name"
+            name="horse[name]"
+            value={@profile_form[:name].value}
+            required
+          />
+          <span :for={{msg, _} <- @profile_form[:name].errors} class="tr-error">{msg}</span>
+        </div>
+        <div class="tr-field">
+          <label for="horse_foaled_on">Foaling date</label>
+          <input
+            type="date"
+            id="horse_foaled_on"
+            name="horse[foaled_on]"
+            value={@profile_form[:foaled_on].value}
+          />
+        </div>
+        <div class="tr-field">
+          <label for="horse_sex">Sex</label>
+          <select id="horse_sex" name="horse[sex]">
+            <option value="">–</option>
+            <option
+              :for={
+                {v, l} <- [
+                  {"stallion", "Stud / colt"},
+                  {"gelding", "Gelding"},
+                  {"mare", "Mare / filly"}
+                ]
+              }
+              value={v}
+              selected={@profile_form[:sex].value == v}
+            >
+              {l}
+            </option>
+          </select>
+        </div>
+        <div class="tr-field">
+          <label for="horse_owner">Owner</label>
+          <input
+            type="text"
+            id="horse_owner"
+            name="horse[owner]"
+            value={@profile_form[:owner].value}
+          />
+        </div>
+        <div class="tr-two">
+          <div class="tr-field">
+            <label for="horse_breed">Breed</label>
+            <input
+              type="text"
+              id="horse_breed"
+              name="horse[breed]"
+              value={@profile_form[:breed].value}
+            />
+          </div>
+          <div class="tr-field">
+            <label for="horse_color">Color</label>
+            <input
+              type="text"
+              id="horse_color"
+              name="horse[color]"
+              value={@profile_form[:color].value}
+            />
+          </div>
+        </div>
+        <div class="tr-field">
+          <label for="horse_notes">Notes</label>
+          <textarea
+            id="horse_notes"
+            name="horse[notes]"
+            placeholder="Background, quirks, what the owner wants…"
+          >{@profile_form[:notes].value}</textarea>
+        </div>
+        <div class="tr-field">
+          <span class="tr-label">Photo</span>
+          <.photo_picker
+            upload={@uploads.photo}
+            label={if @book.horse.photo_url, do: "Change photo", else: "Take or choose a photo"}
+          />
+        </div>
+        <button
+          type="submit"
+          class="tr-btn tr-btn-primary tr-btn-block"
+          phx-disable-with="Saving…"
+        >
+          Save profile
+        </button>
+      </.form>
+    <% else %>
+      <div class="tr-horse-head">
+        <.horse_photo horse={@book.horse} size={88} />
+        <div style="flex:1;min-width:0">
+          <h2>{@book.horse.name}</h2>
+          <p class="tr-muted">
+            {[
+              Training.age_label(@progress.age_months),
+              sex_label(@book.horse.sex),
+              @book.horse.color,
+              @book.horse.breed
+            ]
+            |> Enum.reject(&(&1 in [nil, ""]))
+            |> Enum.join(" · ")}
+          </p>
+          <p :if={@book.horse.owner} class="tr-muted">Owner: {@book.horse.owner}</p>
+          <a
+            :if={@book.horse.animal_id}
+            href={~p"/animals/#{@book.horse.animal_id}"}
+            class="tr-muted"
+            style="color:var(--brand)"
+          >
+            Ranch record →
+          </a>
+        </div>
+      </div>
+      <p
+        :if={@book.horse.notes && @book.horse.notes != ""}
+        style="margin-top:10px;white-space:pre-line"
+      >
+        {@book.horse.notes}
+      </p>
+      <button
+        :if={@is_superuser}
+        class="tr-btn tr-btn-small"
+        style="margin-top:12px"
+        phx-click="edit_profile"
+      >
+        Edit profile
+      </button>
+    <% end %>
   </div>
 
   <%!-- Where he is now --%>
@@ -45,8 +193,8 @@
         Set by hand. By age he'd be in “{@progress.by_age.name}”.
       </p>
     <% end %>
-    <p :if={is_nil(@book.animal.birth_date)} class="tr-warn" style="margin-top:12px">
-      No foaling date on the ranch record, so the stage can't follow his age. Add it on the horse's page.
+    <p :if={is_nil(@book.horse.foaled_on)} class="tr-warn" style="margin-top:12px">
+      No foaling date yet, so the stage can't follow his age. Add it with Edit profile.
     </p>
 
     <div class="tr-stats">
@@ -99,6 +247,32 @@
     <h2 style="margin-bottom:14px">Log a session</h2>
     <.form for={%{}} as={:session} id="session-form" phx-change="change" phx-submit="save">
       <input type="hidden" name="session[client_id]" value={@params["client_id"]} />
+
+      <div class="tr-field">
+        <span class="tr-label">When?</span>
+        <div class="tr-pills">
+          <label :for={{iso, label} <- date_chips(@today)} class="tr-pill">
+            <input
+              type="radio"
+              name="session[date_chip]"
+              value={iso}
+              checked={@params["date_chip"] == iso}
+            />
+            <span>{label}</span>
+          </label>
+        </div>
+        <input
+          type="date"
+          id="session_date"
+          name="session[date_typed]"
+          value={@params["date_typed"]}
+          max={Date.to_iso8601(@today)}
+          aria-label="Or pick an earlier day"
+        />
+        <span class="tr-muted" style="font-size:14px">
+          Logging for {fmt_date(@params["date"], @today)}
+        </span>
+      </div>
 
       <div class="tr-field">
         <span class="tr-label">What did you work on?</span>
@@ -166,17 +340,6 @@
           name="session[note]"
           placeholder="What worked, what to try next time…"
         >{@params["note"]}</textarea>
-      </div>
-
-      <div class="tr-field">
-        <label for="session_date">Date</label>
-        <input
-          type="date"
-          id="session_date"
-          name="session[date]"
-          value={@params["date"]}
-          max={Date.to_iso8601(@today)}
-        />
       </div>
 
       <div :for={w <- @warnings} class="tr-warn" style="margin-bottom:10px">{w}</div>

@@ -2,8 +2,9 @@ defmodule RanchPhxWeb.TrainingLive.Index do
   use RanchPhxWeb, :live_view
   import RanchPhxWeb.TrainingComponents
   alias RanchPhx.Training
-  alias RanchPhx.Training.Book
+  alias RanchPhx.Training.{Book, Horse}
   alias RanchPhx.Accounts.Scope
+  alias RanchPhxWeb.Uploads
 
   @impl true
   def mount(_params, _session, socket) do
@@ -16,12 +17,17 @@ defmodule RanchPhxWeb.TrainingLive.Index do
      |> assign(:is_superuser, Scope.superuser?(socket.assigns[:current_scope]))
      |> assign(:programs, Training.list_programs())
      |> assign(:show_new, false)
+     |> allow_upload(:photo,
+       accept: Uploads.image_types(),
+       max_entries: 1,
+       max_file_size: 20_000_000
+     )
      |> load_books()}
   end
 
   @impl true
   def handle_params(params, _uri, socket) do
-    # /training?horse=12 (from a horse's page) opens the form with that horse picked.
+    # /training?horse=12 (from a ranch horse's page) opens the form with that horse picked.
     case params do
       %{"horse" => id} -> {:noreply, open_new(socket, %{"animal_id" => id})}
       _ -> {:noreply, socket}
@@ -32,13 +38,31 @@ defmodule RanchPhxWeb.TrainingLive.Index do
   def handle_event("open_new", _params, socket), do: {:noreply, open_new(socket, %{})}
   def handle_event("close_new", _params, socket), do: {:noreply, assign(socket, :show_new, false)}
 
-  def handle_event("create_book", %{"book" => params}, socket) do
+  def handle_event("set_source", %{"source" => source}, socket) when source in ~w(ranch other) do
+    {:noreply, assign(socket, :source, source)}
+  end
+
+  def handle_event("validate", _params, socket), do: {:noreply, socket}
+
+  def handle_event("create_book", params, socket) do
     if socket.assigns.is_superuser do
-      case Training.create_book(params) do
+      book_params = Map.get(params, "book", %{})
+
+      horse_params =
+        case socket.assigns.source do
+          "ranch" -> %{"animal_id" => book_params["animal_id"]}
+          "other" -> Map.get(params, "horse", %{})
+        end
+
+      case Training.start_book(horse_params, Map.delete(book_params, "animal_id")) do
         {:ok, book} ->
+          save_photo(socket, book.horse_id)
           {:noreply, push_navigate(socket, to: ~p"/training/#{book.id}")}
 
-        {:error, changeset} ->
+        {:error, :horse, changeset} ->
+          {:noreply, assign(socket, :horse_form, to_form(changeset))}
+
+        {:error, :book, changeset} ->
           {:noreply, assign(socket, :book_form, to_form(changeset))}
       end
     else
@@ -46,7 +70,22 @@ defmodule RanchPhxWeb.TrainingLive.Index do
     end
   end
 
+  def handle_event("cancel_photo", %{"ref" => ref}, socket) do
+    {:noreply, cancel_upload(socket, :photo, ref)}
+  end
+
+  defp save_photo(socket, horse_id) do
+    [url | _] =
+      consume_uploaded_entries(socket, :photo, fn %{path: tmp}, entry ->
+        {:ok, Uploads.save_image(tmp, entry.client_name, "training/horses/#{horse_id}")}
+      end) ++ [nil]
+
+    if url, do: Training.set_horse_photo(Training.get_horse!(horse_id), url)
+  end
+
   defp open_new(socket, params) do
+    ranch_horses = Training.ranch_horses_without_book()
+
     defaults = %{
       "started_on" => Date.to_iso8601(socket.assigns.today),
       "program_id" => List.first(socket.assigns.programs) |> then(&(&1 && &1.id))
@@ -54,8 +93,11 @@ defmodule RanchPhxWeb.TrainingLive.Index do
 
     socket
     |> assign(:show_new, true)
-    |> assign(:horses, Training.horses_without_book())
-    |> assign(:book_form, to_form(Training.change_book(%Book{}, Map.merge(defaults, params))))
+    |> assign(:ranch_horses, ranch_horses)
+    |> assign(:source, if(ranch_horses == [], do: "other", else: "ranch"))
+    |> assign(:selected_animal_id, params["animal_id"])
+    |> assign(:book_form, to_form(Training.change_book(%Book{}, defaults)))
+    |> assign(:horse_form, to_form(Training.change_horse(%Horse{})))
   end
 
   defp load_books(socket) do

@@ -4,7 +4,7 @@ defmodule RanchPhx.Training.Book do
 
   # A horse's training book: one horse following one program.
   schema "training_books" do
-    belongs_to :animal, RanchPhx.Animals.Animal
+    belongs_to :horse, RanchPhx.Training.Horse
     belongs_to :program, RanchPhx.Training.Program
     belongs_to :stage_override, RanchPhx.Training.Stage
 
@@ -23,12 +23,12 @@ defmodule RanchPhx.Training.Book do
 
   def changeset(book, attrs) do
     book
-    |> cast(attrs, [:animal_id, :program_id, :status, :started_on, :goal, :goal_date, :notes])
-    |> validate_required([:animal_id, :program_id, :started_on])
+    |> cast(attrs, [:horse_id, :program_id, :status, :started_on, :goal, :goal_date, :notes])
+    |> validate_required([:horse_id, :program_id, :started_on])
     |> validate_inclusion(:status, @statuses)
     |> validate_length(:goal, max: 255)
-    |> unique_constraint(:animal_id,
-      name: :training_books_one_active_per_animal,
+    |> unique_constraint(:horse_id,
+      name: :training_books_one_active_per_horse,
       message: "already has an open training book"
     )
   end
