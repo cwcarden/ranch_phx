@@ -420,20 +420,54 @@
 
   <%!-- Ask the Coach --%>
   <div :if={@is_superuser} class="tr-card" id="coach">
-    <h2>Ask the Coach</h2>
+    <div class="tr-row">
+      <h2>Ask the Coach</h2>
+      <button
+        :if={@coach_on and @coach_thread != [] and is_nil(@coach_loading)}
+        class="tr-btn tr-btn-small"
+        phx-click="coach_new"
+      >
+        + New question
+      </button>
+    </div>
     <%= if @coach_on do %>
-      <p class="tr-muted" style="margin:4px 0 12px">
-        Claude looks at {@book.horse.name}'s sessions, goals and Working on list before it answers.
+      <p :if={@coach_thread == []} class="tr-muted" style="margin:4px 0 12px">
+        Ask how he's doing, what to work on, or how to get through something that's giving you
+        trouble. Claude checks {@book.horse.name}'s log before it answers.
       </p>
-      <form id="coach-form" phx-submit="coach_ask" phx-change="coach_typing">
+
+      <div :for={m <- @coach_thread} class="tr-answer" id={"coach-#{m.id}"}>
+        <p class="tr-muted" style="font-weight:600">“{m.question}”</p>
+        <p style="white-space:pre-line;margin-top:6px">{m.answer}</p>
+        <p class="tr-muted" style="font-size:13px;margin-top:8px">
+          {Calendar.strftime(m.inserted_at, "%b %-d")}<span :if={m.checked != []}> · Checked: {Enum.join(m.checked, ", ")}</span>
+        </p>
+      </div>
+
+      <div :if={@coach_loading} class="tr-answer tr-muted" id="coach-loading">
+        <b>“{@coach_loading}”</b>
+        <p style="margin-top:4px">Checking his log… this usually takes 5–20 seconds.</p>
+      </div>
+      <p :if={@coach_error} class="tr-warn" style="margin-top:10px">{@coach_error}</p>
+
+      <form
+        id="coach-form"
+        phx-submit="coach_ask"
+        phx-change="coach_typing"
+        style="margin-top:12px"
+      >
         <textarea
           name="question"
           class="tr-detail-note"
           style="min-height:72px"
-          placeholder="e.g. What should I work on this week?"
+          placeholder={
+            if @coach_thread == [],
+              do: "e.g. He won't give me his shoulder on the ground. How do I get through that?",
+              else: "Ask a follow-up, or say “add that to my list”"
+          }
           disabled={@coach_loading != nil}
         >{@coach_question}</textarea>
-        <div class="tr-pills tr-pills-sm" style="margin:8px 0 10px">
+        <div :if={@coach_thread == []} class="tr-pills tr-pills-sm" style="margin:8px 0 2px">
           <button
             :for={q <- coach_suggestions(@book)}
             type="button"
@@ -448,24 +482,34 @@
         <button
           type="submit"
           class="tr-btn tr-btn-primary tr-btn-block"
+          style="margin-top:8px"
           disabled={@coach_loading != nil}
         >
-          {if @coach_loading, do: "Looking through his sessions…", else: "Ask"}
+          <%= cond do %>
+            <% @coach_loading -> %>
+              Looking through his log…
+            <% @coach_thread != [] -> %>
+              Ask follow-up
+            <% true -> %>
+              Ask
+          <% end %>
         </button>
       </form>
 
-      <div :if={@coach_loading} class="tr-answer tr-muted" id="coach-loading">
-        <b>“{@coach_loading}”</b>
-        <p style="margin-top:4px">Checking his log… this usually takes 5–20 seconds.</p>
-      </div>
-      <p :if={@coach_error} class="tr-warn" style="margin-top:10px">{@coach_error}</p>
-
-      <div :for={m <- @coach_answers} class="tr-answer" id={"coach-#{m.id}"}>
-        <p class="tr-muted" style="font-weight:600">“{m.question}”</p>
-        <p style="white-space:pre-line;margin-top:6px">{m.answer}</p>
-        <p class="tr-muted" style="font-size:13px;margin-top:8px">
-          {Calendar.strftime(m.inserted_at, "%b %-d")}<span :if={m.checked != []}> · Checked: {Enum.join(m.checked, ", ")}</span>
-        </p>
+      <% current = @coach_thread |> List.first() |> then(&(&1 && &1.id)) %>
+      <% earlier = Enum.reject(@coach_threads, &(&1.id == current)) %>
+      <div :if={earlier != []} style="margin-top:14px">
+        <div class="tr-label">Earlier questions</div>
+        <button
+          :for={t <- earlier}
+          type="button"
+          class="tr-link-btn tr-earlier"
+          phx-click="coach_open"
+          phx-value-id={t.id}
+          disabled={@coach_loading != nil}
+        >
+          {Calendar.strftime(t.inserted_at, "%b %-d")} · {t.question}
+        </button>
       </div>
       <p class="tr-muted" style="font-size:13px;margin-top:10px">
         Suggestions only. For anything that seems physical, talk to your vet.

@@ -3,6 +3,8 @@ defmodule RanchPhx.Training.CoachMessage do
 
   schema "training_coach_messages" do
     belongs_to :book, RanchPhx.Training.Book
+    # The first message of the conversation; nil on that first message itself.
+    belongs_to :thread, __MODULE__
 
     field :question, :string
     field :answer, :string

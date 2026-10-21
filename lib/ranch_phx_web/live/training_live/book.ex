@@ -37,7 +37,7 @@ defmodule RanchPhxWeb.TrainingLive.Book do
      |> assign(:routine_error, nil)
      |> assign(:lightbox, nil)
      |> assign(:coach_on, Coach.configured?())
-     |> assign(:coach_answers, Coach.recent(book.id))
+     |> assign_coach_threads()
      |> assign(:coach_question, "")
      |> assign(:coach_loading, nil)
      |> assign(:coach_error, nil)
@@ -245,6 +245,24 @@ defmodule RanchPhxWeb.TrainingLive.Book do
   def handle_event("coach_typing", %{"question" => q}, socket),
     do: {:noreply, assign(socket, :coach_question, q)}
 
+  def handle_event("coach_new", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:coach_thread, [])
+     |> assign(:coach_question, "")
+     |> assign(:coach_error, nil)}
+  end
+
+  def handle_event("coach_open", %{"id" => id}, socket) do
+    {:noreply,
+     socket
+     |> assign(
+       :coach_thread,
+       Coach.thread_messages(socket.assigns.book.id, String.to_integer(id))
+     )
+     |> assign(:coach_error, nil)}
+  end
+
   # ── Working on ──────────────────────────────────────────────────────────────
 
   def handle_event("new_issue", _params, socket) do
@@ -444,12 +462,14 @@ defmodule RanchPhxWeb.TrainingLive.Book do
   end
 
   @impl true
+  # The Coach may have added a Working on item, so the page reloads too.
   def handle_async(:coach, {:ok, {:ok, message}}, socket) do
     {:noreply,
      socket
      |> assign(:coach_loading, nil)
      |> assign(:coach_question, "")
-     |> update(:coach_answers, &Enum.take([message | &1], 5))}
+     |> assign_coach_threads(message.id)
+     |> load()}
   end
 
   def handle_async(:coach, {:ok, {:error, reason}}, socket) do
@@ -470,6 +490,7 @@ defmodule RanchPhxWeb.TrainingLive.Book do
   # Runs in the background: the lookups can take several seconds.
   defp ask_coach(socket, question) do
     %{book: book, today: today, is_superuser: superuser?, coach_loading: loading} = socket.assigns
+    thread_id = socket.assigns.coach_thread |> List.first() |> then(&(&1 && &1.id))
     question = String.trim(question || "")
 
     cond do
@@ -480,8 +501,19 @@ defmodule RanchPhxWeb.TrainingLive.Book do
         socket
         |> assign(:coach_loading, question)
         |> assign(:coach_error, nil)
-        |> start_async(:coach, fn -> Coach.ask(book, question, today) end)
+        |> start_async(:coach, fn -> Coach.ask(book, question, today, thread_id) end)
     end
+  end
+
+  # Opens the conversation `message_id` belongs to, or the most recent one.
+  defp assign_coach_threads(socket, message_id \\ nil) do
+    book_id = socket.assigns.book.id
+    threads = Coach.recent_threads(book_id)
+    open_id = message_id || threads |> List.first() |> then(&(&1 && &1.id))
+
+    socket
+    |> assign(:coach_threads, threads)
+    |> assign(:coach_thread, if(open_id, do: Coach.thread_messages(book_id, open_id), else: []))
   end
 
   # ── Form state ──────────────────────────────────────────────────────────────
@@ -713,6 +745,7 @@ defmodule RanchPhxWeb.TrainingLive.Book do
       "What should I work on this week?",
       "How's he been on his left side lately?",
       "Is he ready for the next stage?",
+      "Something's giving us trouble. Help me work through it.",
       if(book.horse.foaled_on, do: "Anything I'm overdoing for his age?")
     ]
     |> Enum.reject(&is_nil/1)

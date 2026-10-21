@@ -79,7 +79,7 @@ defmodule RanchPhx.TrainingCoachTest do
     assert {:ok, msg} = Coach.ask(book, "How's his left side been?", ~D[2026-10-21])
     assert msg.answer =~ "left hind"
     assert msg.checked == ["sessions Oct 1–Oct 21 (Feet)"]
-    assert [%{id: id}] = Coach.recent(book.id)
+    assert [%{id: id}] = Coach.recent_threads(book.id)
     assert id == msg.id
 
     [first, second] = Agent.get(calls, & &1)
@@ -145,7 +145,81 @@ defmodule RanchPhx.TrainingCoachTest do
     assert {:error, {:api, 401, _} = reason} = Coach.ask(book, "Hi", ~D[2026-10-21])
     assert Coach.error_message(reason) =~ "API key was rejected"
     assert {:error, :empty} = Coach.ask(book, "  ", ~D[2026-10-21])
-    assert Coach.recent(book.id) == []
+    assert Coach.recent_threads(book.id) == []
+  end
+
+  test "a follow-up sends the earlier question and answer and joins the thread",
+       %{book: book, calls: calls} do
+    stub_claude(calls, [
+      text_reply(
+        "Stand at his shoulder and ask with light pressure; release on the smallest step."
+      ),
+      text_reply("Then go back to a smaller ask and slow your timing down.")
+    ])
+
+    {:ok, first} = Coach.ask(book, "He won't give me his shoulder on the ground.", ~D[2026-10-21])
+    {:ok, second} = Coach.ask(book, "He still crowds me. Now what?", ~D[2026-10-21], first.id)
+    assert second.thread_id == first.id
+
+    [_, follow_up] = Agent.get(calls, & &1)
+    [q1, a1, latest] = follow_up["messages"]
+    assert q1 == %{"role" => "user", "content" => "He won't give me his shoulder on the ground."}
+    assert a1["role"] == "assistant" and a1["content"] =~ "smallest step"
+    assert latest["content"] =~ "The trainer follows up: \"He still crowds me. Now what?\""
+    assert latest["content"] =~ "Snapshot of Asher"
+
+    assert Enum.map(Coach.thread_messages(book.id, second.id), & &1.id) == [first.id, second.id]
+    assert [%{id: root}] = Coach.recent_threads(book.id)
+    assert root == first.id
+    assert first.answer =~ "smallest step"
+  end
+
+  test "adds a Working on item when asked, and won't add a duplicate", %{book: book, calls: calls} do
+    add = fn id, title ->
+      %{
+        "stop_reason" => "tool_use",
+        "content" => [
+          %{
+            "type" => "tool_use",
+            "id" => id,
+            "name" => "add_working_on",
+            "input" => %{
+              "title" => title,
+              "activity" => "groundwork",
+              "side" => "left",
+              "notes" => "Leans in; ask smaller, release sooner."
+            }
+          }
+        ]
+      }
+    end
+
+    stub_claude(calls, [
+      add.("t1", "Giving his shoulder on the ground"),
+      text_reply("Done, it's on his list."),
+      add.("t2", "giving his shoulder on the ground"),
+      text_reply("That one's already on his list.")
+    ])
+
+    {:ok, msg} = Coach.ask(book, "Add that to my list", ~D[2026-10-21])
+    assert msg.answer =~ "Added “Giving his shoulder on the ground” to Working on."
+    assert msg.checked == []
+
+    item =
+      Enum.find(
+        Training.list_issues(book.horse_id),
+        &(&1.title == "Giving his shoulder on the ground")
+      )
+
+    assert %{side: "left", status: "open", notes: "Leans in; ask smaller, release sooner."} = item
+    assert item.activity.slug == "groundwork"
+
+    {:ok, again} = Coach.ask(book, "Add it again", ~D[2026-10-21], msg.id)
+    refute again.answer =~ "Added"
+    [_, _, _, last] = Agent.get(calls, & &1)
+    [%{"content" => result}] = last["messages"] |> List.last() |> Map.get("content")
+    assert result =~ "already on the Working on list"
+    assert Training.list_issues(book.horse_id) |> Enum.count(&(&1.title =~ ~r/shoulder/i)) == 1
   end
 
   describe "on the book page" do
@@ -160,7 +234,36 @@ defmodule RanchPhx.TrainingCoachTest do
 
       assert render_async(view) =~ "Keep it to two short flag sessions this week."
       refute has_element?(view, "#coach-loading")
-      assert [%{question: "What should I work on this week?"}] = Coach.recent(book.id)
+      assert [%{question: "What should I work on this week?"}] = Coach.recent_threads(book.id)
+    end
+
+    test "follow up, start a new question, and reopen an earlier one",
+         %{conn: conn, book: book, calls: calls} do
+      stub_claude(calls, [
+        text_reply("Start with a light ask at his shoulder."),
+        text_reply("Slow the timing and ask smaller."),
+        text_reply("Two short sessions this week.")
+      ])
+
+      {:ok, view, _html} = live(conn, ~p"/training/#{book.id}")
+      view |> form("#coach-form", question: "He won't give his shoulder.") |> render_submit()
+      render_async(view)
+
+      assert view |> element("#coach-form button[type=submit]") |> render() =~ "Ask follow-up"
+      view |> form("#coach-form", question: "He still crowds me.") |> render_submit()
+      html = render_async(view)
+      assert html =~ "Start with a light ask" and html =~ "Slow the timing"
+
+      view |> element("#coach button", "New question") |> render_click()
+      refute render(view) =~ "Slow the timing"
+      view |> form("#coach-form", question: "What this week?") |> render_submit()
+      assert render_async(view) =~ "Two short sessions"
+
+      view |> element("#coach .tr-earlier", "He won't give his shoulder.") |> render_click()
+      html = render(view)
+      assert html =~ "Start with a light ask" and html =~ "Slow the timing"
+      refute html =~ "Two short sessions this week."
+      assert length(Coach.recent_threads(book.id)) == 2
     end
   end
 end

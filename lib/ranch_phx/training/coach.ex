@@ -7,6 +7,10 @@ defmodule RanchPhx.Training.Coach do
   over a date range, per-activity results by side, one Working on item's history,
   and the program's stages. The server computes every number; Claude explains.
 
+  It also coaches "how do I get through X" problems from general horsemanship,
+  tailored to the horse's age, stage and log. Questions can be followed up in a
+  thread, and it adds a Working on item when the trainer asks it to.
+
   It suggests, never diagnoses, and points to a vet for anything physical.
 
   Env vars:
@@ -24,31 +28,46 @@ defmodule RanchPhx.Training.Coach do
   @max_rounds 6
   @max_tokens 16_000
   @max_sessions 60
+  # Earlier question-and-answer pairs sent with a follow-up.
+  @thread_turns 8
 
   @system """
   You are the Coach in a horse training log. You help one trainer think through the
-  training of one horse at a time, using what they've logged. You can look things up
-  with tools; use them instead of guessing.
+  training of one horse at a time: what to work on, how it's going, and how to get
+  through problems. You can look things up in their log with tools; use them instead
+  of guessing about this horse.
 
   How to work:
-  - For anything about how the horse has been, trends, sides, or what to do next, look at
+  - For questions about how the horse has been, trends, sides, or what to do next, look at
     the logged sessions first. Prefer one or two well-chosen lookups over many small ones.
-  - Dates are YYYY-MM-DD. "Lately" means about the last 3 weeks unless they say otherwise.
-  - Base what you say on the snapshot and tool results. Never invent sessions, numbers, or
-    results. If there isn't enough logged to tell, say so and say what to log next time.
+  - For how-to and trouble questions ("how do I get him to...", "he won't...", "I'm having
+    trouble with..."), coach them through it from sound horsemanship. Cover what the finished
+    response looks like; how to set it up and cue it, and where to stand or sit; when to
+    release, rewarding the smallest try; the common reasons it's sticky and which to check
+    first (often one side, the handler's position or timing, or too much pressure too fast);
+    how to tell it's getting better; and how short to keep it at his age, and when to quit.
+    If his log has related sessions or a Working on item, check them and tie in what you see.
+    If they say an approach isn't working, offer a different angle rather than repeating it.
+  - Make clear what comes from his log and what is general advice. Never invent sessions,
+    numbers, or results. If there isn't enough logged to tell, say so and what to log next.
   - Respect the stage's limits on session length and sessions per week, and the horse's age.
     Young horses' growth plates are still open; never suggest more than the stage allows.
-  - Suggestions should be concrete and small: what to work on, how long, what to watch for,
-    when to quit. Tie them to the goals and the open Working on items when they fit.
-  - Never diagnose. If anything sounds physical (sore, lame, off, heat or swelling, not
-    eating, a change in how he moves), say plainly that it's worth having the vet look, and
-    suggest rest until then.
+  - Never diagnose. A horse that suddenly resists one way, gets worse, or seems sore, lame,
+    or off may be hurting, not being difficult: say plainly it's worth having the vet look,
+    and suggest rest until then.
   - You are not the only voice: the trainer knows the horse. Offer, don't order.
+  - Working on list: call add_working_on only when the trainer asks you to add, track, or
+    note a problem, or says yes after you offered. Check the snapshot first and don't add
+    something already on the list. After a how-to answer about a problem that isn't on the
+    list, you may offer in one short line to add it.
+  - This is a conversation: earlier questions and your answers come first, and the newest
+    message has a current snapshot. Answer the newest question in that light.
 
   How to write:
-  - Plain, specific, warm. Lead with the answer. Under 200 words unless they ask for detail.
-  - Name dates ("Tue Oct 14"), activities, and sides. Short paragraphs; a few short lines
-    starting with "- " are fine for a plan. No headings, no tables, no bold.
+  - Plain, specific, warm. Lead with the answer. Under 200 words, or up to about 300 for a
+    how-to walk-through, unless they ask for more.
+  - Name dates ("Tue Oct 14"), activities, and sides. Short paragraphs; short lines starting
+    with "- " are fine for steps or a plan. No headings, no tables, no bold.
   """
 
   def configured?, do: api_key() != nil
@@ -67,10 +86,11 @@ defmodule RanchPhx.Training.Coach do
   # ── Asking ──────────────────────────────────────────────────────────────────
 
   @doc """
-  Ask about a book. Returns `{:ok, %CoachMessage{}}` (the saved question and answer,
-  with what was looked up) or `{:error, reason}`; see `error_message/1`.
+  Ask about a book, optionally as a follow-up in an existing conversation (`thread_id` is
+  the id of any message in it). Returns `{:ok, %CoachMessage{}}` (the saved question and
+  answer, with what was looked up) or `{:error, reason}`; see `error_message/1`.
   """
-  def ask(%Book{} = book, question, %Date{} = today) do
+  def ask(%Book{} = book, question, %Date{} = today, thread_id \\ nil) do
     question = String.trim(question || "")
 
     cond do
@@ -84,21 +104,42 @@ defmodule RanchPhx.Training.Coach do
         {:error, :limit}
 
       true ->
+        earlier = if thread_id, do: thread_messages(book.id, thread_id), else: []
+
         prompt = """
         Today is #{Date.to_iso8601(today)} (#{Calendar.strftime(today, "%A")}).
         Snapshot of #{book.horse.name}'s training book (JSON):
         #{Jason.encode!(snapshot(book, today))}
 
-        The trainer asks: "#{question}"
+        The trainer #{if earlier == [], do: "asks", else: "follows up"}: "#{question}"
         """
 
-        with {:ok, text, checked, model} <-
-               loop(book, today, base_body(), [%{role: "user", content: prompt}], 0, []) do
+        # Earlier turns go back as plain question and answer text; only the newest
+        # message carries a snapshot, so it's always current.
+        history =
+          earlier
+          |> Enum.take(-@thread_turns)
+          |> Enum.flat_map(
+            &[%{role: "user", content: &1.question}, %{role: "assistant", content: &1.answer}]
+          )
+
+        with {:ok, text, labels, model} <-
+               loop(
+                 book,
+                 today,
+                 base_body(),
+                 history ++ [%{role: "user", content: prompt}],
+                 0,
+                 []
+               ) do
+          added = for {:added, title} <- labels, do: "Added “#{title}” to Working on."
+
           %CoachMessage{
             book_id: book.id,
+            thread_id: earlier |> List.first() |> then(&(&1 && &1.id)),
             question: question,
-            answer: text,
-            checked: checked |> Enum.reject(&is_nil/1) |> Enum.uniq(),
+            answer: Enum.join([text | added], "\n\n"),
+            checked: for({:checked, label} <- labels, do: label) |> Enum.uniq(),
             model: model
           }
           |> Repo.insert()
@@ -106,10 +147,27 @@ defmodule RanchPhx.Training.Coach do
     end
   end
 
-  def recent(book_id, limit \\ 5) do
+  @doc "Every message in the conversation that `message_id` belongs to, oldest first."
+  def thread_messages(book_id, message_id) do
+    root_id =
+      Repo.one(
+        from m in CoachMessage,
+          where: m.id == ^message_id and m.book_id == ^book_id,
+          select: coalesce(m.thread_id, m.id)
+      )
+
     Repo.all(
       from m in CoachMessage,
-        where: m.book_id == ^book_id,
+        where: m.book_id == ^book_id and (m.id == ^root_id or m.thread_id == ^root_id),
+        order_by: [asc: m.inserted_at, asc: m.id]
+    )
+  end
+
+  @doc "The first message of each recent conversation, newest first."
+  def recent_threads(book_id, limit \\ 6) do
+    Repo.all(
+      from m in CoachMessage,
+        where: m.book_id == ^book_id and is_nil(m.thread_id),
         order_by: [desc: m.inserted_at, desc: m.id],
         limit: ^limit
     )
@@ -169,7 +227,14 @@ defmodule RanchPhx.Training.Coach do
                 %{role: "user", content: Enum.map(results, &elem(&1, 0))}
               ]
 
-          loop(book, today, body, messages, round + 1, checked ++ Enum.map(results, &elem(&1, 1)))
+          loop(
+            book,
+            today,
+            body,
+            messages,
+            round + 1,
+            checked ++ Enum.flat_map(results, &elem(&1, 1))
+          )
       end
     end
   end
@@ -181,10 +246,17 @@ defmodule RanchPhx.Training.Coach do
       rescue
         e ->
           Logger.warning("Coach tool #{name} failed: #{Exception.message(e)}")
-          {%{error: "That lookup failed."}, nil}
+          {%{error: "That didn't work."}, nil}
       end
 
-    {%{type: "tool_result", tool_use_id: id, content: Jason.encode!(result)}, label}
+    labels =
+      case label do
+        nil -> []
+        {:added, _} = added -> [added]
+        text -> [{:checked, text}]
+      end
+
+    {%{type: "tool_result", tool_use_id: id, content: Jason.encode!(result)}, labels}
   end
 
   # ── Snapshot ────────────────────────────────────────────────────────────────
@@ -331,6 +403,39 @@ defmodule RanchPhx.Training.Coach do
         }
       },
       %{
+        name: "add_working_on",
+        description:
+          "Add a problem to this horse's Working on list so each session can mark it better, same or worse. " <>
+            "Only when the trainer asks to add, track or note it, or says yes after you offered.",
+        strict: true,
+        input_schema: %{
+          type: "object",
+          properties: %{
+            title: %{
+              type: "string",
+              description:
+                "Short, in the trainer's words, e.g. \"Giving his shoulder on the ground\"."
+            },
+            activity: %{
+              type: ["string", "null"],
+              description: "Activity name it belongs to (e.g. \"Groundwork\"), or null."
+            },
+            side: %{
+              type: ["string", "null"],
+              enum: ["left", "right", "both", nil],
+              description: "Which side, or null."
+            },
+            notes: %{
+              type: ["string", "null"],
+              description:
+                "One or two lines: what it looks like and the plan you discussed, or null."
+            }
+          },
+          required: ["title", "activity", "side", "notes"],
+          additionalProperties: false
+        }
+      },
+      %{
         name: "program_stages",
         description:
           "All stages of this horse's training program with their ages, focus, and limits.",
@@ -432,6 +537,39 @@ defmodule RanchPhx.Training.Coach do
       end
 
     {%{program: book.program.name, stages: stages}, "program stages"}
+  end
+
+  defp run_tool(book, today, "add_working_on", %{"title" => title} = input) do
+    title = String.trim(title)
+    open = Training.list_issues(book.horse_id) |> Enum.reject(&(&1.status == "solved"))
+
+    if Enum.any?(open, &(String.downcase(&1.title) == String.downcase(title))) do
+      {%{error: "“#{title}” is already on the Working on list."}, nil}
+    else
+      activity =
+        case input["activity"] do
+          name when is_binary(name) ->
+            Enum.find(
+              Training.list_activities(),
+              &(String.downcase(&1.name) == String.downcase(name))
+            )
+
+          _ ->
+            nil
+        end
+
+      attrs = %{
+        "title" => title,
+        "activity_id" => activity && activity.id,
+        "side" => input["side"],
+        "notes" => input["notes"]
+      }
+
+      case Training.create_issue(book.horse_id, attrs, today) do
+        {:ok, issue} -> {%{added: true, id: issue.id, title: issue.title}, {:added, issue.title}}
+        {:error, _} -> {%{error: "Couldn't add that item."}, nil}
+      end
+    end
   end
 
   defp run_tool(_book, _today, name, _input), do: {%{error: "Unknown tool #{name}."}, nil}

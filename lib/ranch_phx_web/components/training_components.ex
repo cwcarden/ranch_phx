@@ -271,6 +271,8 @@ defmodule RanchPhxWeb.TrainingComponents do
       .tr-title { font-weight: 700; font-size: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
       .tr-wrap { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; display: grid; gap: 16px; }
+      /* Grid items default to their content's min width; long one-line text would widen the page. */
+      .tr-wrap > * { min-width: 0; }
       .tr-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; }
       .tr-card h2 { font-size: 20px; font-weight: 700; line-height: 1.25; }
       .tr-label { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text3); margin-bottom: 6px; }
@@ -337,6 +339,7 @@ defmodule RanchPhxWeb.TrainingComponents do
       .tr-res { font-weight: 700; }
       .tr-chip { min-height: 40px; padding: 0 14px; border-radius: 20px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text); font-size: 15px; cursor: pointer; text-align: left; }
       .tr-chip:disabled { opacity: .5; }
+      .tr-earlier { display: block; width: 100%; max-width: 100%; text-align: left; padding: 8px 0; color: var(--text2); font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-top: 1px solid var(--border); border-radius: 0; }
       .tr-answer { margin-top: 14px; padding: 14px; border-radius: 12px; background: var(--surface2); border: 1px solid var(--border); }
       .tr-status { font-size: 13px; font-weight: 700; padding: 2px 10px; border-radius: 12px; background: var(--surface2); border: 1px solid var(--border); }
       .tr-status.st-open { color: #dc2626; }
