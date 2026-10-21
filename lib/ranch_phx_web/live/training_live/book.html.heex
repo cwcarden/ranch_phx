@@ -160,6 +160,81 @@
     <% end %>
   </div>
 
+  <%!-- Goals --%>
+  <div class="tr-card" id="goals">
+    <div class="tr-row" style="margin-bottom:6px">
+      <h2>Goals</h2>
+      <button
+        :if={@is_superuser and is_nil(@editing_goal)}
+        class="tr-btn tr-btn-small"
+        phx-click="new_goal"
+      >
+        + Add goal
+      </button>
+    </div>
+
+    <.goal_form :if={@editing_goal == :new} form={@goal_form} new />
+
+    <% active = Enum.filter(@book.goals, &(&1.status == "active")) %>
+    <% finished = Enum.reject(@book.goals, &(&1.status == "active")) %>
+    <p :if={active == [] and @editing_goal != :new} class="tr-muted">
+      No goals yet. Add what you're working toward: a show, a skill, a date.
+    </p>
+
+    <div :for={g <- active} class="tr-session" id={"goal-#{g.id}"}>
+      <%= if @editing_goal == g.id do %>
+        <.goal_form form={@goal_form} goal_id={g.id} />
+      <% else %>
+        <b>{g.title}</b>
+        <p :if={goal_when(g, @today)} class="tr-muted">{goal_when(g, @today)}</p>
+        <p :if={g.notes && g.notes != ""} style="margin-top:4px;white-space:pre-line">
+          {g.notes}
+        </p>
+        <div :if={@is_superuser} class="tr-row" style="justify-content:flex-start;margin-top:6px">
+          <button
+            class="tr-btn tr-btn-small"
+            phx-click="goal_status"
+            phx-value-id={g.id}
+            phx-value-status="done"
+          >
+            ✓ Done
+          </button>
+          <button class="tr-btn tr-btn-small" phx-click="edit_goal" phx-value-id={g.id}>
+            Edit
+          </button>
+        </div>
+      <% end %>
+    </div>
+
+    <button
+      :if={finished != []}
+      class="tr-link-btn"
+      style="padding:0;margin-top:8px"
+      phx-click="toggle_done_goals"
+    >
+      {if @show_done_goals, do: "Hide", else: "Show"} finished goals ({length(finished)})
+    </button>
+    <div :for={g <- finished} :if={@show_done_goals} class="tr-session" style="opacity:.75">
+      <b>{g.title}</b>
+      <p class="tr-muted">
+        {if g.status == "done",
+          do: "Done#{if g.done_on, do: " " <> Calendar.strftime(g.done_on, "%b %-d, %Y")}",
+          else: "Dropped"}
+      </p>
+      <div :if={@is_superuser} class="tr-row" style="justify-content:flex-start;margin-top:4px">
+        <button
+          class="tr-link-btn"
+          style="padding:0"
+          phx-click="goal_status"
+          phx-value-id={g.id}
+          phx-value-status="active"
+        >
+          Reopen
+        </button>
+      </div>
+    </div>
+  </div>
+
   <%!-- Where he is now --%>
   <div class="tr-card" id="now">
     <div class="tr-label">
@@ -205,8 +280,8 @@
         <span>days to goal</span>
       </div>
     </div>
-    <p :if={@book.goal} class="tr-muted" style="margin-top:10px">
-      Goal: {@book.goal}<span :if={@book.goal_date}> · {Calendar.strftime(@book.goal_date, "%b %Y")}</span>
+    <p :if={@progress.next_goal} class="tr-muted" style="margin-top:10px">
+      Next goal: {@progress.next_goal.title}
     </p>
   </div>
 
@@ -244,10 +319,62 @@
 
   <%!-- Log a session --%>
   <div :if={@is_superuser} class="tr-card" id="log">
-    <h2 style="margin-bottom:14px">Log a session</h2>
-    <.form for={%{}} as={:session} id="session-form" phx-change="change" phx-submit="save">
-      <input type="hidden" name="session[client_id]" value={@params["client_id"]} />
+    <div class="tr-row" style="margin-bottom:12px">
+      <h2>{if @editing, do: "Edit session", else: "Log a session"}</h2>
+      <button :if={@editing} class="tr-link-btn" phx-click="cancel_edit">Cancel</button>
+      <a
+        :if={!@editing}
+        href={~p"/training/lists?back=#{@book.id}"}
+        class="tr-link-btn"
+        style="text-decoration:none;display:inline-flex;align-items:center"
+      >
+        Customize lists
+      </a>
+    </div>
 
+    <%!-- Quick actions --%>
+    <div :if={!@editing} class="tr-quick">
+      <button
+        :if={@sessions != []}
+        type="button"
+        class="tr-btn tr-btn-small"
+        phx-click="repeat_last"
+      >
+        ↻ Repeat last
+      </button>
+      <span :for={r <- @routines} class="tr-routine">
+        <button
+          type="button"
+          class="tr-btn tr-btn-small"
+          phx-click="apply_routine"
+          phx-value-id={r.id}
+          title={activity_summary(r, @activities)}
+        >
+          {r.name}
+        </button>
+        <button
+          :if={@managing_routines}
+          type="button"
+          class="tr-link-btn"
+          phx-click="delete_routine"
+          phx-value-id={r.id}
+          data-confirm={"Delete the routine “#{r.name}”?"}
+          aria-label={"Delete #{r.name}"}
+        >
+          ✕
+        </button>
+      </span>
+      <button
+        :if={@routines != []}
+        type="button"
+        class="tr-link-btn"
+        phx-click="toggle_manage_routines"
+      >
+        {if @managing_routines, do: "Done", else: "Edit routines"}
+      </button>
+    </div>
+
+    <.form for={%{}} as={:session} id="session-form" phx-change="change" phx-submit="save">
       <div class="tr-field">
         <span class="tr-label">When?</span>
         <div class="tr-pills">
@@ -275,21 +402,60 @@
       </div>
 
       <div class="tr-field">
-        <span class="tr-label">What did you work on?</span>
+        <span class="tr-label">
+          What did you work on?
+          <span class="tr-muted" style="font-weight:400">Pick all that apply</span>
+        </span>
+        <input type="hidden" name="session[activity_ids][]" value="" />
         <div class="tr-pills">
           <label
-            :for={{slug, label} <- type_options()}
-            class={"tr-pill #{if @progress.stage && @progress.stage.session_types != [] && slug not in @progress.stage.session_types, do: "dim"}"}
+            :for={a <- @activities}
+            class={"tr-pill #{if MapSet.member?(@gated, a.slug) and @progress.stage && a.slug not in @progress.stage.session_types, do: "dim"}"}
           >
             <input
-              type="radio"
-              name="session[session_type]"
-              value={slug}
-              checked={@params["session_type"] == slug}
+              type="checkbox"
+              name="session[activity_ids][]"
+              value={a.id}
+              checked={"#{a.id}" in @params["activity_ids"]}
             />
-            <span>{label}</span>
+            <span>{a.name}</span>
           </label>
         </div>
+      </div>
+
+      <%!-- How each picked activity went (optional) --%>
+      <% picked = Enum.filter(@activities, &("#{&1.id}" in @params["activity_ids"])) %>
+      <div :for={a <- picked} class="tr-detail" id={"detail-#{a.id}"}>
+        <b>{a.name}</b>
+        <div class="tr-pills tr-pills-sm">
+          <label :for={{v, l} <- results()} class={"tr-pill res-#{v}"}>
+            <input
+              type="radio"
+              name={"session[details][#{a.id}][result]"}
+              value={v}
+              checked={detail(@params, a.id, "result") == v}
+            />
+            <span>{l}</span>
+          </label>
+        </div>
+        <div class="tr-pills tr-pills-sm">
+          <label :for={{v, l} <- sides()} class="tr-pill">
+            <input
+              type="radio"
+              name={"session[details][#{a.id}][side]"}
+              value={v}
+              checked={detail(@params, a.id, "side") == v}
+            />
+            <span>{l}</span>
+          </label>
+        </div>
+        <input
+          type="text"
+          name={"session[details][#{a.id}][note]"}
+          value={detail(@params, a.id, "note")}
+          placeholder={"Note on #{String.downcase(a.name)} (optional)"}
+          class="tr-detail-note"
+        />
       </div>
 
       <div class="tr-field">
@@ -321,14 +487,17 @@
         <span class="tr-label">How was he?</span>
         <input type="hidden" name="session[tags][]" value="" />
         <div class="tr-pills">
-          <label :for={{slug, label} <- tag_options()} class="tr-pill">
+          <label
+            :for={t <- Enum.filter(@tags, &(not &1.archived or &1.slug in @params["tags"]))}
+            class={"tr-pill tag-#{t.kind}"}
+          >
             <input
               type="checkbox"
               name="session[tags][]"
-              value={slug}
-              checked={slug in (@params["tags"] || [])}
+              value={t.slug}
+              checked={t.slug in @params["tags"]}
             />
-            <span>{label}</span>
+            <span>{t.name}</span>
           </label>
         </div>
       </div>
@@ -344,7 +513,11 @@
 
       <div :for={w <- @warnings} class="tr-warn" style="margin-bottom:10px">{w}</div>
       <div :for={e <- @errors} class="tr-error" style="margin-bottom:10px">{e}</div>
-      <p :if={"sore" in (@params["tags"] || [])} class="tr-muted" style="margin-bottom:10px">
+      <p
+        :if={Enum.any?(@params["tags"], &health_tag?(@tags, &1))}
+        class="tr-muted"
+        style="margin-bottom:10px"
+      >
         If he's sore or off, give him rest and check with your vet before the next session.
       </p>
 
@@ -353,9 +526,35 @@
         class="tr-btn tr-btn-primary tr-btn-block"
         phx-disable-with="Saving…"
       >
-        Save session
+        {if @editing, do: "Save changes", else: "Save session"}
       </button>
     </.form>
+
+    <div :if={!@editing} style="margin-top:12px">
+      <%= if @naming_routine do %>
+        <form phx-submit="create_routine" class="tr-row" style="flex-wrap:nowrap">
+          <input
+            type="text"
+            name="name"
+            placeholder="Routine name, e.g. Usual groundwork"
+            class="tr-detail-note"
+            style="flex:1"
+            autofocus
+            required
+          />
+          <button type="submit" class="tr-btn tr-btn-small">Save</button>
+          <button type="button" class="tr-link-btn" phx-click="cancel_routine">Cancel</button>
+        </form>
+        <p class="tr-muted" style="font-size:14px;margin-top:4px">
+          Saves the activities, minutes and tags picked above as a one-tap routine for {@book.horse.name}.
+        </p>
+        <p :if={@routine_error} class="tr-error">{@routine_error}</p>
+      <% else %>
+        <button type="button" class="tr-link-btn" style="padding:0" phx-click="name_routine">
+          + Save these picks as a routine
+        </button>
+      <% end %>
+    </div>
   </div>
 
   <%!-- Session history --%>
@@ -365,7 +564,7 @@
     <div :for={s <- @sessions} class="tr-session" id={"session-#{s.id}"}>
       <div class="tr-row">
         <b>
-          {Session.type_label(s.session_type)}<span
+          {Enum.map_join(s.activities, ", ", & &1.activity.name)}<span
             :if={s.minutes}
             class="tr-muted"
             style="font-weight:400"
@@ -373,22 +572,45 @@
         </b>
         <span class="tr-muted">{fmt_date(s.date, @today)}</span>
       </div>
+      <div
+        :for={a <- Enum.filter(s.activities, &(&1.result || &1.side || &1.note))}
+        class="tr-muted"
+        style="font-size:15px;margin-top:2px"
+      >
+        {a.activity.name}:
+        <span :if={a.result} class={"tr-res res-#{a.result}"}>{String.capitalize(a.result)}</span>
+        <span :if={a.side}>{String.capitalize(a.side)} side</span>
+        <span :if={a.note}>· {a.note}</span>
+      </div>
       <div :if={s.tags != []}>
-        <span :for={t <- s.tags} class={"tr-tag #{if t == "sore", do: "sore"}"}>
-          {Session.tag_label(t)}
+        <span :for={t <- s.tags} class={"tr-tag #{if health_tag?(@tags, t), do: "sore"}"}>
+          {tag_name(@tags, t)}
         </span>
       </div>
       <p :if={s.note && s.note != ""} style="margin-top:6px;white-space:pre-line">{s.note}</p>
-      <button
+      <div
         :if={@is_superuser}
-        class="tr-link-btn"
-        style="padding:0;margin-top:4px"
-        phx-click="delete_session"
-        phx-value-id={s.id}
-        data-confirm="Delete this session?"
+        class="tr-row"
+        style="justify-content:flex-start;gap:4px;margin-top:4px"
       >
-        Delete
-      </button>
+        <a
+          href="#log"
+          class="tr-link-btn"
+          style="padding:0;display:inline-flex;align-items:center;text-decoration:none"
+          phx-click="edit_session"
+          phx-value-id={s.id}
+        >
+          Edit
+        </a>
+        <button
+          class="tr-link-btn"
+          phx-click="delete_session"
+          phx-value-id={s.id}
+          data-confirm="Delete this session?"
+        >
+          Delete
+        </button>
+      </div>
     </div>
   </div>
 </div>

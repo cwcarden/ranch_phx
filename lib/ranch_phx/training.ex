@@ -6,7 +6,19 @@ defmodule RanchPhx.Training do
   import Ecto.Query
   alias RanchPhx.Repo
   alias RanchPhx.Animals.Animal
-  alias RanchPhx.Training.{Book, Horse, Program, Session, Stage}
+
+  alias RanchPhx.Training.{
+    Activity,
+    Book,
+    Goal,
+    Horse,
+    Program,
+    Routine,
+    Session,
+    SessionActivity,
+    Stage,
+    Tag
+  }
 
   # ── Dates ───────────────────────────────────────────────────────────────────
 
@@ -54,14 +66,14 @@ defmodule RanchPhx.Training do
         join: h in assoc(b, :horse),
         where: b.status == "active",
         order_by: h.name,
-        preload: [horse: h, program: :stages]
+        preload: [horse: h, program: :stages, goals: []]
     )
   end
 
   def get_book!(id) do
     Book
     |> Repo.get!(id)
-    |> Repo.preload([:horse, program: :stages])
+    |> Repo.preload([:horse, :goals, program: :stages])
   end
 
   def active_book_for_animal(animal_id) do
@@ -84,6 +96,12 @@ defmodule RanchPhx.Training do
     |> Ecto.Multi.run(:horse, fn _repo, _ -> find_or_create_horse(horse_attrs) end)
     |> Ecto.Multi.run(:book, fn _repo, %{horse: horse} ->
       create_book(Map.put(book_attrs, "horse_id", horse.id))
+    end)
+    |> Ecto.Multi.run(:goal, fn _repo, %{book: book} ->
+      case String.trim(book_attrs["goal"] || "") do
+        "" -> {:ok, nil}
+        title -> create_goal(book, %{"title" => title, "target_date" => book_attrs["goal_date"]})
+      end
     end)
     |> Repo.transaction()
     |> case do
@@ -169,6 +187,7 @@ defmodule RanchPhx.Training do
     by_age = stage_for_age(stages, months)
     current = Enum.find(stages, &(&1.id == book.stage_override_id)) || by_age
     next = current && Enum.find(stages, &(&1.position == current.position + 1))
+    next_goal = upcoming_goal(book, date)
 
     %{
       age_months: months,
@@ -179,9 +198,22 @@ defmodule RanchPhx.Training do
       overridden?: book.stage_override_id != nil and current != nil,
       next: next,
       months_to_next: next && months && max(next.from_age_months - months, 0),
-      days_to_goal: book.goal_date && Date.diff(book.goal_date, date)
+      next_goal: next_goal,
+      days_to_goal: next_goal && Date.diff(next_goal.target_date, date)
     }
   end
+
+  # The soonest active goal that has a date (goals must be preloaded).
+  defp upcoming_goal(%Book{goals: goals}, date) when is_list(goals) do
+    goals
+    |> Enum.filter(&(&1.status == "active" and &1.target_date != nil))
+    |> Enum.sort_by(
+      &{Date.compare(&1.target_date, date) == :lt, Date.to_gregorian_days(&1.target_date)}
+    )
+    |> List.first()
+  end
+
+  defp upcoming_goal(_book, _date), do: nil
 
   defp stage_for_age(stages, nil), do: List.first(stages)
 
@@ -199,22 +231,72 @@ defmodule RanchPhx.Training do
       from s in Session,
         where: s.book_id == ^book_id,
         order_by: [desc: s.date, desc: s.inserted_at],
-        limit: ^limit
+        limit: ^limit,
+        preload: [activities: :activity]
     )
   end
 
+  def get_session!(book_id, id) do
+    Session
+    |> Repo.get_by!(id: id, book_id: book_id)
+    |> Repo.preload(activities: :activity)
+  end
+
+  def last_session(book_id), do: book_id |> list_sessions(1) |> List.first()
+
   def change_session(%Session{} = session, attrs \\ %{}), do: Session.changeset(session, attrs)
 
-  @doc "Insert, or update the row with the same client_id (safe to re-send)."
+  @doc """
+  Insert, or update the session with the same client_id (safe to re-send, and how
+  edits are saved). `attrs["activities"]` is a list of maps with "activity_id" and
+  optional "result", "side", "note"; they replace the session's activities.
+  """
   def save_session(attrs) do
-    %Session{}
-    |> Session.changeset(attrs)
-    |> Repo.insert(
-      on_conflict:
-        {:replace, [:date, :session_type, :minutes, :tags, :note, :source, :updated_at]},
-      conflict_target: :client_id,
-      returning: true
-    )
+    activities = attrs |> Map.get("activities", []) |> Enum.with_index()
+    changeset = Session.changeset(%Session{}, attrs)
+
+    activity_changesets =
+      for {a, i} <- activities,
+          do: SessionActivity.changeset(%SessionActivity{}, Map.put(a, "position", i))
+
+    cond do
+      activities == [] ->
+        {:error,
+         Ecto.Changeset.add_error(
+           %{changeset | action: :insert},
+           :activities,
+           "pick at least one"
+         )}
+
+      Enum.any?(activity_changesets, &(not &1.valid?)) ->
+        {:error,
+         Ecto.Changeset.add_error(
+           %{changeset | action: :insert},
+           :activities,
+           "have an invalid result or side"
+         )}
+
+      true ->
+        Repo.transaction(fn ->
+          session =
+            case Repo.insert(changeset,
+                   on_conflict: {:replace, [:date, :minutes, :tags, :note, :source, :updated_at]},
+                   conflict_target: :client_id,
+                   returning: true
+                 ) do
+              {:ok, session} -> session
+              {:error, cs} -> Repo.rollback(cs)
+            end
+
+          Repo.delete_all(from sa in SessionActivity, where: sa.session_id == ^session.id)
+
+          for cs <- activity_changesets do
+            cs |> Ecto.Changeset.put_change(:session_id, session.id) |> Repo.insert!()
+          end
+
+          Repo.preload(session, [activities: :activity], force: true)
+        end)
+    end
   end
 
   def delete_session(book_id, session_id) do
@@ -247,24 +329,154 @@ defmodule RanchPhx.Training do
     |> Map.new()
   end
 
-  @doc """
-  Guardrail warnings for a session about to be logged in `stage`.
-  `week` is the week summary *before* this session.
-  """
-  def guardrail_warnings(nil, _session, _week), do: []
+  @doc "How often each activity was used in this book over the last 90 days."
+  def activity_usage(book_id, %Date{} = date) do
+    since = Date.add(date, -90)
 
-  def guardrail_warnings(%Stage{} = stage, session, week) do
+    Repo.all(
+      from sa in SessionActivity,
+        join: s in assoc(sa, :session),
+        where: s.book_id == ^book_id and s.date >= ^since,
+        group_by: sa.activity_id,
+        select: {sa.activity_id, count(sa.id)}
+    )
+    |> Map.new()
+  end
+
+  @doc """
+  Guardrail warnings for a session about to be logged in `stage`. `session` has
+  `:minutes` and `:activities` (Activity structs); `week` is the week summary
+  *before* this session; `gated` is every activity slug any stage of the program
+  lists. Activities no stage mentions (ones you added yourself) never warn.
+  """
+  def guardrail_warnings(stage, session, week, gated \\ MapSet.new())
+  def guardrail_warnings(nil, _session, _week, _gated), do: []
+
+  def guardrail_warnings(%Stage{} = stage, session, week, gated) do
     minutes = session[:minutes]
-    type = session[:session_type]
+
+    early =
+      for a <- session[:activities] || [],
+          MapSet.member?(gated, a.slug) and a.slug not in stage.session_types,
+          do: "#{a.name} isn't part of this stage yet."
 
     [
       stage.max_session_minutes && is_integer(minutes) && minutes > stage.max_session_minutes &&
         "Longer than the #{stage.max_session_minutes} minutes suggested at this stage.",
       stage.max_sessions_per_week && week.sessions >= stage.max_sessions_per_week &&
-        "That makes #{week.sessions + 1} sessions this week; this stage suggests #{stage.max_sessions_per_week} at most.",
-      type && stage.session_types != [] && type not in stage.session_types &&
-        "#{Session.type_label(type)} isn't part of this stage yet."
+        "That makes #{week.sessions + 1} sessions this week; this stage suggests #{stage.max_sessions_per_week} at most."
+      | early
     ]
     |> Enum.filter(&is_binary/1)
+  end
+
+  def gated_activities(%Program{stages: stages}),
+    do: stages |> Enum.flat_map(& &1.session_types) |> MapSet.new()
+
+  # ── Activity and tag lists ──────────────────────────────────────────────────
+
+  def list_activities(opts \\ []) do
+    Activity
+    |> where([a], ^Keyword.get(opts, :archived, false) or a.archived == false)
+    |> order_by([a], asc: a.position, asc: a.id)
+    |> Repo.all()
+  end
+
+  def list_tags(opts \\ []) do
+    Tag
+    |> where([t], ^Keyword.get(opts, :archived, false) or t.archived == false)
+    |> order_by([t], asc: t.position, asc: t.id)
+    |> Repo.all()
+  end
+
+  def create_activity(name), do: create_item(Activity, %{"name" => name})
+  def create_tag(name, kind), do: create_item(Tag, %{"name" => name, "kind" => kind})
+
+  defp create_item(schema, attrs) do
+    name = String.trim(attrs["name"] || "")
+    position = Repo.one(from x in schema, select: coalesce(max(x.position), -1)) + 1
+
+    schema
+    |> struct()
+    |> schema.changeset(
+      Map.merge(attrs, %{"slug" => unique_slug(schema, name), "position" => position})
+    )
+    |> Repo.insert()
+  end
+
+  defp unique_slug(schema, name) do
+    base =
+      name
+      |> String.downcase()
+      |> String.replace(~r/[^a-z0-9]+/, "_")
+      |> String.trim("_")
+      |> then(&if(&1 == "", do: "item", else: &1))
+
+    Stream.iterate(1, &(&1 + 1))
+    |> Stream.map(&if(&1 == 1, do: base, else: "#{base}_#{&1}"))
+    |> Enum.find(&(not Repo.exists?(from x in schema, where: x.slug == ^&1)))
+  end
+
+  @doc "Rename, change kind, or hide/show an activity or tag. The slug never changes."
+  def update_item(%schema{} = item, attrs) do
+    item |> schema.changeset(Map.drop(attrs, ["slug"])) |> Repo.update()
+  end
+
+  @doc "Move an activity or tag one place up (-1) or down (1) in its list."
+  def move_item(%schema{} = item, dir) when dir in [-1, 1] do
+    items = Repo.all(from x in schema, order_by: [asc: x.position, asc: x.id])
+    index = Enum.find_index(items, &(&1.id == item.id))
+    swap = index + dir
+
+    if swap >= 0 and swap < length(items) do
+      items
+      |> List.replace_at(index, Enum.at(items, swap))
+      |> List.replace_at(swap, Enum.at(items, index))
+      |> Enum.with_index()
+      |> Enum.each(fn {x, i} ->
+        if x.position != i, do: x |> Ecto.Changeset.change(position: i) |> Repo.update!()
+      end)
+    end
+
+    :ok
+  end
+
+  # ── Goals ───────────────────────────────────────────────────────────────────
+
+  def change_goal(%Goal{} = goal, attrs \\ %{}), do: Goal.changeset(goal, attrs)
+
+  def create_goal(%Book{} = book, attrs) do
+    position =
+      Repo.one(
+        from g in Goal, where: g.book_id == ^book.id, select: coalesce(max(g.position), -1)
+      ) + 1
+
+    %Goal{}
+    |> Goal.changeset(Map.merge(attrs, %{"book_id" => book.id, "position" => position}))
+    |> Repo.insert()
+  end
+
+  def get_goal!(book_id, id), do: Repo.get_by!(Goal, id: id, book_id: book_id)
+
+  def update_goal(%Goal{} = goal, attrs), do: goal |> Goal.changeset(attrs) |> Repo.update()
+
+  @doc "Mark a goal active, done or dropped. Done goals remember the day."
+  def set_goal_status(%Goal{} = goal, status, %Date{} = date) do
+    done_on = if status == "done", do: date
+    update_goal(goal, %{"status" => status, "done_on" => done_on})
+  end
+
+  def delete_goal(%Goal{} = goal), do: Repo.delete(goal)
+
+  # ── Routines ────────────────────────────────────────────────────────────────
+
+  def list_routines(horse_id) do
+    Repo.all(from r in Routine, where: r.horse_id == ^horse_id, order_by: [asc: r.name])
+  end
+
+  def create_routine(attrs), do: %Routine{} |> Routine.changeset(attrs) |> Repo.insert()
+
+  def delete_routine(horse_id, id) do
+    from(r in Routine, where: r.id == ^id and r.horse_id == ^horse_id) |> Repo.delete_all()
   end
 end

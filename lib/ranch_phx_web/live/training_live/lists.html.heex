@@ -1,0 +1,125 @@
+<.styles />
+<.topbar back={@back} back_label="Back" title="Customize lists" />
+
+<div class="tr-wrap">
+  <p :if={@error} class="tr-warn">{@error}</p>
+
+  <%= for {type, title, items, hint} <- [
+        {"activity", "Activities", @activities, "What you work on in a session. The ones you use most with a horse show first on its log form."},
+        {"tag", "How was he?", @tags, "Quick tags for the session. Health tags remind you to rest him and check with your vet."}
+      ] do %>
+    <div class="tr-card">
+      <h2>{title}</h2>
+      <p class="tr-muted" style="margin:4px 0 12px">{hint}</p>
+
+      <div
+        :for={{item, i} <- Enum.with_index(items)}
+        class="tr-list-row"
+        id={"#{type}-#{item.id}"}
+      >
+        <%= if @editing == {type, item.id} do %>
+          <form phx-submit="rename" style="display:flex;gap:8px;flex-wrap:wrap;width:100%">
+            <input type="hidden" name="type" value={type} />
+            <input type="hidden" name="item_id" value={item.id} />
+            <input
+              type="text"
+              name="name"
+              value={item.name}
+              class="tr-detail-note"
+              style="flex:1;min-width:160px"
+              required
+              autofocus
+            />
+            <select :if={type == "tag"} name="kind" class="tr-detail-note" style="width:auto">
+              <option
+                :for={k <- RanchPhx.Training.Tag.kinds()}
+                value={k}
+                selected={item.kind == k}
+              >
+                {kind_label(k)}
+              </option>
+            </select>
+            <button type="submit" class="tr-btn tr-btn-small tr-btn-primary">Save</button>
+            <button type="button" class="tr-link-btn" phx-click="cancel_edit">Cancel</button>
+          </form>
+        <% else %>
+          <span style={"flex:1;#{if item.archived, do: "opacity:.45;text-decoration:line-through"}"}>
+            {item.name}
+            <span :if={type == "tag"} class="tr-muted" style="font-size:13px">
+              · {kind_label(item.kind)}
+            </span>
+          </span>
+          <%= if @is_superuser do %>
+            <button
+              class="tr-icon-btn"
+              phx-click="move"
+              phx-value-type={type}
+              phx-value-id={item.id}
+              phx-value-dir="-1"
+              disabled={i == 0}
+              aria-label={"Move #{item.name} up"}
+            >
+              ↑
+            </button>
+            <button
+              class="tr-icon-btn"
+              phx-click="move"
+              phx-value-type={type}
+              phx-value-id={item.id}
+              phx-value-dir="1"
+              disabled={i == length(items) - 1}
+              aria-label={"Move #{item.name} down"}
+            >
+              ↓
+            </button>
+            <button
+              class="tr-link-btn"
+              phx-click="edit"
+              phx-value-type={type}
+              phx-value-id={item.id}
+            >
+              Rename
+            </button>
+            <button
+              class="tr-link-btn"
+              phx-click="toggle_hidden"
+              phx-value-type={type}
+              phx-value-id={item.id}
+            >
+              {if item.archived, do: "Show", else: "Hide"}
+            </button>
+          <% end %>
+        <% end %>
+      </div>
+
+      <form
+        :if={@is_superuser}
+        phx-submit={"add_#{type}"}
+        style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap"
+      >
+        <input
+          type="text"
+          name="name"
+          placeholder={
+            if type == "activity",
+              do: "Add an activity, e.g. Clippers",
+              else: "Add a tag, e.g. Lazy"
+          }
+          class="tr-detail-note"
+          style="flex:1;min-width:160px"
+          required
+        />
+        <select :if={type == "tag"} name="kind" class="tr-detail-note" style="width:auto">
+          <option :for={k <- RanchPhx.Training.Tag.kinds()} value={k} selected={k == "problem"}>
+            {kind_label(k)}
+          </option>
+        </select>
+        <button type="submit" class="tr-btn tr-btn-small">Add</button>
+      </form>
+    </div>
+  <% end %>
+
+  <p class="tr-muted" style="font-size:14px">
+    Hiding keeps old sessions intact; hidden items just stop showing on the log form.
+  </p>
+</div>

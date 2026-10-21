@@ -2,7 +2,7 @@ defmodule RanchPhxWeb.TrainingLive.Book do
   use RanchPhxWeb, :live_view
   import RanchPhxWeb.TrainingComponents
   alias RanchPhx.Training
-  alias RanchPhx.Training.Session
+  alias RanchPhx.Training.{Goal, SessionActivity}
   alias RanchPhx.Accounts.Scope
   alias RanchPhxWeb.Uploads
 
@@ -21,8 +21,15 @@ defmodule RanchPhxWeb.TrainingLive.Book do
      |> assign(:today, today)
      |> assign(:minute_chips, @minute_chips)
      |> assign(:is_superuser, Scope.superuser?(socket.assigns[:current_scope]))
-     |> assign(:errors, [])
+     |> assign(:gated, Training.gated_activities(book.program))
+     |> assign(:tags, Training.list_tags(archived: true))
      |> assign(:profile_form, nil)
+     |> assign(:goal_form, nil)
+     |> assign(:editing_goal, nil)
+     |> assign(:show_done_goals, false)
+     |> assign(:naming_routine, false)
+     |> assign(:managing_routines, false)
+     |> assign(:routine_error, nil)
      |> allow_upload(:photo,
        accept: Uploads.image_types(),
        max_entries: 1,
@@ -35,23 +42,27 @@ defmodule RanchPhxWeb.TrainingLive.Book do
   @impl true
   def handle_params(_params, _uri, socket), do: {:noreply, socket}
 
+  # ── Log form ────────────────────────────────────────────────────────────────
+
   @impl true
   def handle_event("change", %{"session" => params} = payload, socket) do
     {:noreply,
      socket
-     |> assign(:params, normalize(params, payload["_target"]))
+     |> assign(:params, normalize(params, payload["_target"], socket.assigns.params))
      |> put_warnings()}
   end
 
   def handle_event("save", %{"session" => params}, socket) do
+    params = normalize(params, nil, socket.assigns.params)
+
     with true <- socket.assigns.is_superuser,
-         params =
-           normalize(params)
-           |> Map.put("book_id", socket.assigns.book.id),
-         {:ok, _session} <- Training.save_session(params) do
+         {:ok, _session} <- Training.save_session(to_attrs(params, socket.assigns.book.id)) do
       {:noreply,
        socket
-       |> put_flash(:info, "Session saved")
+       |> put_flash(
+         :info,
+         if(socket.assigns.editing, do: "Session updated", else: "Session saved")
+       )
        |> reset_form(params["date"])
        |> load()}
     else
@@ -64,14 +75,180 @@ defmodule RanchPhxWeb.TrainingLive.Book do
             "#{Phoenix.Naming.humanize(field)} #{msg}"
           end)
 
-        {:noreply, assign(socket, :errors, errors)}
+        {:noreply, socket |> assign(:params, params) |> assign(:errors, errors)}
     end
+  end
+
+  def handle_event("repeat_last", _params, socket) do
+    case Training.last_session(socket.assigns.book.id) do
+      nil ->
+        {:noreply, socket}
+
+      last ->
+        ids = Enum.map(last.activities, & &1.activity_id)
+        {:noreply, socket |> fill_from(ids, last.minutes, last.tags) |> put_warnings()}
+    end
+  end
+
+  def handle_event("apply_routine", %{"id" => id}, socket) do
+    case Enum.find(socket.assigns.routines, &("#{&1.id}" == id)) do
+      nil -> {:noreply, socket}
+      r -> {:noreply, socket |> fill_from(r.activity_ids, r.minutes, r.tags) |> put_warnings()}
+    end
+  end
+
+  def handle_event("edit_session", %{"id" => id}, socket) do
+    s = Training.get_session!(socket.assigns.book.id, id)
+
+    details =
+      Map.new(s.activities, fn a ->
+        {"#{a.activity_id}", %{"result" => a.result, "side" => a.side, "note" => a.note || ""}}
+      end)
+
+    params =
+      socket.assigns.today
+      |> blank_params(Date.to_iso8601(s.date))
+      |> Map.merge(%{
+        "client_id" => s.client_id,
+        "activity_ids" => Enum.map(s.activities, &"#{&1.activity_id}"),
+        "details" => details,
+        "tags" => s.tags,
+        "note" => s.note || ""
+      })
+      |> put_minutes(s.minutes)
+
+    {:noreply,
+     socket
+     |> assign(:editing, s.id)
+     |> assign(:params, params)
+     |> assign(:errors, [])
+     |> put_activity_options()
+     |> put_warnings()}
+  end
+
+  def handle_event("cancel_edit", _params, socket) do
+    {:noreply, socket |> reset_form() |> put_activity_options() |> put_warnings()}
   end
 
   def handle_event("delete_session", %{"id" => id}, socket) do
     if socket.assigns.is_superuser, do: Training.delete_session(socket.assigns.book.id, id)
     {:noreply, load(socket)}
   end
+
+  # ── Routines ────────────────────────────────────────────────────────────────
+
+  def handle_event("name_routine", _params, socket) do
+    {:noreply, socket |> assign(:naming_routine, true) |> assign(:routine_error, nil)}
+  end
+
+  def handle_event("cancel_routine", _params, socket) do
+    {:noreply, assign(socket, :naming_routine, false)}
+  end
+
+  def handle_event("create_routine", %{"name" => name}, socket) do
+    %{params: p, book: book} = socket.assigns
+
+    attrs = %{
+      "horse_id" => book.horse_id,
+      "name" => name,
+      "activity_ids" => p["activity_ids"],
+      "minutes" => p["minutes"],
+      "tags" => p["tags"]
+    }
+
+    with true <- socket.assigns.is_superuser,
+         {:ok, _} <- Training.create_routine(attrs) do
+      {:noreply, socket |> assign(:naming_routine, false) |> load()}
+    else
+      false ->
+        {:noreply, socket}
+
+      {:error, cs} ->
+        msg =
+          Enum.map_join(cs.errors, ", ", fn
+            {:activity_ids, {m, _}} -> m
+            {f, {m, _}} -> "#{Phoenix.Naming.humanize(f)} #{m}"
+          end)
+
+        {:noreply, assign(socket, :routine_error, msg)}
+    end
+  end
+
+  def handle_event("toggle_manage_routines", _params, socket) do
+    {:noreply, update(socket, :managing_routines, &(!&1))}
+  end
+
+  def handle_event("delete_routine", %{"id" => id}, socket) do
+    if socket.assigns.is_superuser, do: Training.delete_routine(socket.assigns.book.horse_id, id)
+    {:noreply, load(socket)}
+  end
+
+  # ── Goals ───────────────────────────────────────────────────────────────────
+
+  def handle_event("new_goal", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:editing_goal, :new)
+     |> assign(:goal_form, to_form(Training.change_goal(%Goal{})))}
+  end
+
+  def handle_event("edit_goal", %{"id" => id}, socket) do
+    goal = Training.get_goal!(socket.assigns.book.id, id)
+
+    {:noreply,
+     socket
+     |> assign(:editing_goal, goal.id)
+     |> assign(:goal_form, to_form(Training.change_goal(goal)))}
+  end
+
+  def handle_event("cancel_goal", _params, socket) do
+    {:noreply, socket |> assign(:editing_goal, nil) |> assign(:goal_form, nil)}
+  end
+
+  def handle_event("save_goal", %{"goal" => params}, socket) do
+    %{book: book, editing_goal: editing} = socket.assigns
+    params = Map.take(params, ["title", "target_date", "notes"])
+
+    result =
+      cond do
+        not socket.assigns.is_superuser -> :skip
+        editing == :new -> Training.create_goal(book, params)
+        true -> book.id |> Training.get_goal!(editing) |> Training.update_goal(params)
+      end
+
+    case result do
+      {:error, cs} ->
+        {:noreply, assign(socket, :goal_form, to_form(cs))}
+
+      _ ->
+        {:noreply,
+         socket |> assign(:editing_goal, nil) |> assign(:goal_form, nil) |> reload_book()}
+    end
+  end
+
+  def handle_event("goal_status", %{"id" => id, "status" => status}, socket) do
+    if socket.assigns.is_superuser and status in Goal.statuses() do
+      socket.assigns.book.id
+      |> Training.get_goal!(id)
+      |> Training.set_goal_status(status, socket.assigns.today)
+    end
+
+    {:noreply, reload_book(socket)}
+  end
+
+  def handle_event("delete_goal", %{"id" => id}, socket) do
+    if socket.assigns.is_superuser do
+      socket.assigns.book.id |> Training.get_goal!(id) |> Training.delete_goal()
+    end
+
+    {:noreply, socket |> assign(:editing_goal, nil) |> assign(:goal_form, nil) |> reload_book()}
+  end
+
+  def handle_event("toggle_done_goals", _params, socket) do
+    {:noreply, update(socket, :show_done_goals, &(!&1))}
+  end
+
+  # ── Profile ─────────────────────────────────────────────────────────────────
 
   def handle_event("edit_profile", _params, socket) do
     {:noreply,
@@ -93,6 +270,8 @@ defmodule RanchPhxWeb.TrainingLive.Book do
 
     with true <- socket.assigns.is_superuser,
          {:ok, horse} <- Training.update_horse(horse, Map.delete(params, "animal_id")) do
+      had_photo? = socket.assigns.uploads.photo.entries != []
+
       [url | _] =
         consume_uploaded_entries(socket, :photo, fn %{path: tmp}, entry ->
           {:ok, Uploads.save_image(tmp, entry.client_name, "training/horses/#{horse.id}")}
@@ -103,15 +282,14 @@ defmodule RanchPhxWeb.TrainingLive.Book do
       {:noreply,
        socket
        |> assign(:profile_form, nil)
-       |> assign(:book, Training.get_book!(socket.assigns.book.id))
        |> put_flash(
          :info,
-         if(url == nil and socket.assigns.uploads.photo.entries != [],
+         if(had_photo? and is_nil(url),
            do: "Saved, but the photo didn't upload. Try again.",
            else: "Profile saved"
          )
        )
-       |> load()}
+       |> reload_book()}
     else
       false -> {:noreply, socket}
       {:error, changeset} -> {:noreply, assign(socket, :profile_form, to_form(changeset))}
@@ -124,17 +302,24 @@ defmodule RanchPhxWeb.TrainingLive.Book do
         with %{"id" => id} <- params, {int, ""} <- Integer.parse(id), do: int, else: (_ -> nil)
 
       {:ok, _} = Training.set_stage_override(socket.assigns.book, stage_id)
-      {:noreply, socket |> assign(:book, Training.get_book!(socket.assigns.book.id)) |> load()}
+      {:noreply, reload_book(socket)}
     else
       {:noreply, socket}
     end
   end
 
-  # Unchecking every tag sends only the hidden "" placeholder. Minutes and the date
-  # come from a quick-pick button or the typed box, whichever was touched last.
-  defp normalize(params, target \\ nil) do
+  # ── Form state ──────────────────────────────────────────────────────────────
+
+  # The form sends everything each time; hidden "" placeholders mean "none picked".
+  # Minutes and the date come from a quick-pick button or the typed box, whichever
+  # was touched last. The client_id stays the one generated (or edited) server-side.
+  defp normalize(params, target, previous) do
     params =
-      Map.update(params, "tags", [], fn tags -> Enum.reject(List.wrap(tags), &(&1 == "")) end)
+      params
+      |> Map.put("client_id", previous["client_id"])
+      |> Map.update("tags", [], &clean_list/1)
+      |> Map.update("activity_ids", [], &clean_list/1)
+      |> Map.put_new("details", %{})
 
     params =
       case target do
@@ -150,29 +335,99 @@ defmodule RanchPhxWeb.TrainingLive.Book do
     |> Map.put("date", pick(params["date_typed"], params["date_chip"]))
   end
 
+  defp clean_list(list), do: list |> List.wrap() |> Enum.reject(&(&1 == "")) |> Enum.uniq()
+
   defp pick(typed, chip) when typed in [nil, ""], do: chip
   defp pick(typed, _chip), do: typed
 
-  # Keeps the last date used, so several past days can be logged in a row.
-  defp reset_form(socket, date \\ nil) do
-    date = date || Date.to_iso8601(socket.assigns.today)
-    chip? = date in Enum.map(date_chips(socket.assigns.today), &elem(&1, 0))
+  defp to_attrs(params, book_id) do
+    activities =
+      for id <- params["activity_ids"] do
+        d = Map.get(params["details"], id, %{})
 
-    socket
-    |> assign(:params, %{
+        %{
+          "activity_id" => id,
+          "result" => blank_to_nil(d["result"]),
+          "side" => blank_to_nil(d["side"]),
+          "note" => blank_to_nil(d["note"])
+        }
+      end
+
+    params
+    |> Map.take(["client_id", "date", "minutes", "tags", "note"])
+    |> Map.put("book_id", book_id)
+    |> Map.put("activities", activities)
+  end
+
+  defp blank_to_nil(v) when v in [nil, ""], do: nil
+  defp blank_to_nil(v), do: v
+
+  defp blank_params(today, date) do
+    chip? = date in Enum.map(date_chips(today), &elem(&1, 0))
+
+    %{
       "client_id" => Ecto.UUID.generate(),
       "date" => date,
       "date_chip" => if(chip?, do: date),
       "date_typed" => if(chip?, do: "", else: date),
-      "session_type" => nil,
+      "activity_ids" => [],
+      "details" => %{},
       "minute_chip" => nil,
       "minutes_typed" => "",
       "minutes" => nil,
       "tags" => [],
       "note" => ""
-    })
+    }
+  end
+
+  defp put_minutes(params, nil), do: params
+
+  defp put_minutes(params, minutes) do
+    if minutes in @minute_chips,
+      do:
+        Map.merge(params, %{
+          "minute_chip" => "#{minutes}",
+          "minutes_typed" => "",
+          "minutes" => "#{minutes}"
+        }),
+      else:
+        Map.merge(params, %{
+          "minute_chip" => nil,
+          "minutes_typed" => "#{minutes}",
+          "minutes" => "#{minutes}"
+        })
+  end
+
+  # Repeat last / routine: fill activities, minutes and tags; keep the day and the note.
+  defp fill_from(socket, activity_ids, minutes, tags) do
+    params =
+      socket.assigns.params
+      |> Map.merge(%{
+        "activity_ids" => Enum.map(activity_ids, &"#{&1}"),
+        "details" => %{},
+        "tags" => tags,
+        "minute_chip" => nil,
+        "minutes_typed" => "",
+        "minutes" => nil
+      })
+      |> put_minutes(minutes)
+
+    socket |> assign(:params, params) |> put_activity_options()
+  end
+
+  # Keeps the last date used, so several past days can be logged in a row.
+  defp reset_form(socket, date \\ nil) do
+    date = date || Date.to_iso8601(socket.assigns.today)
+
+    socket
+    |> assign(:params, blank_params(socket.assigns.today, date))
+    |> assign(:editing, nil)
     |> assign(:errors, [])
     |> assign(:warnings, [])
+  end
+
+  defp reload_book(socket) do
+    socket |> assign(:book, Training.get_book!(socket.assigns.book.id)) |> load()
   end
 
   defp load(socket) do
@@ -182,11 +437,27 @@ defmodule RanchPhxWeb.TrainingLive.Book do
     |> assign(:progress, Training.progress(book, today))
     |> assign(:week, Training.week_summary(book.id, today))
     |> assign(:sessions, Training.list_sessions(book.id))
+    |> assign(:routines, Training.list_routines(book.horse_id))
+    |> put_activity_options()
     |> put_warnings()
   end
 
+  # Most-used activities for this horse first; hidden ones only when this session uses them.
+  defp put_activity_options(socket) do
+    usage = Training.activity_usage(socket.assigns.book.id, socket.assigns.today)
+    selected = socket.assigns.params["activity_ids"]
+
+    options =
+      Training.list_activities(archived: true)
+      |> Enum.filter(&(not &1.archived or "#{&1.id}" in selected))
+      |> Enum.sort_by(&{-Map.get(usage, &1.id, 0), &1.position})
+
+    assign(socket, :activities, options)
+  end
+
   defp put_warnings(socket) do
-    %{params: params, progress: progress, week: week} = socket.assigns
+    %{params: params, progress: progress, week: week, activities: activities, gated: gated} =
+      socket.assigns
 
     minutes =
       case Integer.parse("#{params["minutes"]}") do
@@ -194,16 +465,26 @@ defmodule RanchPhxWeb.TrainingLive.Book do
         :error -> nil
       end
 
+    picked = Enum.filter(activities, &("#{&1.id}" in params["activity_ids"]))
+    # An edit shouldn't count its own session twice against the week.
+    week =
+      if socket.assigns.editing,
+        do: %{week | sessions: max(week.sessions - 1, 0)},
+        else: week
+
     assign(
       socket,
       :warnings,
       Training.guardrail_warnings(
         progress.stage,
-        %{minutes: minutes, session_type: params["session_type"]},
-        week
+        %{minutes: minutes, activities: picked},
+        week,
+        gated
       )
     )
   end
+
+  # ── Template helpers ────────────────────────────────────────────────────────
 
   def sex_label("stallion"), do: "Stud"
   def sex_label("gelding"), do: "Gelding"
@@ -214,8 +495,39 @@ defmodule RanchPhxWeb.TrainingLive.Book do
     [{Date.to_iso8601(today), "Today"}, {Date.to_iso8601(Date.add(today, -1)), "Yesterday"}]
   end
 
-  def type_options, do: Session.types()
-  def tag_options, do: Session.tags()
+  def results, do: SessionActivity.results()
+  def sides, do: SessionActivity.sides()
+
+  def detail(params, id, key), do: get_in(params, ["details", "#{id}", key])
+
+  def tag_name(tags, slug) do
+    case Enum.find(tags, &(&1.slug == slug)) do
+      nil -> slug
+      t -> t.name
+    end
+  end
+
+  def health_tag?(tags, slug), do: Enum.any?(tags, &(&1.slug == slug and &1.kind == "health"))
+
+  def activity_summary(routine, activities) do
+    routine.activity_ids
+    |> Enum.map(fn id -> Enum.find_value(activities, &(&1.id == id && &1.name)) end)
+    |> Enum.reject(&is_nil/1)
+    |> Enum.join(" + ")
+  end
+
+  def goal_when(%Goal{target_date: nil}, _today), do: nil
+
+  def goal_when(%Goal{target_date: d}, today) do
+    days = Date.diff(d, today)
+
+    cond do
+      days > 1 -> "#{Calendar.strftime(d, "%b %-d, %Y")} · #{days} days"
+      days == 1 -> "Tomorrow"
+      days == 0 -> "Today"
+      true -> "#{Calendar.strftime(d, "%b %-d, %Y")} · #{-days} days ago"
+    end
+  end
 
   def fmt_date(iso, today) when is_binary(iso) do
     case Date.from_iso8601(iso) do
@@ -223,6 +535,8 @@ defmodule RanchPhxWeb.TrainingLive.Book do
       _ -> "–"
     end
   end
+
+  def fmt_date(nil, _today), do: "–"
 
   def fmt_date(date, today) do
     case Date.diff(today, date) do

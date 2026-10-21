@@ -91,6 +91,79 @@ defmodule RanchPhxWeb.TrainingComponents do
   defp upload_error(:too_many_files), do: "Just one photo."
   defp upload_error(err), do: "Upload problem: #{err}"
 
+  @doc "Add/edit form for one goal."
+  attr :form, :any, required: true
+  attr :new, :boolean, default: false
+  attr :goal_id, :any, default: nil
+
+  def goal_form(assigns) do
+    ~H"""
+    <.form
+      for={@form}
+      as={:goal}
+      id={"goal-form-#{@goal_id || "new"}"}
+      phx-submit="save_goal"
+      style="margin:8px 0 4px"
+    >
+      <div class="tr-field">
+        <label for={"goal_title_#{@goal_id}"}>Goal</label>
+        <input
+          type="text"
+          id={"goal_title_#{@goal_id}"}
+          name="goal[title]"
+          value={@form[:title].value}
+          placeholder="e.g. Stands tied quietly for 20 minutes"
+          required
+        />
+        <span :for={{msg, _} <- @form[:title].errors} class="tr-error">{msg}</span>
+      </div>
+      <div class="tr-field">
+        <label for={"goal_date_#{@goal_id}"}>Target date (optional)</label>
+        <input
+          type="date"
+          id={"goal_date_#{@goal_id}"}
+          name="goal[target_date]"
+          value={@form[:target_date].value}
+        />
+      </div>
+      <div class="tr-field">
+        <label for={"goal_notes_#{@goal_id}"}>Notes (optional)</label>
+        <textarea
+          id={"goal_notes_#{@goal_id}"}
+          name="goal[notes]"
+          placeholder="What done looks like, how you'll get there…"
+        >{@form[:notes].value}</textarea>
+      </div>
+      <div class="tr-row" style="justify-content:flex-start">
+        <button type="submit" class="tr-btn tr-btn-primary tr-btn-small">
+          {if @new, do: "Add goal", else: "Save"}
+        </button>
+        <button type="button" class="tr-btn tr-btn-small" phx-click="cancel_goal">Cancel</button>
+        <button
+          :if={@goal_id}
+          type="button"
+          class="tr-link-btn"
+          phx-click="goal_status"
+          phx-value-id={@goal_id}
+          phx-value-status="dropped"
+        >
+          Drop goal
+        </button>
+        <button
+          :if={@goal_id}
+          type="button"
+          class="tr-link-btn"
+          phx-click="delete_goal"
+          phx-value-id={@goal_id}
+          data-confirm="Delete this goal for good?"
+        >
+          Delete
+        </button>
+      </div>
+    </.form>
+    """
+  end
+
   def styles(assigns) do
     ~H"""
     <style>
@@ -168,6 +241,23 @@ defmodule RanchPhxWeb.TrainingComponents do
       .tr-picker .tr-btn { position: relative; }
       .tr-preview { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
       .tr-preview img { width: 72px; height: 72px; object-fit: cover; border-radius: 10px; }
+
+      .tr-quick { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 16px; }
+      .tr-routine { display: inline-flex; align-items: center; }
+      .tr-detail { margin: -6px 0 16px; padding: 12px; border-radius: 12px; background: var(--surface2); border: 1px solid var(--border); display: grid; gap: 8px; }
+      .tr-pills-sm .tr-pill span { min-height: 40px; padding: 0 14px; font-size: 15px; }
+      .tr-pill.res-good input:checked + span { background: #16a34a; border-color: #16a34a; }
+      .tr-pill.res-mixed input:checked + span { background: #d97706; border-color: #d97706; }
+      .tr-pill.res-trouble input:checked + span { background: #dc2626; border-color: #dc2626; }
+      .tr-pill.tag-health input:checked + span { background: var(--warn); border-color: var(--warn); }
+      .tr-detail-note { width: 100%; min-height: 44px; padding: 8px 12px; border: 1.5px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); font-size: 16px; }
+      .tr-res { font-weight: 700; }
+      .tr-list-row { display: flex; align-items: center; gap: 4px; min-height: 52px; border-top: 1px solid var(--border); flex-wrap: wrap; }
+      .tr-icon-btn { width: 40px; height: 40px; border-radius: 10px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text2); font-size: 18px; cursor: pointer; }
+      .tr-icon-btn:disabled { opacity: .3; cursor: default; }
+      .tr-res.res-good { color: #16a34a; }
+      .tr-res.res-mixed { color: #d97706; }
+      .tr-res.res-trouble { color: #dc2626; }
     </style>
     """
   end
