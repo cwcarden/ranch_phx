@@ -1,0 +1,109 @@
+<.styles />
+<.topbar back="/" back_label="Ranch" title="Training" />
+
+<div class="tr-wrap">
+  <div :if={@cards == [] and not @show_new} class="tr-card">
+    <h2>No horses in training yet</h2>
+    <p class="tr-muted" style="margin-top:6px">
+      Start a book for a horse to get a plan by age and a quick session log.
+    </p>
+  </div>
+
+  <a :for={c <- @cards} class="tr-card tr-horse" href={~p"/training/#{c.book.id}"}>
+    <div class="tr-row">
+      <h2>{c.book.animal.name}</h2>
+      <span class="tr-muted">{Training.age_label(c.progress.age_months)}</span>
+    </div>
+    <p :if={c.progress.stage} style="margin-top:4px;font-weight:600;color:var(--brand)">
+      Stage {c.progress.stage_number}: {c.progress.stage.name}
+    </p>
+    <div class="tr-stats">
+      <div class="tr-stat">
+        <b>
+          {c.week.sessions}<small
+            :if={c.progress.stage && c.progress.stage.max_sessions_per_week}
+            style="font-size:14px;color:var(--text3)"
+          >/{c.progress.stage.max_sessions_per_week}</small>
+        </b>
+        <span>this week</span>
+      </div>
+      <div class="tr-stat"><b>{c.week.minutes}</b><span>minutes</span></div>
+      <div class="tr-stat">
+        <b>{if c.progress.days_to_goal, do: c.progress.days_to_goal, else: "–"}</b>
+        <span>days to goal</span>
+      </div>
+    </div>
+    <p class="tr-muted" style="margin-top:10px">{days_since(c.last, @today)}</p>
+  </a>
+
+  <%= if @is_superuser do %>
+    <button :if={not @show_new} class="tr-btn tr-btn-block" phx-click="open_new">
+      + Start a training book
+    </button>
+
+    <div :if={@show_new} class="tr-card" id="new-book">
+      <div class="tr-row" style="margin-bottom:14px">
+        <h2>Start a training book</h2>
+        <button class="tr-link-btn" phx-click="close_new">Cancel</button>
+      </div>
+
+      <%= if @horses == [] do %>
+        <p class="tr-muted">
+          Every active horse already has a book. Add the horse on the ranch page first
+          (kind: horse, status: active).
+        </p>
+      <% else %>
+        <.form for={@book_form} phx-submit="create_book">
+          <div class="tr-field">
+            <label for="book_animal_id">Horse</label>
+            <select id="book_animal_id" name="book[animal_id]" required>
+              <option value="">Pick a horse…</option>
+              <option
+                :for={h <- @horses}
+                value={h.id}
+                selected={"#{h.id}" == "#{@book_form[:animal_id].value}"}
+              >
+                {h.name}{if h.birth_date,
+                  do: " (#{Training.age_label(Training.age_in_months(h.birth_date, @today))})"}
+              </option>
+            </select>
+            <span :for={{msg, _} <- @book_form[:animal_id].errors} class="tr-error">{msg}</span>
+          </div>
+          <div class="tr-field">
+            <label for="book_program_id">Program</label>
+            <select id="book_program_id" name="book[program_id]" required>
+              <option
+                :for={p <- @programs}
+                value={p.id}
+                selected={"#{p.id}" == "#{@book_form[:program_id].value}"}
+              >
+                {p.name}
+              </option>
+            </select>
+          </div>
+          <div class="tr-field">
+            <label for="book_goal">Goal (optional)</label>
+            <input
+              type="text"
+              id="book_goal"
+              name="book[goal]"
+              value={@book_form[:goal].value}
+              placeholder="e.g. NRCHA Stallion Stakes, non-pro"
+            />
+          </div>
+          <div class="tr-field">
+            <label for="book_goal_date">Goal date (optional)</label>
+            <input
+              type="date"
+              id="book_goal_date"
+              name="book[goal_date]"
+              value={@book_form[:goal_date].value}
+            />
+          </div>
+          <input type="hidden" name="book[started_on]" value={@book_form[:started_on].value} />
+          <button type="submit" class="tr-btn tr-btn-primary tr-btn-block">Start book</button>
+        </.form>
+      <% end %>
+    </div>
+  <% end %>
+</div>

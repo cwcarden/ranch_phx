@@ -1,7 +1,6 @@
 defmodule RanchPhxWeb.AdminLive.Users do
   use RanchPhxWeb, :live_view
   alias RanchPhx.Accounts
-  alias RanchPhx.Accounts.User
 
   @impl true
   def mount(_params, _session, socket) do

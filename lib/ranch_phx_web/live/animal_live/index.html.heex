@@ -125,6 +125,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       </svg>
     </button>
     <span class="mobile-hide" style="font-size:13px;color:var(--text2);padding:0 4px"><%= @current_scope.user.email %></span>
+    <a href="/training" class="btn btn-ghost" style="font-size:13px">Training</a>
     <%= if @is_superuser do %>
       <a href="/admin/users" class="btn btn-ghost mobile-hide" style="font-size:13px">Users</a>
       <a href="/admin/settings" class="btn btn-ghost mobile-hide" style="font-size:13px">Settings</a>

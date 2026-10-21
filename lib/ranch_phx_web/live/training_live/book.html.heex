@@ -1,0 +1,231 @@
+<.styles />
+<.topbar back={~p"/training"} back_label="Training" title={@book.animal.name} />
+
+<div class="tr-wrap">
+  <div
+    :if={Phoenix.Flash.get(@flash, :info)}
+    class="tr-guard"
+    style="font-weight:600"
+    phx-click="lv:clear-flash"
+    phx-value-key="info"
+  >
+    {Phoenix.Flash.get(@flash, :info)}
+  </div>
+
+  <%!-- Where he is now --%>
+  <div class="tr-card" id="now">
+    <div class="tr-label">
+      Now · {Training.age_label(@progress.age_months)}
+      <span :if={@progress.stage}>
+        · Stage {@progress.stage_number} of {@progress.stage_count}
+      </span>
+    </div>
+    <%= if @progress.stage do %>
+      <h2>{@progress.stage.name}</h2>
+      <p class="tr-muted" style="margin-top:4px">{@progress.stage.summary}</p>
+      <ul class="tr-list">
+        <li :for={f <- @progress.stage.focus}>{f}</li>
+      </ul>
+      <div class="tr-guard">
+        <b>Keep it light:</b> {@progress.stage.guardrail}
+        <span :if={@progress.stage.max_session_minutes}>
+          Up to {@progress.stage.max_session_minutes} min a session<span :if={
+            @progress.stage.max_sessions_per_week
+          }>, {@progress.stage.max_sessions_per_week} sessions a week</span>.
+        </span>
+      </div>
+      <p
+        :if={
+          (@progress.overridden? and @progress.by_age) &&
+            @progress.by_age.id != @progress.stage.id
+        }
+        class="tr-muted"
+        style="margin-top:10px"
+      >
+        Set by hand. By age he'd be in “{@progress.by_age.name}”.
+      </p>
+    <% end %>
+    <p :if={is_nil(@book.animal.birth_date)} class="tr-warn" style="margin-top:12px">
+      No foaling date on the ranch record, so the stage can't follow his age. Add it on the horse's page.
+    </p>
+
+    <div class="tr-stats">
+      <div class="tr-stat"><b>{@week.sessions}</b><span>sessions, 7 days</span></div>
+      <div class="tr-stat"><b>{@week.minutes}</b><span>minutes, 7 days</span></div>
+      <div class="tr-stat">
+        <b>{if @progress.days_to_goal, do: @progress.days_to_goal, else: "–"}</b>
+        <span>days to goal</span>
+      </div>
+    </div>
+    <p :if={@book.goal} class="tr-muted" style="margin-top:10px">
+      Goal: {@book.goal}<span :if={@book.goal_date}> · {Calendar.strftime(@book.goal_date, "%b %Y")}</span>
+    </p>
+  </div>
+
+  <%!-- What's next --%>
+  <div :if={@progress.next} class="tr-card">
+    <div class="tr-label">Next</div>
+    <h2>{@progress.next.name}</h2>
+    <p class="tr-muted" style="margin-top:4px">
+      <%= cond do %>
+        <% @progress.months_to_next == nil -> %>
+          From {@progress.next.from_age_months} months.
+        <% @progress.months_to_next == 0 -> %>
+          He's old enough now. Move on when he's ready.
+        <% true -> %>
+          From {@progress.next.from_age_months} months, about {@progress.months_to_next} {if @progress.months_to_next ==
+                                                                                               1,
+                                                                                             do:
+                                                                                               "month",
+                                                                                             else:
+                                                                                               "months"} away.
+      <% end %>
+    </p>
+    <div :if={@is_superuser} class="tr-row" style="margin-top:12px;justify-content:flex-start">
+      <button class="tr-btn tr-btn-small" phx-click="set_stage" phx-value-id={@progress.next.id}>
+        Ready: move to this stage
+      </button>
+      <button :if={@progress.overridden?} class="tr-btn tr-btn-small" phx-click="set_stage">
+        Follow his age again
+      </button>
+    </div>
+  </div>
+  <div :if={is_nil(@progress.next) and @progress.overridden? and @is_superuser} class="tr-card">
+    <button class="tr-btn tr-btn-small" phx-click="set_stage">Follow his age again</button>
+  </div>
+
+  <%!-- Log a session --%>
+  <div :if={@is_superuser} class="tr-card" id="log">
+    <h2 style="margin-bottom:14px">Log a session</h2>
+    <.form for={%{}} as={:session} id="session-form" phx-change="change" phx-submit="save">
+      <input type="hidden" name="session[client_id]" value={@params["client_id"]} />
+
+      <div class="tr-field">
+        <span class="tr-label">What did you work on?</span>
+        <div class="tr-pills">
+          <label
+            :for={{slug, label} <- type_options()}
+            class={"tr-pill #{if @progress.stage && @progress.stage.session_types != [] && slug not in @progress.stage.session_types, do: "dim"}"}
+          >
+            <input
+              type="radio"
+              name="session[session_type]"
+              value={slug}
+              checked={@params["session_type"] == slug}
+            />
+            <span>{label}</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="tr-field">
+        <label for="session_minutes">Minutes</label>
+        <div class="tr-pills">
+          <label :for={m <- @minute_chips} class="tr-pill">
+            <input
+              type="radio"
+              name="session[minute_chip]"
+              value={m}
+              checked={"#{@params["minute_chip"]}" == "#{m}"}
+            />
+            <span>{m}</span>
+          </label>
+        </div>
+        <input
+          type="number"
+          id="session_minutes"
+          name="session[minutes_typed]"
+          inputmode="numeric"
+          min="1"
+          max="600"
+          value={@params["minutes_typed"]}
+          placeholder="Or type minutes"
+        />
+      </div>
+
+      <div class="tr-field">
+        <span class="tr-label">How was he?</span>
+        <input type="hidden" name="session[tags][]" value="" />
+        <div class="tr-pills">
+          <label :for={{slug, label} <- tag_options()} class="tr-pill">
+            <input
+              type="checkbox"
+              name="session[tags][]"
+              value={slug}
+              checked={slug in (@params["tags"] || [])}
+            />
+            <span>{label}</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="tr-field">
+        <label for="session_note">Note</label>
+        <textarea
+          id="session_note"
+          name="session[note]"
+          placeholder="What worked, what to try next time…"
+        >{@params["note"]}</textarea>
+      </div>
+
+      <div class="tr-field">
+        <label for="session_date">Date</label>
+        <input
+          type="date"
+          id="session_date"
+          name="session[date]"
+          value={@params["date"]}
+          max={Date.to_iso8601(@today)}
+        />
+      </div>
+
+      <div :for={w <- @warnings} class="tr-warn" style="margin-bottom:10px">{w}</div>
+      <div :for={e <- @errors} class="tr-error" style="margin-bottom:10px">{e}</div>
+      <p :if={"sore" in (@params["tags"] || [])} class="tr-muted" style="margin-bottom:10px">
+        If he's sore or off, give him rest and check with your vet before the next session.
+      </p>
+
+      <button
+        type="submit"
+        class="tr-btn tr-btn-primary tr-btn-block"
+        phx-disable-with="Saving…"
+      >
+        Save session
+      </button>
+    </.form>
+  </div>
+
+  <%!-- Session history --%>
+  <div class="tr-card" id="sessions">
+    <h2 style="margin-bottom:10px">Sessions</h2>
+    <p :if={@sessions == []} class="tr-muted">Nothing logged yet.</p>
+    <div :for={s <- @sessions} class="tr-session" id={"session-#{s.id}"}>
+      <div class="tr-row">
+        <b>
+          {Session.type_label(s.session_type)}<span
+            :if={s.minutes}
+            class="tr-muted"
+            style="font-weight:400"
+          > · {s.minutes} min</span>
+        </b>
+        <span class="tr-muted">{fmt_date(s.date, @today)}</span>
+      </div>
+      <div :if={s.tags != []}>
+        <span :for={t <- s.tags} class={"tr-tag #{if t == "sore", do: "sore"}"}>
+          {Session.tag_label(t)}
+        </span>
+      </div>
+      <p :if={s.note && s.note != ""} style="margin-top:6px;white-space:pre-line">{s.note}</p>
+      <button
+        :if={@is_superuser}
+        class="tr-link-btn"
+        style="padding:0;margin-top:4px"
+        phx-click="delete_session"
+        phx-value-id={s.id}
+        data-confirm="Delete this session?"
+      >
+        Delete
+      </button>
+    </div>
+  </div>
+</div>

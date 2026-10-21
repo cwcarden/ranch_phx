@@ -1,7 +1,7 @@
 defmodule RanchPhxWeb.AnimalLive.Show do
   use RanchPhxWeb, :live_view
   alias RanchPhx.Animals
-  alias RanchPhx.Animals.{Animal, TimelineEvent, Record, DocType}
+  alias RanchPhx.Animals.{Animal, TimelineEvent, Record}
   alias RanchPhx.Accounts.Scope
   require Decimal
 
@@ -638,4 +638,12 @@ defmodule RanchPhxWeb.AnimalLive.Show do
   def ped_gen_label(5), do: "3× Great-Grandparents"
   def ped_gen_label(6), do: "4× Great-Grandparents"
   def ped_gen_label(n), do: "Generation #{n}"
+
+  # Open the horse's training book, or the start-a-book form with him picked.
+  def training_href(animal) do
+    case RanchPhx.Training.active_book_for_animal(animal.id) do
+      nil -> ~p"/training?horse=#{animal.id}"
+      book -> ~p"/training/#{book.id}"
+    end
+  end
 end

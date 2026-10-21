@@ -25,6 +25,8 @@ defmodule RanchPhxWeb.Router do
       on_mount: [{RanchPhxWeb.UserAuth, :ensure_authenticated}] do
       live "/",                    AnimalLive.Index,  :index
       live "/animals/:id",         AnimalLive.Show,   :show
+      live "/training",            TrainingLive.Index, :index
+      live "/training/:id",        TrainingLive.Book,  :show
     end
 
     get "/animals/:id/report", AnimalReportController, :show
