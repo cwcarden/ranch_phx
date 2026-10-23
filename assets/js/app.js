@@ -228,6 +228,58 @@ Hooks.SaveAllOffline = {
   },
 }
 
+// TrAIner answers as a swipeable deck of cards. Opens on the newest card, and jumps to
+// the newest again whenever a new answer (or the "checking his log" card) arrives.
+Hooks.CoachDeck = {
+  mounted() {
+    this.track = () => this.el.querySelector(".tr-deck-track")
+    this.cards = () => Array.from(this.el.querySelectorAll(".tr-qa"))
+    this.index = () => {
+      const t = this.track()
+      return t && t.clientWidth ? Math.round(t.scrollLeft / (t.clientWidth - 24)) : 0
+    }
+    this.go = (i, smooth) => {
+      // Each card is the track's width less its 18px side padding, plus a 12px gap.
+      const t = this.track(), n = this.cards().length
+      if (t && n) t.scrollTo({left: Math.max(0, Math.min(n - 1, i)) * (t.clientWidth - 24), behavior: smooth ? "smooth" : "auto"})
+    }
+    this.sync = () => {
+      const n = this.cards().length
+      const i = Math.max(0, Math.min(n - 1, this.index()))
+      // The track is as tall as the card being read, not the longest card.
+      const card = this.cards()[i]
+      if (card) this.track().style.height = `${card.offsetHeight + 8}px`
+      this.el.querySelectorAll(".tr-deck-dots i").forEach((d, j) => d.classList.toggle("on", j === i))
+      const count = this.el.querySelector("[data-deck=count]")
+      if (count) count.textContent = `${i + 1} of ${n}`
+      const prev = this.el.querySelector("[data-deck=prev]")
+      const next = this.el.querySelector("[data-deck=next]")
+      if (prev) prev.disabled = i === 0
+      if (next) next.disabled = i === n - 1
+    }
+    this.onScroll = () => { cancelAnimationFrame(this.raf); this.raf = requestAnimationFrame(this.sync) }
+    this.onClick = e => {
+      const dir = e.target.closest("[data-deck]")?.dataset.deck
+      if (dir === "prev") this.go(this.index() - 1, true)
+      if (dir === "next") this.go(this.index() + 1, true)
+    }
+    this.el.addEventListener("click", this.onClick)
+    this.track().addEventListener("scroll", this.onScroll, {passive: true})
+    this.sig = () => this.cards().map(c => c.id).join(",")
+    this.seen = this.sig()
+    this.go(this.cards().length - 1, false)
+    this.sync()
+  },
+  updated() {
+    this.track().removeEventListener("scroll", this.onScroll)
+    this.track().addEventListener("scroll", this.onScroll, {passive: true})
+    // A new answer, or a different conversation opened: show its newest card.
+    if (this.sig() !== this.seen) { this.seen = this.sig(); this.go(this.cards().length - 1, true) }
+    this.sync()
+  },
+  destroyed() { this.el.removeEventListener("click", this.onClick) },
+}
+
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,

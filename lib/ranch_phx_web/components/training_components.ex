@@ -247,6 +247,151 @@ defmodule RanchPhxWeb.TrainingComponents do
     """
   end
 
+  @doc """
+  Header for a section of the book: a colored icon badge, the title, and actions on the
+  right. `kind` picks the section's color (goals, working, stage, trainer, log, sessions).
+  """
+  attr :icon, :string, required: true
+  attr :kind, :string, required: true
+  slot :inner_block, required: true
+  slot :actions
+
+  def section_head(assigns) do
+    ~H"""
+    <div class="tr-sec-head">
+      <span class={["tr-sec-ico", "sec-#{@kind}"]} aria-hidden="true">
+        <RanchPhxWeb.CoreComponents.icon name={@icon} />
+      </span>
+      <h2>{render_slot(@inner_block)}</h2>
+      <div :if={@actions != []} class="tr-sec-actions">{render_slot(@actions)}</div>
+    </div>
+    """
+  end
+
+  @doc "Sticky row of section shortcuts under the top bar: `{anchor, label, icon, kind}`."
+  attr :items, :list, required: true
+
+  def section_nav(assigns) do
+    ~H"""
+    <nav class="tr-jump" aria-label="Sections">
+      <a :for={{anchor, label, icon, kind} <- @items} href={"##{anchor}"} class={"sec-#{kind}"}>
+        <RanchPhxWeb.CoreComponents.icon name={icon} />
+        {label}
+      </a>
+    </nav>
+    """
+  end
+
+  @doc """
+  A TrAIner answer as readable text: paragraphs, bulleted and numbered lists, and
+  **bold**, instead of raw text with dashes. Everything is escaped as plain text.
+  """
+  attr :text, :string, required: true
+
+  def coach_answer(assigns) do
+    assigns = assign(assigns, :blocks, answer_blocks(assigns.text))
+
+    ~H"""
+    <div class="tr-prose">
+      <%= for block <- @blocks do %>
+        <%= case block do %>
+          <% {:ul, items} -> %>
+            <ul>
+              <li :for={item <- items}><.inline parts={item} /></li>
+            </ul>
+          <% {:ol, items} -> %>
+            <ol>
+              <li :for={item <- items}><.inline parts={item} /></li>
+            </ol>
+          <% {:h, parts} -> %>
+            <p class="tr-prose-h"><.inline parts={parts} /></p>
+          <% {:p, lines} -> %>
+            <p>
+              <%= for {line, i} <- Enum.with_index(lines) do %>
+                <br :if={i > 0} /><.inline parts={line} />
+              <% end %>
+            </p>
+        <% end %>
+      <% end %>
+    </div>
+    """
+  end
+
+  attr :parts, :list, required: true
+
+  defp inline(assigns) do
+    ~H"""
+    <%= for part <- @parts do %>
+      <%= case part do %>
+        <% {:b, t} -> %>
+          <strong>{t}</strong>
+        <% {:t, t} -> %>
+          {t}
+      <% end %>
+    <% end %>
+    """
+  end
+
+  @bullet ~r/^\s*(?:[-*•])\s+(.*)$/
+  @numbered ~r/^\s*\d+[.)]\s+(.*)$/
+  @heading ~r/^\s*#+\s+(.*)$/
+
+  @doc false
+  def answer_blocks(text) do
+    (text || "")
+    |> String.replace("\r\n", "\n")
+    |> String.split(~r/\n\s*\n/, trim: true)
+    |> Enum.flat_map(fn para ->
+      para
+      |> String.split("\n")
+      |> Enum.map(&String.trim_trailing/1)
+      |> Enum.reject(&(String.trim(&1) == ""))
+      |> Enum.chunk_by(&line_kind/1)
+      |> Enum.map(&to_block/1)
+    end)
+  end
+
+  defp line_kind(line) do
+    cond do
+      Regex.match?(@bullet, line) -> :ul
+      Regex.match?(@numbered, line) -> :ol
+      Regex.match?(@heading, line) -> :h
+      true -> :p
+    end
+  end
+
+  defp to_block([first | _] = lines) do
+    case line_kind(first) do
+      :ul ->
+        {:ul, Enum.map(lines, &(@bullet |> Regex.run(&1) |> List.last() |> parse_inline()))}
+
+      :ol ->
+        {:ol, Enum.map(lines, &(@numbered |> Regex.run(&1) |> List.last() |> parse_inline()))}
+
+      :h ->
+        {:h,
+         lines
+         |> Enum.map_join(" ", &(@heading |> Regex.run(&1) |> List.last()))
+         |> parse_inline()}
+
+      :p ->
+        {:p, Enum.map(lines, &(&1 |> String.trim() |> parse_inline()))}
+    end
+  end
+
+  # "**bold**" becomes {:b, "bold"}; everything else stays plain text.
+  defp parse_inline(text) do
+    ~r/\*\*(.+?)\*\*/
+    |> Regex.split(text, include_captures: true, trim: true)
+    |> Enum.map(fn
+      "**" <> rest = s ->
+        if String.ends_with?(s, "**"), do: {:b, String.trim_trailing(rest, "**")}, else: {:t, s}
+
+      s ->
+        {:t, s}
+    end)
+  end
+
   def styles(assigns) do
     ~H"""
     <style>
@@ -370,6 +515,153 @@ defmodule RanchPhxWeb.TrainingComponents do
       .tr-res.res-good { color: #16a34a; }
       .tr-res.res-mixed { color: #d97706; }
       .tr-res.res-trouble { color: #dc2626; }
+
+      /* ── Sections: each one has its own color and icon so it's easy to spot ── */
+      .sec-goals    { --sec: #d97706; --sec-soft: #fef3c7; }
+      .sec-working  { --sec: #e11d48; --sec-soft: #ffe4e6; }
+      .sec-stage    { --sec: #7c3aed; --sec-soft: #ede9fe; }
+      .sec-trainer  { --sec: #dc2626; --sec-soft: #fee2e2; }
+      .sec-log      { --sec: #16a34a; --sec-soft: #dcfce7; }
+      .sec-sessions { --sec: #2563eb; --sec-soft: #dbeafe; }
+      [data-theme="dark"] .sec-goals    { --sec: #fbbf24; --sec-soft: #3a2705; }
+      [data-theme="dark"] .sec-working  { --sec: #fb7185; --sec-soft: #3f0d1a; }
+      [data-theme="dark"] .sec-stage    { --sec: #a78bfa; --sec-soft: #2e1065; }
+      [data-theme="dark"] .sec-trainer  { --sec: #f87171; --sec-soft: #3b0d0d; }
+      [data-theme="dark"] .sec-log      { --sec: #4ade80; --sec-soft: #0d2e1a; }
+      [data-theme="dark"] .sec-sessions { --sec: #60a5fa; --sec-soft: #0f1f3d; }
+
+      .tr-sec { border-top: 4px solid var(--sec); scroll-margin-top: 112px; }
+      .tr-sec-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; min-height: 40px; }
+      .tr-sec-head h2 { flex: 1; min-width: 0; }
+      .tr-sec-ico { flex: none; width: 34px; height: 34px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; background: var(--sec-soft); color: var(--sec); }
+      .tr-sec-ico [class^="hero-"] { width: 20px; height: 20px; }
+      .tr-sec-actions { display: flex; align-items: center; gap: 6px; }
+
+      .tr-jump { position: sticky; top: 56px; z-index: 40; display: flex; gap: 8px; overflow-x: auto; padding: 10px 16px; margin: 0 -16px; background: var(--surface2); scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+      .tr-jump::-webkit-scrollbar { display: none; }
+      .tr-jump a { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 0 14px 0 10px; border-radius: 19px; background: var(--surface); border: 1.5px solid var(--border); color: var(--text); font-size: 15px; font-weight: 600; text-decoration: none; }
+      .tr-jump a [class^="hero-"] { width: 18px; height: 18px; color: var(--sec); }
+      .tr-jump a:active { background: var(--sec-soft); border-color: var(--sec); }
+
+      /* Quiet buttons: actions shouldn't shout louder than the content */
+      .tr-mini { display: inline-flex; align-items: center; gap: 4px; min-height: 36px; padding: 0 12px; border-radius: 18px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text2); font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+      .tr-mini:active { background: var(--surface2); }
+      .tr-mini.solid { background: var(--sec, var(--brand)); border-color: var(--sec, var(--brand)); color: #fff; }
+      .tr-mini [class^="hero-"] { width: 16px; height: 16px; }
+      .tr-mini.tr-icon-only { width: 36px; padding: 0; justify-content: center; }
+      .tr-step-head + .tr-mark-row { border-top: none; padding-top: 0; }
+
+      /* Rows inside a section (goals, working on) */
+      .tr-item { padding: 14px 0; border-top: 1px solid var(--border); }
+      .tr-item:first-of-type { border-top: none; padding-top: 2px; }
+      .tr-item-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+      .tr-item-title { font-size: 17px; font-weight: 700; line-height: 1.3; }
+      .tr-item-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-top: 4px; color: var(--text2); font-size: 14px; }
+      .tr-item-meta [class^="hero-"] { width: 15px; height: 15px; vertical-align: -2px; margin-right: 2px; }
+      .tr-item-note { margin-top: 6px; font-size: 15px; color: var(--text); white-space: pre-line; }
+      .tr-item-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; }
+      .tr-count { flex: none; padding: 3px 10px; border-radius: 12px; background: var(--sec-soft); color: var(--sec); font-size: 13px; font-weight: 700; white-space: nowrap; }
+      .tr-item .tr-trend { margin-top: 8px; }
+      .tr-item .tr-mark { width: 24px; height: 24px; font-size: 14px; border-radius: 6px; }
+      .tr-more { margin-top: 6px; }
+      .tr-more > summary { list-style: none; cursor: pointer; color: var(--text3); font-size: 14px; font-weight: 600; min-height: 40px; display: inline-flex; align-items: center; }
+      .tr-more > summary::-webkit-details-marker { display: none; }
+      .tr-more > summary::after { content: "▾"; margin-left: 6px; font-size: 12px; }
+      .tr-more[open] > summary::after { content: "▴"; }
+
+      /* Stage */
+      .tr-next { margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--border); }
+      .tr-next b { display: block; font-size: 16px; }
+
+      /* ── TrAIner: a swipeable deck of question-and-answer cards ── */
+      .tr-ai { font-weight: 800; color: #dc2626; }
+      [data-theme="dark"] .tr-ai { color: #f87171; }
+      .tr-deck { margin: 0 -18px; }
+      .tr-deck-track { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 2px 18px 6px; scroll-padding: 0 18px; align-items: flex-start; scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; overflow-y: hidden; transition: height .25s ease; }
+      .tr-deck-track::-webkit-scrollbar { display: none; }
+      .tr-qa { flex: 0 0 100%; scroll-snap-align: start; scroll-snap-stop: always; border-radius: 14px; border: 1px solid var(--border); background: var(--surface); box-shadow: 0 1px 3px rgba(0,0,0,.06); overflow: hidden; }
+      .tr-qa-q { padding: 12px 16px; background: var(--sec-soft); color: var(--text); }
+      .tr-qa-label { display: block; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--sec); margin-bottom: 2px; }
+      .tr-qa-q p { font-size: 16px; font-weight: 600; line-height: 1.4; }
+      .tr-qa-a { padding: 14px 16px 6px; }
+      .tr-qa-foot { padding: 4px 16px 12px; font-size: 13px; color: var(--text3); }
+      .tr-qa-foot details { display: inline; }
+      .tr-qa-foot details[open] { display: block; }
+      .tr-qa-foot details summary { cursor: pointer; list-style: none; display: inline; }
+      .tr-qa-foot details summary::-webkit-details-marker { display: none; }
+      .tr-qa-foot details ul { margin: 6px 0 0 18px; }
+      .tr-qa-loading .tr-qa-a { color: var(--text2); display: flex; align-items: center; gap: 10px; padding-bottom: 16px; }
+      .tr-dots-anim { display: inline-flex; gap: 4px; }
+      .tr-dots-anim i { width: 7px; height: 7px; border-radius: 50%; background: var(--sec); animation: tr-pulse 1.2s infinite ease-in-out; }
+      .tr-dots-anim i:nth-child(2) { animation-delay: .2s; }
+      .tr-dots-anim i:nth-child(3) { animation-delay: .4s; }
+      @keyframes tr-pulse { 0%, 80%, 100% { opacity: .25; transform: scale(.8); } 40% { opacity: 1; transform: scale(1); } }
+      .tr-deck-nav { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 8px; }
+      .tr-deck-nav button { width: 36px; height: 36px; border-radius: 50%; border: 1.5px solid var(--border); background: var(--surface); color: var(--text2); font-size: 18px; line-height: 1; cursor: pointer; }
+      .tr-deck-nav button:disabled { opacity: .35; cursor: default; }
+      .tr-deck-dots { display: flex; gap: 6px; }
+      .tr-deck-dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--border); transition: background .2s, width .2s; }
+      .tr-deck-dots i.on { background: var(--sec); width: 20px; border-radius: 4px; }
+      .tr-deck-count { font-size: 13px; color: var(--text3); min-width: 44px; text-align: center; }
+
+      .tr-prose { font-size: 17px; line-height: 1.6; color: var(--text); }
+      .tr-prose p { margin: 0 0 12px; }
+      .tr-prose ul, .tr-prose ol { margin: 0 0 12px; padding-left: 22px; display: grid; gap: 6px; }
+      .tr-prose ul { list-style: disc; }
+      .tr-prose ol { list-style: decimal; }
+      .tr-prose li::marker { color: var(--sec, var(--brand)); }
+      .tr-prose strong { font-weight: 700; }
+      .tr-prose-h { font-weight: 700; }
+
+      .tr-composer { margin-top: 14px; display: grid; gap: 8px; }
+      .tr-composer textarea { width: 100%; min-height: 64px; padding: 12px 14px; border: 1.5px solid var(--border); border-radius: 12px; background: var(--surface2); color: var(--text); font-size: 16px; line-height: 1.4; resize: vertical; font-family: inherit; }
+      .tr-composer textarea:focus { outline: none; border-color: var(--sec); }
+      .tr-composer .tr-btn-primary { background: var(--sec); border-color: var(--sec); min-height: 50px; font-size: 17px; }
+      .tr-ideas { margin-top: 2px; }
+      .tr-ideas .tr-pills { margin-top: 4px; }
+      .tr-fine { margin-top: 12px; font-size: 13px; color: var(--text3); }
+
+      /* ── Log a session: numbered steps and one-tap rows ── */
+      .tr-step { margin-bottom: 20px; }
+      .tr-step-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; font-size: 16px; font-weight: 700; color: var(--text); }
+      .tr-step-head small { font-size: 14px; font-weight: 400; color: var(--text3); }
+      .tr-step-n { flex: none; width: 24px; height: 24px; border-radius: 50%; background: var(--sec-soft); color: var(--sec); font-size: 13px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; transform: translateY(-1px); }
+      .tr-inline { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+      .tr-inline input[type=date], .tr-inline input[type=number] { flex: 1 1 140px; min-width: 0; min-height: 44px; padding: 8px 12px; border: 1.5px solid var(--border); border-radius: 22px; background: var(--surface2); color: var(--text); font-size: 16px; }
+      .tr-inline input[type=number] { flex: 0 1 110px; }
+      .tr-quickstart { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 12px; margin-bottom: 18px; border-radius: 12px; background: var(--sec-soft); }
+      .tr-quickstart .tr-label { margin: 0 4px 0 0; color: var(--sec); }
+      .sec-log .tr-pill input:checked + span { background: var(--sec); border-color: var(--sec); }
+      [data-theme="dark"] .sec-log .tr-pill input:checked + span { color: #052e16; }
+      .tr-act { margin: 0 0 10px; padding: 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface2); display: grid; gap: 8px; }
+      .tr-act > b { font-size: 16px; }
+      .tr-seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; border: 1.5px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--surface); }
+      .tr-seg .tr-pill + .tr-pill { border-left: 1.5px solid var(--border); }
+      .tr-seg .tr-pill span { width: 100%; justify-content: center; border: none; border-radius: 0; min-height: 42px; padding: 0 6px; font-size: 15px; background: transparent; }
+      .sec-log .tr-seg .tr-pill input:checked + span { background: var(--text2); color: var(--surface); }
+      .sec-log .tr-seg .tr-pill.res-good input:checked + span, .sec-log .tr-seg .tr-pill.mk-better input:checked + span { background: #16a34a; color: #fff; }
+      .sec-log .tr-seg .tr-pill.res-mixed input:checked + span { background: #d97706; color: #fff; }
+      .sec-log .tr-seg .tr-pill.res-trouble input:checked + span, .sec-log .tr-seg .tr-pill.mk-worse input:checked + span { background: #dc2626; color: #fff; }
+      .sec-log .tr-seg .tr-pill.mk-same input:checked + span { background: #6b7280; color: #fff; }
+      .sec-log .tr-seg .tr-pill.mk-skip input:checked + span { background: var(--surface2); color: var(--text2); }
+      .tr-mark-row { padding: 12px 0; border-top: 1px solid var(--border); display: grid; gap: 8px; }
+      .tr-mark-row:first-of-type { border-top: none; padding-top: 0; }
+      .tr-mark-row > b { font-size: 16px; }
+      .sec-log .tr-btn-primary { background: var(--sec); border-color: var(--sec); }
+      [data-theme="dark"] .sec-log .tr-btn-primary { color: #052e16; }
+
+      /* ── Session history: a date badge, then what happened ── */
+      .tr-sess { display: grid; grid-template-columns: 48px 1fr; gap: 12px; padding: 14px 0; border-top: 1px solid var(--border); }
+      .tr-sess:first-of-type { border-top: none; padding-top: 2px; }
+      .tr-date { width: 48px; border-radius: 10px; background: var(--sec-soft); color: var(--sec); text-align: center; padding: 6px 0 5px; line-height: 1.1; align-self: start; }
+      .tr-date small { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+      .tr-date b { display: block; font-size: 20px; font-weight: 800; }
+      .tr-sess-title { font-size: 16px; font-weight: 700; }
+      .tr-sess-title span { font-weight: 400; color: var(--text2); }
+      .tr-sess-line { font-size: 15px; color: var(--text2); margin-top: 3px; }
+      .tr-sess-note { margin-top: 6px; font-size: 15px; white-space: pre-line; }
+      .tr-sess-actions { display: flex; gap: 4px; margin-top: 4px; }
+      .tr-sess-actions .tr-link-btn { padding: 0 12px 0 0; }
     </style>
     """
   end
