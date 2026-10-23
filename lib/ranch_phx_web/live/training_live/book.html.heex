@@ -418,10 +418,10 @@
     <button class="tr-btn tr-btn-small" phx-click="set_stage">Follow his age again</button>
   </div>
 
-  <%!-- Ask the Coach --%>
+  <%!-- Ask the TrAIner --%>
   <div :if={@is_superuser} class="tr-card" id="coach">
     <div class="tr-row">
-      <h2>Ask the Coach</h2>
+      <h2 style="font-weight:500">Ask the Tr<b style="font-weight:800;color:#dc2626">AI</b>ner</h2>
       <button
         :if={@coach_on and @coach_thread != [] and is_nil(@coach_loading)}
         class="tr-btn tr-btn-small"
