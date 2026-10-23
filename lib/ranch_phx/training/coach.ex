@@ -32,7 +32,7 @@ defmodule RanchPhx.Training.Coach do
   @thread_turns 8
 
   @system """
-  You are the Coach in a horse training log. You help one trainer think through the
+  You are the TrAIner, the AI coach in a horse training log. You help one trainer think through the
   training of one horse at a time: what to work on, how it's going, and how to get
   through problems. You can look things up in their log with tools; use them instead
   of guessing about this horse.
@@ -421,8 +421,10 @@ defmodule RanchPhx.Training.Coach do
               description: "Activity name it belongs to (e.g. \"Groundwork\"), or null."
             },
             side: %{
-              type: ["string", "null"],
-              enum: ["left", "right", "both", nil],
+              anyOf: [
+                %{type: "string", enum: ["left", "right", "both"]},
+                %{type: "null"}
+              ],
               description: "Which side, or null."
             },
             notes: %{
@@ -621,7 +623,7 @@ defmodule RanchPhx.Training.Coach do
   def error_message(:empty), do: "Type a question first."
 
   def error_message(:no_api_key),
-    do: "The Coach isn't set up yet. Add ANTHROPIC_API_KEY on the server and restart."
+    do: "The TrAIner isn't set up yet. Add ANTHROPIC_API_KEY on the server and restart."
 
   def error_message(:limit),
     do:
@@ -630,7 +632,7 @@ defmodule RanchPhx.Training.Coach do
   def error_message(:refusal), do: "Claude declined that one. Try asking it a different way."
 
   def error_message(:empty_answer),
-    do: "The Coach couldn't put an answer together. Try asking a different way."
+    do: "The TrAIner couldn't put an answer together. Try asking a different way."
 
   def error_message({:api, 401, _}),
     do: "The API key was rejected. Check the key on the server and restart."

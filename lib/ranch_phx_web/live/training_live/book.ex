@@ -484,7 +484,7 @@ defmodule RanchPhxWeb.TrainingLive.Book do
     {:noreply,
      socket
      |> assign(:coach_loading, nil)
-     |> assign(:coach_error, "Something went wrong asking the Coach. Try again.")}
+     |> assign(:coach_error, "Something went wrong asking the TrAIner. Try again.")}
   end
 
   # Runs in the background: the lookups can take several seconds.
