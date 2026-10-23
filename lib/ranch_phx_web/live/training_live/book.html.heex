@@ -12,6 +12,21 @@
     {Phoenix.Flash.get(@flash, :info)}
   </div>
 
+  <.section_nav items={
+    [
+      {"goals", "Goals", "hero-flag", "goals"},
+      {"working-on", "Working on", "hero-wrench-screwdriver", "working"},
+      {"now", "Stage", "hero-map", "stage"}
+    ] ++
+      if(@is_superuser,
+        do: [
+          {"coach", "TrAIner", "hero-sparkles", "trainer"},
+          {"log", "Log", "hero-pencil-square", "log"}
+        ],
+        else: []
+      ) ++ [{"sessions", "Sessions", "hero-calendar-days", "sessions"}]
+  } />
+
   <%!-- The horse --%>
   <div class="tr-card" id="profile">
     <%= if @profile_form do %>
@@ -151,7 +166,7 @@
       </p>
       <button
         :if={@is_superuser}
-        class="tr-btn tr-btn-small"
+        class="tr-mini"
         style="margin-top:12px"
         phx-click="edit_profile"
       >
@@ -161,17 +176,19 @@
   </div>
 
   <%!-- Goals --%>
-  <div class="tr-card" id="goals">
-    <div class="tr-row" style="margin-bottom:6px">
-      <h2>Goals</h2>
-      <button
-        :if={@is_superuser and is_nil(@editing_goal)}
-        class="tr-btn tr-btn-small"
-        phx-click="new_goal"
-      >
-        + Add goal
-      </button>
-    </div>
+  <div class="tr-card tr-sec sec-goals" id="goals">
+    <.section_head icon="hero-flag" kind="goals">
+      Goals
+      <:actions>
+        <button
+          :if={@is_superuser and is_nil(@editing_goal)}
+          class="tr-mini"
+          phx-click="new_goal"
+        >
+          + Add goal
+        </button>
+      </:actions>
+    </.section_head>
 
     <.goal_form :if={@editing_goal == :new} form={@goal_form} new />
 
@@ -181,26 +198,36 @@
       No goals yet. Add what you're working toward: a show, a skill, a date.
     </p>
 
-    <div :for={g <- active} class="tr-session" id={"goal-#{g.id}"}>
+    <div :for={g <- active} class="tr-item" id={"goal-#{g.id}"}>
       <%= if @editing_goal == g.id do %>
         <.goal_form form={@goal_form} goal_id={g.id} />
       <% else %>
-        <b>{g.title}</b>
-        <p :if={goal_when(g, @today)} class="tr-muted">{goal_when(g, @today)}</p>
-        <p :if={g.notes && g.notes != ""} style="margin-top:4px;white-space:pre-line">
-          {g.notes}
-        </p>
-        <div :if={@is_superuser} class="tr-row" style="justify-content:flex-start;margin-top:6px">
+        <div class="tr-item-top">
+          <div class="tr-item-title">{g.title}</div>
+          <span :if={g.target_date} class="tr-count">{goal_countdown(g, @today)}</span>
+        </div>
+        <div :if={g.target_date} class="tr-item-meta">
+          <span>
+            <.icon name="hero-calendar" />{Calendar.strftime(g.target_date, "%b %-d, %Y")}
+          </span>
+        </div>
+        <p :if={g.notes && g.notes != ""} class="tr-item-note">{g.notes}</p>
+        <div :if={@is_superuser} class="tr-item-actions">
           <button
-            class="tr-btn tr-btn-small"
+            class="tr-mini"
             phx-click="goal_status"
             phx-value-id={g.id}
             phx-value-status="done"
           >
             ✓ Done
           </button>
-          <button class="tr-btn tr-btn-small" phx-click="edit_goal" phx-value-id={g.id}>
-            Edit
+          <button
+            class="tr-mini tr-icon-only"
+            phx-click="edit_goal"
+            phx-value-id={g.id}
+            aria-label="Edit goal"
+          >
+            <.icon name="hero-pencil" />
           </button>
         </div>
       <% end %>
@@ -214,15 +241,14 @@
     >
       {if @show_done_goals, do: "Hide", else: "Show"} finished goals ({length(finished)})
     </button>
-    <div :for={g <- finished} :if={@show_done_goals} class="tr-session" style="opacity:.75">
-      <b>{g.title}</b>
-      <p class="tr-muted">
+    <div :for={g <- finished} :if={@show_done_goals} class="tr-item" style="opacity:.75">
+      <div class="tr-item-title">{g.title}</div>
+      <div class="tr-item-meta">
         {if g.status == "done",
           do: "Done#{if g.done_on, do: " " <> Calendar.strftime(g.done_on, "%b %-d, %Y")}",
           else: "Dropped"}
-      </p>
-      <div :if={@is_superuser} class="tr-row" style="justify-content:flex-start;margin-top:4px">
         <button
+          :if={@is_superuser}
           class="tr-link-btn"
           style="padding:0"
           phx-click="goal_status"
@@ -236,17 +262,19 @@
   </div>
 
   <%!-- Working on --%>
-  <div class="tr-card" id="working-on">
-    <div class="tr-row" style="margin-bottom:6px">
-      <h2>Working on</h2>
-      <button
-        :if={@is_superuser and is_nil(@editing_issue)}
-        class="tr-btn tr-btn-small"
-        phx-click="new_issue"
-      >
-        + Add
-      </button>
-    </div>
+  <div class="tr-card tr-sec sec-working" id="working-on">
+    <.section_head icon="hero-wrench-screwdriver" kind="working">
+      Working on
+      <:actions>
+        <button
+          :if={@is_superuser and is_nil(@editing_issue)}
+          class="tr-mini"
+          phx-click="new_issue"
+        >
+          + Add
+        </button>
+      </:actions>
+    </.section_head>
 
     <.issue_form :if={@editing_issue == :new} form={@issue_form} activities={@activities} />
 
@@ -259,24 +287,33 @@
 
     <div
       :for={i <- open ++ if(@show_solved, do: solved, else: [])}
-      class="tr-session"
+      class="tr-item"
       id={"issue-#{i.id}"}
     >
       <%= if @editing_issue == i.id do %>
         <.issue_form form={@issue_form} activities={@activities} issue_id={i.id} />
       <% else %>
-        <div class="tr-row">
-          <b>{i.title}</b>
-          <span class={"tr-status st-#{i.status}"}>{String.capitalize(i.status)}</span>
-        </div>
-        <p :if={issue_meta(i) != ""} class="tr-muted">{issue_meta(i)}</p>
-        <p class="tr-muted" style="font-size:14px">
-          Since {Calendar.strftime(i.opened_on, "%b %-d")}
-          <span :if={i.solved_on}>· solved {Calendar.strftime(i.solved_on, "%b %-d")}</span>
-          <span :if={i.marks != []}>
-            · {length(i.marks)} {if length(i.marks) == 1, do: "session", else: "sessions"}
+        <div class="tr-item-top">
+          <div class="tr-item-title">{i.title}</div>
+          <span style="display:inline-flex;align-items:center;gap:6px;flex:none">
+            <span class={"tr-status st-#{i.status}"}>{String.capitalize(i.status)}</span>
+            <button
+              :if={@is_superuser}
+              class="tr-mini tr-icon-only"
+              phx-click="edit_issue"
+              phx-value-id={i.id}
+              aria-label="Edit"
+            >
+              <.icon name="hero-pencil" />
+            </button>
           </span>
-        </p>
+        </div>
+        <div class="tr-item-meta">
+          <span :if={issue_meta(i) != ""}>{issue_meta(i)}</span>
+          <span>
+            Since {Calendar.strftime(i.opened_on, "%b %-d")}<span :if={i.solved_on}>, solved {Calendar.strftime(i.solved_on, "%b %-d")}</span>
+          </span>
+        </div>
         <div :if={i.marks != []} class="tr-trend" aria-label="Last sessions, newest first">
           <span
             :for={m <- Enum.take(i.marks, 8)}
@@ -286,9 +323,7 @@
             {progress_icon(m.progress)}
           </span>
         </div>
-        <p :if={i.notes && i.notes != ""} style="margin-top:4px;white-space:pre-line">
-          {i.notes}
-        </p>
+        <p :if={i.notes && i.notes != ""} class="tr-item-note">{i.notes}</p>
 
         <div :if={@issue_history == i.id} class="tr-history">
           <div :for={m <- i.marks} class="tr-muted" style="font-size:15px">
@@ -299,28 +334,26 @@
           </div>
         </div>
 
-        <div class="tr-row" style="justify-content:flex-start;gap:4px;margin-top:6px">
+        <div class="tr-item-actions">
           <button
             :if={i.marks != []}
-            class="tr-link-btn"
-            style="padding-left:0"
+            class="tr-mini"
             phx-click="toggle_issue_history"
             phx-value-id={i.id}
           >
-            {if @issue_history == i.id, do: "Hide history", else: "History"}
+            {if @issue_history == i.id, do: "Hide history", else: "History (#{length(i.marks)})"}
           </button>
           <%= if @is_superuser do %>
             <button
               :for={{v, l} <- issue_statuses()}
               :if={v != i.status}
-              class="tr-btn tr-btn-small"
+              class="tr-mini"
               phx-click="issue_status"
               phx-value-id={i.id}
               phx-value-status={v}
             >
               {if v == "solved", do: "✓ Solved", else: l}
             </button>
-            <button class="tr-link-btn" phx-click="edit_issue" phx-value-id={i.id}>Edit</button>
           <% end %>
         </div>
       <% end %>
@@ -336,16 +369,18 @@
     </button>
   </div>
 
-  <%!-- Where he is now --%>
-  <div class="tr-card" id="now">
-    <div class="tr-label">
-      Now · {Training.age_label(@progress.age_months)}
-      <span :if={@progress.stage}>
-        · Stage {@progress.stage_number} of {@progress.stage_count}
-      </span>
-    </div>
+  <%!-- Where he is now, and what's next --%>
+  <div class="tr-card tr-sec sec-stage" id="now">
+    <.section_head icon="hero-map" kind="stage">
+      Stage
+      <:actions>
+        <span class="tr-count">
+          {Training.age_label(@progress.age_months)}<span :if={@progress.stage}> · {@progress.stage_number} of {@progress.stage_count}</span>
+        </span>
+      </:actions>
+    </.section_head>
     <%= if @progress.stage do %>
-      <h2>{@progress.stage.name}</h2>
+      <div class="tr-item-title" style="font-size:19px">{@progress.stage.name}</div>
       <p class="tr-muted" style="margin-top:4px">{@progress.stage.summary}</p>
       <ul class="tr-list">
         <li :for={f <- @progress.stage.focus}>{f}</li>
@@ -384,82 +419,119 @@
     <p :if={@progress.next_goal} class="tr-muted" style="margin-top:10px">
       Next goal: {@progress.next_goal.title}
     </p>
-  </div>
 
-  <%!-- What's next --%>
-  <div :if={@progress.next} class="tr-card">
-    <div class="tr-label">Next</div>
-    <h2>{@progress.next.name}</h2>
-    <p class="tr-muted" style="margin-top:4px">
-      <%= cond do %>
-        <% @progress.months_to_next == nil -> %>
-          From {@progress.next.from_age_months} months.
-        <% @progress.months_to_next == 0 -> %>
-          He's old enough now. Move on when he's ready.
-        <% true -> %>
-          From {@progress.next.from_age_months} months, about {@progress.months_to_next} {if @progress.months_to_next ==
-                                                                                               1,
-                                                                                             do:
-                                                                                               "month",
-                                                                                             else:
-                                                                                               "months"} away.
-      <% end %>
-    </p>
-    <div :if={@is_superuser} class="tr-row" style="margin-top:12px;justify-content:flex-start">
-      <button class="tr-btn tr-btn-small" phx-click="set_stage" phx-value-id={@progress.next.id}>
-        Ready: move to this stage
-      </button>
-      <button :if={@progress.overridden?} class="tr-btn tr-btn-small" phx-click="set_stage">
-        Follow his age again
-      </button>
+    <div :if={@progress.next} class="tr-next">
+      <div class="tr-label">Next stage</div>
+      <b>{@progress.next.name}</b>
+      <p class="tr-muted">
+        <%= cond do %>
+          <% @progress.months_to_next == nil -> %>
+            From {@progress.next.from_age_months} months.
+          <% @progress.months_to_next == 0 -> %>
+            He's old enough now. Move on when he's ready.
+          <% true -> %>
+            From {@progress.next.from_age_months} months, about {@progress.months_to_next} {if @progress.months_to_next ==
+                                                                                                 1,
+                                                                                               do:
+                                                                                                 "month",
+                                                                                               else:
+                                                                                                 "months"} away.
+        <% end %>
+      </p>
+      <div :if={@is_superuser} class="tr-item-actions">
+        <button class="tr-mini" phx-click="set_stage" phx-value-id={@progress.next.id}>
+          Ready: move to this stage
+        </button>
+        <button :if={@progress.overridden?} class="tr-mini" phx-click="set_stage">
+          Follow his age again
+        </button>
+      </div>
     </div>
-  </div>
-  <div :if={is_nil(@progress.next) and @progress.overridden? and @is_superuser} class="tr-card">
-    <button class="tr-btn tr-btn-small" phx-click="set_stage">Follow his age again</button>
+    <div
+      :if={is_nil(@progress.next) and @progress.overridden? and @is_superuser}
+      class="tr-item-actions"
+    >
+      <button class="tr-mini" phx-click="set_stage">Follow his age again</button>
+    </div>
   </div>
 
   <%!-- Ask the TrAIner --%>
-  <div :if={@is_superuser} class="tr-card" id="coach">
-    <div class="tr-row">
-      <h2 style="font-weight:500">Ask the Tr<b style="font-weight:800;color:#dc2626">AI</b>ner</h2>
-      <button
-        :if={@coach_on and @coach_thread != [] and is_nil(@coach_loading)}
-        class="tr-btn tr-btn-small"
-        phx-click="coach_new"
-      >
-        + New question
-      </button>
-    </div>
+  <div :if={@is_superuser} class="tr-card tr-sec sec-trainer" id="coach">
+    <.section_head icon="hero-sparkles" kind="trainer">
+      Ask the Tr<span class="tr-ai">AI</span>ner
+      <:actions>
+        <button
+          :if={@coach_on and @coach_thread != [] and is_nil(@coach_loading)}
+          id="coach-new"
+          class="tr-mini"
+          phx-click="coach_new"
+        >
+          + New
+        </button>
+      </:actions>
+    </.section_head>
     <%= if @coach_on do %>
-      <p :if={@coach_thread == []} class="tr-muted" style="margin:4px 0 12px">
+      <p :if={@coach_thread == [] and is_nil(@coach_loading)} class="tr-muted">
         Ask how he's doing, what to work on, or how to get through something that's giving you
-        trouble. Claude checks {@book.horse.name}'s log before it answers.
+        trouble. It checks {@book.horse.name}'s log before it answers.
       </p>
 
-      <div :for={m <- @coach_thread} class="tr-answer" id={"coach-#{m.id}"}>
-        <p class="tr-muted" style="font-weight:600">“{m.question}”</p>
-        <p style="white-space:pre-line;margin-top:6px">{m.answer}</p>
-        <p class="tr-muted" style="font-size:13px;margin-top:8px">
-          {Calendar.strftime(m.inserted_at, "%b %-d")}<span :if={m.checked != []}> · Checked: {Enum.join(m.checked, ", ")}</span>
-        </p>
+      <% cards = length(@coach_thread) + if(@coach_loading, do: 1, else: 0) %>
+      <div :if={cards > 0} class="tr-deck" id="coach-deck" phx-hook="CoachDeck">
+        <div class="tr-deck-track">
+          <article :for={m <- @coach_thread} class="tr-qa" id={"coach-#{m.id}"}>
+            <div class="tr-qa-q">
+              <span class="tr-qa-label">You asked</span>
+              <p>{m.question}</p>
+            </div>
+            <div class="tr-qa-a">
+              <.coach_answer text={m.answer} />
+            </div>
+            <div class="tr-qa-foot">
+              {Calendar.strftime(m.inserted_at, "%a %b %-d")}
+              <details :if={m.checked != []}>
+                <summary>
+                  · Looked at {length(m.checked)} {if length(m.checked) == 1,
+                    do: "thing",
+                    else: "things"} in his log
+                </summary>
+                <ul>
+                  <li :for={c <- m.checked}>{c}</li>
+                </ul>
+              </details>
+            </div>
+          </article>
+          <article :if={@coach_loading} class="tr-qa tr-qa-loading" id="coach-loading">
+            <div class="tr-qa-q">
+              <span class="tr-qa-label">You asked</span>
+              <p>{@coach_loading}</p>
+            </div>
+            <div class="tr-qa-a">
+              <span class="tr-dots-anim"><i></i><i></i><i></i></span>
+              Checking his log… usually 5–20 seconds.
+            </div>
+          </article>
+        </div>
+        <div :if={cards > 1} class="tr-deck-nav">
+          <button type="button" data-deck="prev" aria-label="Earlier answer">‹</button>
+          <div :if={cards <= 10} class="tr-deck-dots" aria-hidden="true">
+            <i :for={_ <- 1..cards}></i>
+          </div>
+          <span class="tr-deck-count" data-deck="count">{cards} of {cards}</span>
+          <button type="button" data-deck="next" aria-label="Later answer">›</button>
+        </div>
       </div>
 
-      <div :if={@coach_loading} class="tr-answer tr-muted" id="coach-loading">
-        <b>“{@coach_loading}”</b>
-        <p style="margin-top:4px">Checking his log… this usually takes 5–20 seconds.</p>
-      </div>
       <p :if={@coach_error} class="tr-warn" style="margin-top:10px">{@coach_error}</p>
 
       <form
         id="coach-form"
+        class="tr-composer"
         phx-submit="coach_ask"
         phx-change="coach_typing"
-        style="margin-top:12px"
       >
         <textarea
           name="question"
-          class="tr-detail-note"
-          style="min-height:72px"
           placeholder={
             if @coach_thread == [],
               do: "e.g. He won't give me his shoulder on the ground. How do I get through that?",
@@ -467,22 +539,9 @@
           }
           disabled={@coach_loading != nil}
         >{@coach_question}</textarea>
-        <div :if={@coach_thread == []} class="tr-pills tr-pills-sm" style="margin:8px 0 2px">
-          <button
-            :for={q <- coach_suggestions(@book)}
-            type="button"
-            class="tr-chip"
-            phx-click="coach_suggest"
-            phx-value-q={q}
-            disabled={@coach_loading != nil}
-          >
-            {q}
-          </button>
-        </div>
         <button
           type="submit"
           class="tr-btn tr-btn-primary tr-btn-block"
-          style="margin-top:8px"
           disabled={@coach_loading != nil}
         >
           <%= cond do %>
@@ -496,10 +555,25 @@
         </button>
       </form>
 
+      <details :if={@coach_thread == [] and is_nil(@coach_loading)} class="tr-more tr-ideas">
+        <summary>Need an idea?</summary>
+        <div class="tr-pills">
+          <button
+            :for={q <- coach_suggestions(@book)}
+            type="button"
+            class="tr-chip"
+            phx-click="coach_suggest"
+            phx-value-q={q}
+          >
+            {q}
+          </button>
+        </div>
+      </details>
+
       <% current = @coach_thread |> List.first() |> then(&(&1 && &1.id)) %>
       <% earlier = Enum.reject(@coach_threads, &(&1.id == current)) %>
-      <div :if={earlier != []} style="margin-top:14px">
-        <div class="tr-label">Earlier questions</div>
+      <details :if={earlier != []} class="tr-more">
+        <summary>Earlier conversations ({length(earlier)})</summary>
         <button
           :for={t <- earlier}
           type="button"
@@ -510,46 +584,43 @@
         >
           {Calendar.strftime(t.inserted_at, "%b %-d")} · {t.question}
         </button>
-      </div>
-      <p class="tr-muted" style="font-size:13px;margin-top:10px">
-        Suggestions only. For anything that seems physical, talk to your vet.
-      </p>
+      </details>
+      <p class="tr-fine">Suggestions only. For anything that seems physical, talk to your vet.</p>
     <% else %>
-      <p class="tr-muted" style="margin-top:6px">
+      <p class="tr-muted">
         Not set up yet: the server needs an ANTHROPIC_API_KEY. Once it's added and the app restarts, you can ask here.
       </p>
     <% end %>
   </div>
 
   <%!-- Log a session --%>
-  <div :if={@is_superuser} class="tr-card" id="log">
-    <div class="tr-row" style="margin-bottom:12px">
-      <h2>{if @editing, do: "Edit session", else: "Log a session"}</h2>
-      <button :if={@editing} class="tr-link-btn" phx-click="cancel_edit">Cancel</button>
-      <a
-        :if={!@editing}
-        href={~p"/training/lists?back=#{@book.id}"}
-        class="tr-link-btn"
-        style="text-decoration:none;display:inline-flex;align-items:center"
-      >
-        Customize lists
-      </a>
-    </div>
+  <div :if={@is_superuser} class="tr-card tr-sec sec-log" id="log">
+    <.section_head icon="hero-pencil-square" kind="log">
+      {if @editing, do: "Edit session", else: "Log a session"}
+      <:actions>
+        <button :if={@editing} class="tr-link-btn" phx-click="cancel_edit">Cancel</button>
+        <a
+          :if={!@editing}
+          href={~p"/training/lists?back=#{@book.id}"}
+          class="tr-link-btn"
+          style="text-decoration:none;display:inline-flex;align-items:center;gap:4px"
+          aria-label="Customize lists"
+        >
+          <.icon name="hero-cog-6-tooth" class="tr-gear" /> Lists
+        </a>
+      </:actions>
+    </.section_head>
 
-    <%!-- Quick actions --%>
-    <div :if={!@editing} class="tr-quick">
-      <button
-        :if={@sessions != []}
-        type="button"
-        class="tr-btn tr-btn-small"
-        phx-click="repeat_last"
-      >
+    <%!-- Quick start --%>
+    <div :if={!@editing and (@sessions != [] or @routines != [])} class="tr-quickstart">
+      <span class="tr-label">Quick start</span>
+      <button :if={@sessions != []} type="button" class="tr-mini" phx-click="repeat_last">
         ↻ Repeat last
       </button>
       <span :for={r <- @routines} class="tr-routine">
         <button
           type="button"
-          class="tr-btn tr-btn-small"
+          class="tr-mini"
           phx-click="apply_routine"
           phx-value-id={r.id}
           title={activity_summary(r, @activities)}
@@ -574,42 +645,47 @@
         class="tr-link-btn"
         phx-click="toggle_manage_routines"
       >
-        {if @managing_routines, do: "Done", else: "Edit routines"}
+        {if @managing_routines, do: "Done", else: "Edit"}
       </button>
     </div>
 
     <.form for={%{}} as={:session} id="session-form" phx-change="change" phx-submit="save">
-      <div class="tr-field">
-        <span class="tr-label">When?</span>
-        <div class="tr-pills">
-          <label :for={{iso, label} <- date_chips(@today)} class="tr-pill">
-            <input
-              type="radio"
-              name="session[date_chip]"
-              value={iso}
-              checked={@params["date_chip"] == iso}
-            />
-            <span>{label}</span>
-          </label>
+      <div class="tr-step">
+        <div class="tr-step-head"><span class="tr-step-n">1</span> When</div>
+        <div class="tr-inline">
+          <div class="tr-pills">
+            <label :for={{iso, label} <- date_chips(@today)} class="tr-pill">
+              <input
+                type="radio"
+                name="session[date_chip]"
+                value={iso}
+                checked={@params["date_chip"] == iso}
+              />
+              <span>{label}</span>
+            </label>
+          </div>
+          <input
+            type="date"
+            id="session_date"
+            name="session[date_typed]"
+            value={@params["date_typed"]}
+            max={Date.to_iso8601(@today)}
+            aria-label="Or pick an earlier day"
+          />
         </div>
-        <input
-          type="date"
-          id="session_date"
-          name="session[date_typed]"
-          value={@params["date_typed"]}
-          max={Date.to_iso8601(@today)}
-          aria-label="Or pick an earlier day"
-        />
-        <span class="tr-muted" style="font-size:14px">
+        <p
+          :if={@params["date"] not in [nil, ""] and @params["date_chip"] in [nil, ""]}
+          class="tr-muted"
+          style="font-size:14px;margin-top:6px"
+        >
           Logging for {fmt_date(@params["date"], @today)}
-        </span>
+        </p>
       </div>
 
-      <div class="tr-field">
-        <span class="tr-label">
-          What did you work on?
-          <span class="tr-muted" style="font-weight:400">Pick all that apply</span>
-        </span>
+      <div class="tr-step">
+        <div class="tr-step-head">
+          <span class="tr-step-n">2</span> What did you work on?
+        </div>
         <input type="hidden" name="session[activity_ids][]" value="" />
         <div class="tr-pills">
           <label
@@ -625,59 +701,61 @@
             <span>{a.name}</span>
           </label>
         </div>
-      </div>
 
-      <%!-- How each picked activity went (optional) --%>
-      <% picked = Enum.filter(@activities, &("#{&1.id}" in @params["activity_ids"])) %>
-      <div :for={a <- picked} class="tr-detail" id={"detail-#{a.id}"}>
-        <b>{a.name}</b>
-        <div class="tr-pills tr-pills-sm">
-          <label :for={{v, l} <- results()} class={"tr-pill res-#{v}"}>
+        <%!-- How each picked activity went (optional) --%>
+        <% picked = Enum.filter(@activities, &("#{&1.id}" in @params["activity_ids"])) %>
+        <div :if={picked != []} style="margin-top:12px">
+          <div :for={a <- picked} class="tr-act" id={"detail-#{a.id}"}>
+            <b>{a.name} <small class="tr-muted" style="font-weight:400">how did it go?</small></b>
+            <div class="tr-seg">
+              <label :for={{v, l} <- results()} class={"tr-pill res-#{v}"}>
+                <input
+                  type="radio"
+                  name={"session[details][#{a.id}][result]"}
+                  value={v}
+                  checked={detail(@params, a.id, "result") == v}
+                />
+                <span>{l}</span>
+              </label>
+            </div>
+            <div class="tr-seg">
+              <label :for={{v, l} <- sides()} class="tr-pill">
+                <input
+                  type="radio"
+                  name={"session[details][#{a.id}][side]"}
+                  value={v}
+                  checked={detail(@params, a.id, "side") == v}
+                />
+                <span>{l}</span>
+              </label>
+            </div>
             <input
-              type="radio"
-              name={"session[details][#{a.id}][result]"}
-              value={v}
-              checked={detail(@params, a.id, "result") == v}
+              type="text"
+              name={"session[details][#{a.id}][note]"}
+              value={detail(@params, a.id, "note")}
+              placeholder={"Note on #{String.downcase(a.name)} (optional)"}
+              class="tr-detail-note"
             />
-            <span>{l}</span>
-          </label>
+          </div>
         </div>
-        <div class="tr-pills tr-pills-sm">
-          <label :for={{v, l} <- sides()} class="tr-pill">
-            <input
-              type="radio"
-              name={"session[details][#{a.id}][side]"}
-              value={v}
-              checked={detail(@params, a.id, "side") == v}
-            />
-            <span>{l}</span>
-          </label>
-        </div>
-        <input
-          type="text"
-          name={"session[details][#{a.id}][note]"}
-          value={detail(@params, a.id, "note")}
-          placeholder={"Note on #{String.downcase(a.name)} (optional)"}
-          class="tr-detail-note"
-        />
       </div>
 
       <% loggable = loggable_issues(@issues, @params) %>
-      <div :if={loggable != []} class="tr-field">
-        <span class="tr-label">
-          Working on <span class="tr-muted" style="font-weight:400">How did it go today?</span>
-        </span>
-        <div :for={i <- loggable} class="tr-detail" style="margin:0" id={"mark-#{i.id}"}>
+      <div :if={loggable != []} class="tr-step">
+        <div class="tr-step-head">
+          <span class="tr-step-n">3</span> Working on <small>How did it go today?</small>
+        </div>
+        <div :for={i <- loggable} class="tr-mark-row" id={"mark-#{i.id}"}>
           <b>{i.title}</b>
-          <div class="tr-pills tr-pills-sm">
-            <label class="tr-pill">
+          <div class="tr-seg">
+            <label class="tr-pill mk-skip">
               <input
                 type="radio"
                 name={"session[issues][#{i.id}][progress]"}
                 value=""
                 checked={mark(@params, i.id, "progress") in [nil, ""]}
               />
-              <span>Not today</span>
+              <span>Skip</span>
             </label>
             <label :for={{v, l} <- progress_options()} class={"tr-pill mk-#{v}"}>
               <input
@@ -686,7 +764,7 @@
                 value={v}
                 checked={mark(@params, i.id, "progress") == v}
               />
-              <span>{l}</span>
+              <span>{progress_icon(v)} {l}</span>
             </label>
           </div>
           <input
@@ -700,35 +778,43 @@
         </div>
       </div>
 
-      <div class="tr-field">
-        <label for="session_minutes">Minutes</label>
-        <div class="tr-pills">
-          <label :for={m <- @minute_chips} class="tr-pill">
-            <input
-              type="radio"
-              name="session[minute_chip]"
-              value={m}
-              checked={"#{@params["minute_chip"]}" == "#{m}"}
-            />
-            <span>{m}</span>
-          </label>
+      <div class="tr-step">
+        <div class="tr-step-head">
+          <span class="tr-step-n">{if loggable != [], do: 4, else: 3}</span>
+          <label for="session_minutes">How long?</label> <small>minutes</small>
         </div>
-        <input
-          type="number"
-          id="session_minutes"
-          name="session[minutes_typed]"
-          inputmode="numeric"
-          min="1"
-          max="600"
-          value={@params["minutes_typed"]}
-          placeholder="Or type minutes"
-        />
+        <div class="tr-inline">
+          <div class="tr-pills">
+            <label :for={m <- @minute_chips} class="tr-pill">
+              <input
+                type="radio"
+                name="session[minute_chip]"
+                value={m}
+                checked={"#{@params["minute_chip"]}" == "#{m}"}
+              />
+              <span>{m}</span>
+            </label>
+          </div>
+          <input
+            type="number"
+            id="session_minutes"
+            name="session[minutes_typed]"
+            inputmode="numeric"
+            min="1"
+            max="600"
+            value={@params["minutes_typed"]}
+            placeholder="Other"
+          />
+        </div>
       </div>
 
-      <div class="tr-field">
-        <span class="tr-label">How was he?</span>
+      <div class="tr-step">
+        <div class="tr-step-head">
+          <span class="tr-step-n">{if loggable != [], do: 5, else: 4}</span>
+          How was he? <small>optional</small>
+        </div>
         <input type="hidden" name="session[tags][]" value="" />
-        <div class="tr-pills">
+        <div class="tr-pills tr-pills-sm">
           <label
             :for={t <- Enum.filter(@tags, &(not &1.archived or &1.slug in @params["tags"]))}
             class={"tr-pill tag-#{t.kind}"}
@@ -744,17 +830,17 @@
         </div>
       </div>
 
-      <div class="tr-field">
-        <label for="session_note">Note</label>
+      <div class="tr-step">
+        <div class="tr-step-head">
+          <label for="session_note">Note and photos</label> <small>optional</small>
+        </div>
         <textarea
           id="session_note"
           name="session[note]"
+          class="tr-detail-note"
+          style="min-height:84px;margin-bottom:8px"
           placeholder="What worked, what to try next time…"
         >{@params["note"]}</textarea>
-      </div>
-
-      <div class="tr-field">
-        <span class="tr-label">Photos</span>
         <div :if={@editing_photos != []} class="tr-thumbs" style="margin:0 0 8px">
           <div :for={p <- @editing_photos} class="tr-thumb" id={"edit-photo-#{p.id}"}>
             <img src={p.url} alt="Session photo" loading="lazy" />
@@ -824,77 +910,79 @@
   </div>
 
   <%!-- Session history --%>
-  <div class="tr-card" id="sessions">
-    <h2 style="margin-bottom:10px">Sessions</h2>
+  <div class="tr-card tr-sec sec-sessions" id="sessions">
+    <.section_head icon="hero-calendar-days" kind="sessions">
+      Sessions
+      <:actions>
+        <span :if={@sessions != []} class="tr-count">{length(@sessions)} logged</span>
+      </:actions>
+    </.section_head>
     <p :if={@sessions == []} class="tr-muted">Nothing logged yet.</p>
-    <div :for={s <- @sessions} class="tr-session" id={"session-#{s.id}"}>
-      <div class="tr-row">
-        <b>
-          {Enum.map_join(s.activities, ", ", & &1.activity.name)}<span
-            :if={s.minutes}
-            class="tr-muted"
-            style="font-weight:400"
-          > · {s.minutes} min</span>
-        </b>
-        <span class="tr-muted">{fmt_date(s.date, @today)}</span>
+    <div :for={s <- @sessions} class="tr-sess" id={"session-#{s.id}"}>
+      <div class="tr-date" title={fmt_date(s.date, @today)}>
+        <small>{Calendar.strftime(s.date, "%a")}</small>
+        <b>{Calendar.strftime(s.date, "%-d")}</b>
+        <small>{Calendar.strftime(s.date, "%b")}</small>
       </div>
-      <div
-        :for={a <- Enum.filter(s.activities, &(&1.result || &1.side || &1.note))}
-        class="tr-muted"
-        style="font-size:15px;margin-top:2px"
-      >
-        {a.activity.name}:
-        <span :if={a.result} class={"tr-res res-#{a.result}"}>{String.capitalize(a.result)}</span>
-        <span :if={a.side}>{String.capitalize(a.side)} side</span>
-        <span :if={a.note}>· {a.note}</span>
-      </div>
-      <div :for={m <- s.issue_marks} class="tr-muted" style="font-size:15px;margin-top:2px">
-        {m.issue.title}:
-        <b class={"tr-res mk-#{m.progress}"}>
-          {progress_icon(m.progress)} {String.capitalize(m.progress)}
-        </b>
-        <span :if={m.note}>· {m.note}</span>
-      </div>
-      <div :if={s.tags != []}>
-        <span :for={t <- s.tags} class={"tr-tag #{if health_tag?(@tags, t), do: "sore"}"}>
-          {tag_name(@tags, t)}
-        </span>
-      </div>
-      <p :if={s.note && s.note != ""} style="margin-top:6px;white-space:pre-line">{s.note}</p>
-      <div :if={s.photos != []} class="tr-thumbs">
-        <button
-          :for={p <- s.photos}
-          type="button"
-          class="tr-thumb"
-          phx-click="open_photo"
-          phx-value-url={p.url}
-          aria-label="View photo"
+      <div style="min-width:0">
+        <div class="tr-sess-title">
+          {Enum.map_join(s.activities, ", ", & &1.activity.name)}<span :if={s.minutes}> · {s.minutes} min</span>
+        </div>
+        <div
+          :for={a <- Enum.filter(s.activities, &(&1.result || &1.side || &1.note))}
+          class="tr-sess-line"
         >
-          <img src={p.url} alt="Session photo" loading="lazy" />
-        </button>
-      </div>
-      <div
-        :if={@is_superuser}
-        class="tr-row"
-        style="justify-content:flex-start;gap:4px;margin-top:4px"
-      >
-        <a
-          href="#log"
-          class="tr-link-btn"
-          style="padding:0;display:inline-flex;align-items:center;text-decoration:none"
-          phx-click="edit_session"
-          phx-value-id={s.id}
-        >
-          Edit
-        </a>
-        <button
-          class="tr-link-btn"
-          phx-click="delete_session"
-          phx-value-id={s.id}
-          data-confirm="Delete this session?"
-        >
-          Delete
-        </button>
+          {a.activity.name}:
+          <span :if={a.result} class={"tr-res res-#{a.result}"}>
+            {String.capitalize(a.result)}
+          </span>
+          <span :if={a.side}>{side_label(a.side)}</span>
+          <span :if={a.note}>· {a.note}</span>
+        </div>
+        <div :for={m <- s.issue_marks} class="tr-sess-line">
+          {m.issue.title}:
+          <b class={"tr-res mk-#{m.progress}"}>
+            {progress_icon(m.progress)} {String.capitalize(m.progress)}
+          </b>
+          <span :if={m.note}>· {m.note}</span>
+        </div>
+        <div :if={s.tags != []}>
+          <span :for={t <- s.tags} class={"tr-tag #{if health_tag?(@tags, t), do: "sore"}"}>
+            {tag_name(@tags, t)}
+          </span>
+        </div>
+        <p :if={s.note && s.note != ""} class="tr-sess-note">{s.note}</p>
+        <div :if={s.photos != []} class="tr-thumbs">
+          <button
+            :for={p <- s.photos}
+            type="button"
+            class="tr-thumb"
+            phx-click="open_photo"
+            phx-value-url={p.url}
+            aria-label="View photo"
+          >
+            <img src={p.url} alt="Session photo" loading="lazy" />
+          </button>
+        </div>
+        <div :if={@is_superuser} class="tr-sess-actions">
+          <a
+            href="#log"
+            class="tr-link-btn"
+            style="display:inline-flex;align-items:center;text-decoration:none"
+            phx-click="edit_session"
+            phx-value-id={s.id}
+          >
+            Edit
+          </a>
+          <button
+            class="tr-link-btn"
+            phx-click="delete_session"
+            phx-value-id={s.id}
+            data-confirm="Delete this session?"
+          >
+            Delete
+          </button>
+        </div>
       </div>
     </div>
   </div>

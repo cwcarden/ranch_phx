@@ -767,7 +767,7 @@ defmodule RanchPhxWeb.TrainingLive.Book do
   def progress_icon("worse"), do: "↓"
 
   def issue_meta(issue) do
-    [issue.activity && issue.activity.name, issue.side && "#{String.capitalize(issue.side)} side"]
+    [issue.activity && issue.activity.name, issue.side && side_label(issue.side)]
     |> Enum.reject(&is_nil/1)
     |> Enum.join(" · ")
   end
@@ -804,6 +804,25 @@ defmodule RanchPhxWeb.TrainingLive.Book do
       true -> "#{Calendar.strftime(d, "%b %-d, %Y")} · #{-days} days ago"
     end
   end
+
+  @doc "Short countdown for a goal's badge: \"in 16 months\", \"in 12 days\", \"Today\"."
+  def goal_countdown(%Goal{target_date: nil}, _today), do: nil
+
+  def goal_countdown(%Goal{target_date: d}, today) do
+    days = Date.diff(d, today)
+
+    cond do
+      days > 90 -> "in #{div(days, 30)} months"
+      days > 1 -> "in #{days} days"
+      days == 1 -> "Tomorrow"
+      days == 0 -> "Today"
+      days == -1 -> "1 day past"
+      true -> "#{-days} days past"
+    end
+  end
+
+  def side_label("both"), do: "Both sides"
+  def side_label(side), do: "#{String.capitalize(side)} side"
 
   def fmt_date(iso, today) when is_binary(iso) do
     case Date.from_iso8601(iso) do

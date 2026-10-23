@@ -254,7 +254,7 @@ defmodule RanchPhx.TrainingCoachTest do
       html = render_async(view)
       assert html =~ "Start with a light ask" and html =~ "Slow the timing"
 
-      view |> element("#coach button", "New question") |> render_click()
+      view |> element("#coach-new") |> render_click()
       refute render(view) =~ "Slow the timing"
       view |> form("#coach-form", question: "What this week?") |> render_submit()
       assert render_async(view) =~ "Two short sessions"
