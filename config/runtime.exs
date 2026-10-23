@@ -60,11 +60,10 @@ if config_env() == :prod do
   config :ranch_phx, RanchPhxWeb.Endpoint,
     url: [host: host, port: 443, scheme: "https"],
     http: [
-      # Enable IPv6 and bind on all interfaces.
-      # Set it to  {0, 0, 0, 0, 0, 0, 0, 1} for local network only access.
-      # See the documentation on https://hexdocs.pm/bandit/Bandit.html#t:options/0
-      # for details about using IPv6 vs IPv4 and loopback vs public addresses.
-      ip: {0, 0, 0, 0, 0, 0, 0, 0}
+      # Listen only on the server itself (127.0.0.1), so the app can be reached
+      # only through the Cloudflare-protected proxy on the same box, never
+      # directly at http://<server-ip>:PORT.
+      ip: {127, 0, 0, 1}
     ],
     secret_key_base: secret_key_base
 
