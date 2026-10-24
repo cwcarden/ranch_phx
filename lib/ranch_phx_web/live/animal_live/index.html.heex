@@ -67,6 +67,17 @@ html { background: var(--surface2); }
 .card-name { font-size: 15px; font-weight: 700; margin-bottom: 2px; }
 .card-sub { font-size: 12px; color: var(--text2); margin-bottom: 10px; }
 .card-stats { display: flex; gap: 10px; }
+.card-insights { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); display: grid; gap: 7px; }
+.ci-row { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text2); min-width: 0; }
+.ci-ico { width: 17px; height: 17px; flex: none; color: var(--text3); }
+.ci-main { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ci-main b { color: var(--text); font-weight: 700; }
+.ci-rate { color: #16a34a; font-weight: 700; }
+.ci-rate.down { color: #dc2626; }
+.ci-spark { flex: none; color: #16a34a; }
+.ci-row.soon .ci-ico, .ci-row.soon b { color: #d97706; }
+.ci-row.over .ci-ico, .ci-row.over b { color: #dc2626; }
+.ci-row.train .ci-ico { color: #0d9488; }
 .card-stat { display: flex; flex-direction: column; gap: 1px; }
 .card-stat-label { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--text3); font-weight: 600; }
 .card-stat-val { font-size: 13px; font-weight: 600; }
@@ -211,6 +222,36 @@ html { background: var(--surface2); }
                     <span class="card-stat-val"><%= Animal.age_label(animal) %></span>
                   </div>
                 <% end %>
+              </div>
+              <% ins = @insights[animal.id] %>
+              <% spark = ins && ins.weight && Insights.sparkline(ins.weight.points, 72, 22) %>
+              <div :if={ins && (ins.weight || ins.care || ins.training)} class="card-insights">
+                <div :if={ins.weight} class="ci-row">
+                  <.icon name="hero-scale" class="ci-ico" />
+                  <span class="ci-main">
+                    <b>{ins.weight.latest} lb</b><span
+                      :if={ins.weight.per_day}
+                      class={["ci-rate", ins.weight.per_day < 0 && "down"]}
+                    > {per_day(ins.weight.per_day)}</span>
+                  </span>
+                  <svg :if={spark} class="ci-spark" viewBox="0 0 72 22" width="72" height="22" aria-hidden="true">
+                    <polyline points={spark} fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </div>
+                <div :if={ins.care} class={["ci-row", if(ins.care.days < 0, do: "over", else: "soon")]}>
+                  <.icon name="hero-bell-alert" class="ci-ico" />
+                  <span class="ci-main">{ins.care.record.title} <b>{due_short(ins.care.days)}</b></span>
+                </div>
+                <div :if={ins.training} class="ci-row train">
+                  <.icon name="hero-academic-cap" class="ci-ico" />
+                  <span class="ci-main">
+                    <%= if ins.training.last do %>
+                      Trained {days_ago(ins.training.last, Date.utc_today())} · {ins.training.week.sessions} this week
+                    <% else %>
+                      In training · no sessions yet
+                    <% end %>
+                  </span>
+                </div>
               </div>
             </div>
           </a>

@@ -304,6 +304,28 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .rx-plan-when { text-align: right; font-size: 14px; font-weight: 700; color: #0d9488; white-space: nowrap; }
 .rx-plan-when small { display: block; font-size: 12px; font-weight: 500; color: var(--text3); }
 .rx-due-main small { display: block; font-size: 13px; color: var(--text3); }
+.growth .rx-head .rx-sub { white-space: nowrap; }
+.gr-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 8px; }
+.gr-stats b { display: block; font-size: 19px; font-weight: 800; }
+.gr-stats b.up { color: #16a34a; }
+.gr-stats b.down { color: #dc2626; }
+.gr-stats small { font-size: 12px; color: var(--text3); }
+.gr-chart { width: 100%; height: 112px; color: #16a34a; display: block; }
+.gr-axis { font-size: 11px; fill: var(--text3); }
+.gr-log { margin-left: auto; min-height: 36px; }
+.gr-foot { margin-top: 6px; font-size: 13px; }
+.rx-weigh .dlg-body { display: grid; gap: 16px; }
+.wg-num input::-webkit-outer-spin-button, .wg-num input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.wg-num input { -moz-appearance: textfield; }
+.wg-num { display: flex; align-items: center; gap: 10px; }
+.wg-num input { flex: 1; min-height: 64px !important; font-size: 34px !important; font-weight: 800; text-align: center; }
+.wg-num b { font-size: 20px; color: var(--text2); }
+.wg-methods { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.wg-method { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 64px; border-radius: 12px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text2); font-size: 14px; font-weight: 700; cursor: pointer; text-align: center; }
+.wg-method input { position: absolute; opacity: 0; pointer-events: none; }
+.wg-method [class^="hero-"] { width: 22px; height: 22px; }
+.wg-method.on { border-color: #16a34a; background: color-mix(in srgb, #16a34a 12%, var(--surface)); color: #16a34a; }
+@media (max-width: 600px) { .dlg.rx-weigh { height: auto; margin-top: auto; border-radius: 16px 16px 0 0; } .dlg-wrap.rx-sheet-wrap:has(.rx-weigh) { align-items: flex-end; } }
 .tr-prose { font-size: 16px; line-height: 1.6; color: var(--text); }
 .tr-prose p { margin: 0 0 10px; }
 .tr-prose ul, .tr-prose ol { margin: 0 0 10px; padding-left: 20px; display: grid; gap: 5px; }
@@ -669,6 +691,44 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 
   <!-- ── OVERVIEW ─────────────────────────────────────────────────────────── -->
   <%= if @tab == "overview" do %>
+    <% wt = @animal.timeline_events |> Insights.weights(@animal.records) |> Insights.weight_trend() %>
+    <div :if={wt || @is_superuser} class="rx-card growth" id="growth">
+      <div class="rx-head">
+        <span class="rx-ico" style="--c:#16a34a"><.icon name="hero-scale" /></span>
+        <h3>Weight</h3>
+        <button :if={@is_superuser} class="btn btn-primary btn-sm gr-log" phx-click="open_weigh" id="log-weight">
+          + Log weight
+        </button>
+      </div>
+      <p :if={is_nil(wt)} class="rx-sub">Log weigh-ins to see how fast he's gaining.</p>
+      <%= if wt do %>
+      <div class="gr-stats">
+        <div>
+          <b>{wt.latest} lb</b>
+          <small>{Calendar.strftime(wt.date, "%b %-d, %Y")}</small>
+        </div>
+        <div :if={wt.per_day}>
+          <b class={if wt.per_day < 0, do: "down", else: "up"}>{if wt.per_day >= 0, do: "+"}{:erlang.float_to_binary(wt.per_day * 1.0, decimals: 1)} lb</b>
+          <small>a day on average</small>
+        </div>
+        <div :if={wt.month_change}>
+          <b class={if wt.month_change.lbs < 0, do: "down", else: "up"}>{if wt.month_change.lbs >= 0, do: "+"}{wt.month_change.lbs} lb</b>
+          <small>in the last {round(wt.month_change.days / 7)} weeks</small>
+        </div>
+      </div>
+      <% pts = Insights.chart_points(wt.points, 320, 96, 8) %>
+      <svg :if={pts != []} class="gr-chart" viewBox="0 0 320 112" preserveAspectRatio="none" role="img" aria-label="Weight over time">
+        <polyline points={Enum.map_join(pts, " ", fn {x, y, _, _} -> "#{x},#{y}" end)} fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" />
+        <circle :for={{x, y, d, lbs} <- pts} cx={x} cy={y} r="3.5" fill="currentColor"><title>{Calendar.strftime(d, "%b %-d")}: {lbs} lb</title></circle>
+        <text x="8" y="110" class="gr-axis">{Calendar.strftime(elem(hd(wt.points), 0), "%b %-d")}</text>
+        <text x="312" y="110" text-anchor="end" class="gr-axis">{Calendar.strftime(wt.date, "%b %-d")}</text>
+      </svg>
+      <p :if={is_nil(wt.per_day)} class="rx-sub">Add another weigh-in a week or more later to see the gain.</p>
+      <p class="rx-sub gr-foot">
+        {wt.count} weigh-{if wt.count == 1, do: "in", else: "ins"}<span :if={m = Insights.latest_method(@animal.timeline_events)}> · last by {m}</span>
+      </p>
+      <% end %>
+    </div>
     <div class="overview-grid">
       <div class="info-card">
         <h3>Identity</h3>
@@ -2138,6 +2198,54 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 <% end %>
 
 <!-- ── Record Modal ───────────────────────────────────────────────────────── -->
+<%= if @weigh do %>
+  <div class="dlg-wrap rx-sheet-wrap">
+    <div class="dlg-backdrop" phx-click="close_weigh"></div>
+    <div class="dlg rx-sheet rx-weigh" id="weigh-sheet">
+      <div class="dlg-header">
+        <h2>Log weight</h2>
+        <button class="btn-icon" phx-click="close_weigh" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <form id="weigh-form" phx-change="weigh_change" phx-submit="save_weigh">
+        <div class="dlg-body">
+          <label class="rx-vfield">
+            <span>Weight</span>
+            <div class="wg-num">
+              <input type="number" name="weigh[lbs]" value={@weigh["lbs"]} inputmode="decimal" step="any" min="1" max="5000" placeholder="0" autofocus required />
+              <b>lb</b>
+            </div>
+          </label>
+          <div class="rx-vfield">
+            <span>How was it measured?</span>
+            <div class="wg-methods">
+              <label :for={{v, l, ico} <- [{"scale", "Scale", "hero-scale"}, {"tape", "Weight tape", "hero-variable"}, {"estimate", "Estimate", "hero-eye"}]} class={["wg-method", @weigh["method"] == v && "on"]}>
+                <input type="radio" name="weigh[method]" value={v} checked={@weigh["method"] == v} />
+                <.icon name={ico} /> {l}
+              </label>
+            </div>
+          </div>
+          <label class="rx-vfield">
+            <span>Date</span>
+            <input type="date" name="weigh[date]" value={@weigh["date"]} max={Date.to_iso8601(Date.utc_today())} required />
+          </label>
+          <label class="rx-vfield">
+            <span>Note (optional)</span>
+            <input type="text" name="weigh[note]" value={@weigh["note"]} placeholder="e.g. after feeding" />
+          </label>
+          <p :if={@weigh["error"]} class="rx-err">{@weigh["error"]}</p>
+        </div>
+        <div class="rx-sheet-foot">
+          <button type="submit" class="btn btn-primary rx-save" id="save-weigh" phx-disable-with="Saving…">Save weight</button>
+        </div>
+      </form>
+    </div>
+  </div>
+<% end %>
+
 <%= if @visit do %>
   <div class="dlg-wrap rx-sheet-wrap">
     <div class="dlg-backdrop" phx-click="close_visit"></div>
