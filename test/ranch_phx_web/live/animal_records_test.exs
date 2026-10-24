@@ -196,6 +196,8 @@ defmodule RanchPhxWeb.AnimalRecordsTest do
 
     assert_received {:request, req}
     [%{"content" => [_intro, %{"type" => "image"}, _]}] = req["messages"]
+    # No forced tool_choice: the model in use rejects it.
+    refute Map.has_key?(req, "tool_choice")
     assert has_element?(view, "#visit-sheet", "scanned paperwork")
 
     view |> form("#visit-form") |> render_submit()
@@ -225,5 +227,24 @@ defmodule RanchPhxWeb.AnimalRecordsTest do
     html = render_async(view)
     assert html =~ "Coggins is current."
     assert html =~ "<li>"
+  end
+
+  test "a reply in words instead of records says nothing was found",
+       %{conn: conn, animal: animal} do
+    stub_claude(%{
+      "model" => "claude-sonnet-5-5",
+      "stop_reason" => "end_turn",
+      "content" => [%{"type" => "text", "text" => "I don't see any vet items here."}]
+    })
+
+    view = open_records(conn, animal)
+
+    scan =
+      file_input(view, "#scan-form", :scan, [%{name: "cat.jpg", content: "x", type: "image/jpeg"}])
+
+    render_upload(scan, "cat.jpg")
+    html = render_async(view)
+    assert html =~ "find any records"
+    refute has_element?(view, "#visit-sheet")
   end
 end

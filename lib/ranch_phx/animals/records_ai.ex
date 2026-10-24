@@ -101,6 +101,7 @@ defmodule RanchPhx.Animals.RecordsAI do
   - person, location, cost, description: only if they said them, else null.
     Product names and lot numbers go in description.
   - Never invent anything they didn't say.
+  - Always answer by calling add_records, with an empty list if nothing applies.
   """
 
   @scan_system """
@@ -120,6 +121,7 @@ defmodule RanchPhx.Animals.RecordsAI do
   - If the paperwork says to give something later or over several days, say so in
     description (e.g. "Start Oct 31, daily for 5 days").
   - Only what's on the paperwork. If it isn't vet paperwork for an animal, return no records.
+  - Always answer by calling add_records, with an empty list if nothing applies.
   """
 
   @doc """
@@ -191,7 +193,6 @@ defmodule RanchPhx.Animals.RecordsAI do
         max_tokens: 3000,
         system: system,
         tools: [draft_tool(types)],
-        tool_choice: %{type: "tool", name: "add_records"},
         messages: [%{role: "user", content: content}]
       }
 
@@ -205,8 +206,9 @@ defmodule RanchPhx.Animals.RecordsAI do
              |> Enum.filter(&MapSet.member?(slugs, &1["record_type"]))
              |> Enum.map(&to_draft(&1, presets, today))}
 
+          # The model answered in words instead of calling the tool: nothing to add.
           _ ->
-            {:error, :empty_answer}
+            {:ok, []}
         end
       end
     end

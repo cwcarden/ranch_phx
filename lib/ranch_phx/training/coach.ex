@@ -595,6 +595,7 @@ defmodule RanchPhx.Training.Coach do
   - Minutes: the length if they said it. Date: only if they named a day other than today.
   - Note: what's left worth keeping, in their own words, lightly cleaned up. Don't add
     advice or anything they didn't say. Null if nothing is left.
+  - Always answer by calling fill_session, leaving fields empty if nothing applies.
   """
 
   @doc """
@@ -618,7 +619,6 @@ defmodule RanchPhx.Training.Coach do
           max_tokens: 2000,
           system: @reader_system,
           tools: [reader_tool(activities, tags, issues)],
-          tool_choice: %{type: "tool", name: "fill_session"},
           messages: [
             %{
               role: "user",
@@ -636,7 +636,8 @@ defmodule RanchPhx.Training.Coach do
         with {:ok, resp} <- request(body) do
           case Enum.find(resp["content"] || [], &(&1["type"] == "tool_use")) do
             %{"input" => input} when is_map(input) -> {:ok, input}
-            _ -> {:error, :empty_answer}
+            # Answered in words instead of the tool: nothing to fill in.
+            _ -> {:ok, %{}}
           end
         end
     end
