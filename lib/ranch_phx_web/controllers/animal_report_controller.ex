@@ -13,7 +13,8 @@ defmodule RanchPhxWeb.AnimalReportController do
       timeline:  params["timeline"] == "1",
       records:   params["records"] == "1",
       expenses:  params["expenses"] == "1",
-      documents: params["documents"] == "1"
+      documents: params["documents"] == "1",
+      weight:    params["weight"] == "1"
     }
 
     record_cats = parse_list(params["record_cats"])
@@ -62,7 +63,15 @@ defmodule RanchPhxWeb.AnimalReportController do
 
     pedigree_map = Animals.list_pedigree_entries(animal.id)
 
+    weights =
+      animal.timeline_events
+      |> RanchPhx.Animals.Insights.weights(animal.records)
+      |> Enum.filter(fn {d, _} -> date_in_range?(d, date_from, date_to) end)
+
+    # The print layout is a whole page of its own; without the app's page around it,
+    # the PDF maker isn't handed app styles it can't read.
     conn
+    |> put_root_layout(false)
     |> put_layout(html: {RanchPhxWeb.Layouts, :print})
     |> render(:show,
         animal: animal,
@@ -75,7 +84,8 @@ defmodule RanchPhxWeb.AnimalReportController do
         generated_at: DateTime.utc_now(),
         report_title: animal.name,
         type_label_map: Animals.record_type_label_map(),
-        pedigree_map: pedigree_map
+        pedigree_map: pedigree_map,
+        weights: weights
       )
   end
 
