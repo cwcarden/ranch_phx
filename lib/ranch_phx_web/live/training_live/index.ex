@@ -102,7 +102,6 @@ defmodule RanchPhxWeb.TrainingLive.Index do
 
   defp load_books(socket) do
     books = Training.list_active_books()
-    last = Training.last_session_dates(Enum.map(books, & &1.id))
     today = socket.assigns.today
 
     cards =
@@ -111,7 +110,7 @@ defmodule RanchPhxWeb.TrainingLive.Index do
           book: book,
           progress: Training.progress(book, today),
           week: Training.week_summary(book.id, today),
-          last: last[book.id]
+          last: Training.last_session(book.id)
         }
       end)
 
@@ -122,13 +121,16 @@ defmodule RanchPhxWeb.TrainingLive.Index do
     if connected?(socket), do: get_connect_params(socket)["tz_offset"], else: nil
   end
 
-  def days_since(nil, _today), do: "No sessions yet"
+  @doc "A comma after every item but the last (`i` counts from 1)."
+  def comma(i, list), do: if(i < length(list), do: ",")
 
-  def days_since(date, today) do
+  @doc "When a session was, relative to today: \"Today\", \"Yesterday\", \"Tue · 3 days ago\"."
+  def when_label(date, today) do
     case Date.diff(today, date) do
-      0 -> "Last session today"
-      1 -> "Last session yesterday"
-      n -> "Last session #{n} days ago"
+      0 -> "Today"
+      1 -> "Yesterday"
+      n when n in 2..6 -> "#{Calendar.strftime(date, "%A")} · #{n} days ago"
+      n -> "#{Calendar.strftime(date, "%b %-d")} · #{n} days ago"
     end
   end
 end

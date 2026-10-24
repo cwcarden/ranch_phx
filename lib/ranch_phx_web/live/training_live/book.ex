@@ -808,18 +808,7 @@ defmodule RanchPhxWeb.TrainingLive.Book do
   @doc "Short countdown for a goal's badge: \"in 16 months\", \"in 12 days\", \"Today\"."
   def goal_countdown(%Goal{target_date: nil}, _today), do: nil
 
-  def goal_countdown(%Goal{target_date: d}, today) do
-    days = Date.diff(d, today)
-
-    cond do
-      days > 90 -> "in #{div(days, 30)} months"
-      days > 1 -> "in #{days} days"
-      days == 1 -> "Tomorrow"
-      days == 0 -> "Today"
-      days == -1 -> "1 day past"
-      true -> "#{-days} days past"
-    end
-  end
+  def goal_countdown(%Goal{target_date: d}, today), do: countdown(Date.diff(d, today))
 
   def side_label("both"), do: "Both sides"
   def side_label(side), do: "#{String.capitalize(side)} side"
