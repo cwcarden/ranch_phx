@@ -187,6 +187,74 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 
 /* Records */
 .rec-list { display: flex; flex-direction: column; gap: 10px; }
+
+/* ── Records & documents: color-coded, phone-first ── */
+.rx-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; margin-bottom: 14px; }
+.rx-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.rx-head h3 { flex: 1; font-size: 17px; font-weight: 700; }
+.rx-ico { width: 32px; height: 32px; flex: none; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; color: var(--c); background: color-mix(in srgb, var(--c) 14%, transparent); }
+.rx-ico [class^="hero-"] { width: 19px; height: 19px; }
+.rx-pill { padding: 2px 10px; border-radius: 12px; font-size: 13px; font-weight: 700; color: var(--c); background: color-mix(in srgb, var(--c) 14%, transparent); }
+.rx-link { background: none; border: none; color: var(--text3); font-size: 13px; font-weight: 600; cursor: pointer; min-height: 36px; }
+.rx-sub { font-size: 14px; color: var(--text2); }
+.rx-err { font-size: 14px; color: #dc2626; font-weight: 600; }
+.rx-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text3); margin-bottom: 6px; }
+.rx-dot { width: 10px; height: 10px; flex: none; border-radius: 50%; background: var(--c); display: inline-block; }
+
+.rx-due-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--border); }
+.rx-head + .rx-due-row { border-top: none; padding-top: 2px; }
+.rx-due-main { flex: 1; min-width: 0; }
+.rx-due-main b { display: block; font-size: 16px; line-height: 1.25; }
+.rx-due-main small { font-size: 13px; color: var(--text3); }
+.rx-due-main .rx-due-when { display: block; font-size: 14px; font-weight: 700; color: var(--text2); margin-top: 1px; }
+.rx-due-when.soon { color: #d97706; }
+.rx-due-when.over { color: #dc2626; }
+.rx-redo { flex: none; min-height: 36px; padding: 0 12px; border-radius: 18px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text); font-size: 14px; font-weight: 700; cursor: pointer; }
+
+.rx-quick { display: flex; flex-wrap: wrap; gap: 8px; }
+.rx-chip { display: inline-flex; align-items: center; gap: 7px; min-height: 42px; padding: 0 14px; border-radius: 21px; border: 1.5px solid color-mix(in srgb, var(--c) 35%, var(--border)); background: color-mix(in srgb, var(--c) 8%, var(--surface)); color: var(--text); font-size: 15px; font-weight: 600; cursor: pointer; }
+.rx-chip:active { background: color-mix(in srgb, var(--c) 22%, var(--surface)); }
+.rx-chip.other { border-style: dashed; background: var(--surface); color: var(--text2); }
+.rx-voice { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); display: grid; gap: 8px; }
+.rx-voice-head { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; color: var(--text2); }
+.rx-voice-head [class^="hero-"] { width: 17px; height: 17px; color: #dc2626; }
+.rx-voice textarea { width: 100%; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 10px; background: var(--surface2); color: var(--text); font-size: 16px; line-height: 1.4; font-family: inherit; resize: vertical; }
+.rx-voice-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.rx-voice-actions .btn { min-height: 40px; }
+.rx-btn-ico { width: 16px; height: 16px; }
+.rx-drafts { margin-top: 12px; padding: 12px; border-radius: 12px; background: var(--surface2); display: grid; gap: 8px; }
+.rx-draft { display: grid; grid-template-columns: 24px 1fr; gap: 10px; align-items: start; padding: 10px 12px; border-radius: 10px; background: var(--surface); border-left: 4px solid var(--c); }
+.rx-draft input { width: 22px; height: 22px; margin-top: 1px; accent-color: var(--c); }
+.rx-draft b { display: block; font-size: 16px; }
+.rx-draft small { display: block; font-size: 13px; color: var(--text2); margin-top: 2px; }
+.rx-draft.off { opacity: .45; }
+
+.rx-filter { margin: 4px 0 14px; display: grid; gap: 10px; }
+.rx-search { width: 100%; min-height: 44px; padding: 0 14px; border: 1.5px solid var(--border); border-radius: 22px; background: var(--surface); color: var(--text); font-size: 16px; outline: none; }
+.rx-search:focus { border-color: var(--brand); }
+.rx-chips { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+.rx-chips::-webkit-scrollbar { display: none; }
+.rx-fchip { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 0 13px; border-radius: 19px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text); font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.rx-fchip small { font-size: 12px; color: var(--text3); font-weight: 700; }
+.rx-fchip.on { background: var(--c); border-color: var(--c); color: #fff; }
+.rx-fchip.on small { color: rgba(255,255,255,.8); }
+.rx-fchip.on .rx-dot { background: #fff; }
+.rx-month { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text3); margin: 8px 2px 0; }
+.rx-row { border-left: 4px solid var(--c); }
+.rx-row .rec-title { font-size: 16px; }
+.rx-row .rec-meta { font-size: 13px; }
+.rx-row .rec-type-badge { font-size: 12px; }
+.rx-row .rec-desc { font-size: 14px; }
+.rx-doc { border-left: 4px solid var(--c); }
+.rx-doc-badge { color: var(--c); background: color-mix(in srgb, var(--c) 14%, transparent); font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 20px; }
+
+.tr-prose { font-size: 16px; line-height: 1.6; color: var(--text); }
+.tr-prose p { margin: 0 0 10px; }
+.tr-prose ul, .tr-prose ol { margin: 0 0 10px; padding-left: 20px; display: grid; gap: 5px; }
+.tr-prose ul { list-style: disc; }
+.tr-prose ol { list-style: decimal; }
+.tr-prose li::marker { color: #dc2626; }
+.tr-prose-h { font-weight: 700; }
 .rec-row { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px 16px; display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: start; transition: border-color .15s; }
 .rec-row:hover { border-color: var(--brand); }
 .rec-type-badge { display: inline-flex; align-items: center; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; letter-spacing: .02em; color: #fff; }
@@ -703,18 +771,120 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 
   <!-- ── RECORDS ──────────────────────────────────────────────────────────── -->
   <%= if @tab == "records" do %>
-    <%= if @is_superuser do %>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:10px;flex-wrap:wrap">
-        <button class="add-btn" phx-click="toggle_type_manager">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
-          <%= if @show_type_manager, do: "Hide Categories & Types", else: "Manage Categories & Types" %>
-        </button>
-        <button class="btn btn-primary" phx-click="open_record">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Add Record
+    <% today = Date.utc_today() %>
+    <% due = CareSchedule.due(@animal.records, today) %>
+
+    <%!-- Coming due: the latest of each kind of record that's due soon or overdue --%>
+    <div :if={due != []} class="rx-card" id="records-due">
+      <div class="rx-head">
+        <span class="rx-ico" style="--c:#d97706"><.icon name="hero-bell-alert" /></span>
+        <h3>Coming due</h3>
+        <span class="rx-pill" style="--c:#d97706">{length(due)}</span>
+      </div>
+      <div :for={d <- due} class="rx-due-row" style={"--c:#{cat_color(@categories, d.record.category)}"}>
+        <span class="rx-dot"></span>
+        <div class="rx-due-main">
+          <b>{d.record.title}</b>
+          <small class={["rx-due-when", d.days < 0 && "over", d.days >= 0 and d.days <= 14 && "soon"]}>
+            {due_text(d.days)} · {Calendar.strftime(d.record.next_due_date, "%b %-d")}
+          </small>
+        </div>
+        <button
+          :if={@is_superuser}
+          class="rx-redo"
+          phx-click="redo_record"
+          phx-value-id={d.record.id}
+          aria-label={"Log #{d.record.title} again"}
+        >
+          + Log
         </button>
       </div>
-    <% end %>
+    </div>
+
+    <%!-- Add: one-tap common records, or say what was done --%>
+    <div :if={@is_superuser} class="rx-card" id="records-add">
+      <div class="rx-head">
+        <span class="rx-ico" style="--c:var(--brand)"><.icon name="hero-plus-circle" /></span>
+        <h3>Add a record</h3>
+        <button class="rx-link" phx-click="toggle_type_manager">
+          {if @show_type_manager, do: "Done", else: "Categories & types"}
+        </button>
+      </div>
+      <div class="rx-quick">
+        <button
+          :for={p <- presets_for_page(@animal.kind, @record_types_by_cat)}
+          class="rx-chip"
+          style={"--c:#{cat_color(@categories, type_category(@record_types_by_cat, p.record_type))}"}
+          phx-click="quick_record"
+          phx-value-key={p.key}
+          id={"quick-#{p.key}"}
+        >
+          <span class="rx-dot"></span>{p.label}
+        </button>
+        <button class="rx-chip other" phx-click="open_record" id="add-record">+ Other…</button>
+      </div>
+
+      <form
+        :if={@ai_on}
+        id="rec-voice-form"
+        class="rx-voice"
+        phx-submit="rec_voice_draft"
+        phx-change="rec_voice_typing"
+      >
+        <div class="rx-voice-head">
+          <.icon name="hero-microphone" /> Or just say what was done
+        </div>
+        <textarea
+          name="spoken"
+          rows="2"
+          disabled={@rec_voice_loading}
+          placeholder="e.g. “Gave West Nile and EWT today, Dr. Hall. Dewormed with Quest. Farrier trimmed yesterday, $45.”"
+        >{@rec_voice_text}</textarea>
+        <div class="rx-voice-actions">
+          <button type="submit" class="btn btn-primary btn-sm" disabled={@rec_voice_loading}>
+            <%= if @rec_voice_loading do %>
+              Drafting…
+            <% else %>
+              <.icon name="hero-sparkles" class="rx-btn-ico" /> Draft records
+            <% end %>
+          </button>
+          <span :if={@rec_voice_error} class="rx-err">{@rec_voice_error}</span>
+        </div>
+      </form>
+
+      <div :if={@rec_drafts != []} class="rx-drafts" id="rec-drafts">
+        <div class="rx-label">Check these, then add them</div>
+        <div
+          :for={{d, i} <- Enum.with_index(@rec_drafts)}
+          class={["rx-draft", !d["keep"] && "off"]}
+          style={"--c:#{cat_color(@categories, type_category(@record_types_by_cat, d["record_type"]))}"}
+        >
+          <input
+            type="checkbox"
+            checked={d["keep"]}
+            phx-click="toggle_draft"
+            phx-value-i={i}
+            aria-label={"Include #{d["title"]}"}
+          />
+          <div>
+            <b>{d["title"]}</b>
+            <small>
+              {@type_label_map[d["record_type"]] || d["record_type"]} · {fmt_iso(d["date"])}<span :if={d["person"]}> · {d["person"]}</span><span :if={d["cost"]}> · ${d["cost"]}</span>
+            </small>
+            <small :if={d["next_due_date"]}>
+              Next due {fmt_iso(d["next_due_date"])}{if d["due_suggested"], do: " (usual interval, change if your vet says otherwise)"}
+            </small>
+            <small :if={d["description"]}>{d["description"]}</small>
+          </div>
+        </div>
+        <div class="rx-voice-actions">
+          <button class="btn btn-primary" phx-click="save_drafts" id="save-drafts">
+            Add {Enum.count(@rec_drafts, & &1["keep"])} {if Enum.count(@rec_drafts, & &1["keep"]) == 1, do: "record", else: "records"}
+          </button>
+          <button class="btn btn-ghost" phx-click="discard_drafts">Discard</button>
+        </div>
+      </div>
+    </div>
 
     <%= if @is_superuser && @show_type_manager do %>
       <div style="margin-bottom:20px">
@@ -789,102 +959,154 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       </div>
     <% end %>
 
-    <!-- Category filter -->
-    <div class="rec-cat-bar">
-      <button class={"rec-cat-btn #{if @record_filter_cat == "", do: "active"}"} style={if @record_filter_cat == "", do: "background:var(--brand)"} phx-click="filter_records" phx-value-cat="">All</button>
-      <%= for cat <- @categories do %>
-        <button class={"rec-cat-btn #{if @record_filter_cat == cat.id, do: "active"}"}
-                style={if @record_filter_cat == cat.id, do: "background:#{cat.color}"}
-                phx-click="filter_records" phx-value-cat={cat.id}>
-          <%= cat.label %>
+
+    <%!-- AI summary --%>
+    <div :if={@ai_on and @animal.records != []} class="rx-card" id="records-summary">
+      <div class="rx-head">
+        <span class="rx-ico" style="--c:#dc2626"><.icon name="hero-sparkles" /></span>
+        <h3>Summary</h3>
+        <button
+          :if={is_nil(@summary) and not @summary_loading}
+          class="btn btn-ghost btn-sm"
+          phx-click="summarize_records"
+          id="summarize-records"
+        >
+          Summarize
         </button>
+        <button :if={@summary} class="rx-link" phx-click="close_summary">Hide</button>
+      </div>
+      <%= cond do %>
+        <% @summary_loading -> %>
+          <p class="rx-sub">Reading {@animal.name}'s records…</p>
+        <% match?({:ok, _}, @summary) -> %>
+          <.coach_answer text={elem(@summary, 1)} />
+          <p class="rx-sub" style="margin-top:4px">AI summary of your records. Check timing with your vet.</p>
+        <% match?({:error, _}, @summary) -> %>
+          <p class="rx-err">{elem(@summary, 1)}</p>
+        <% true -> %>
+          <p class="rx-sub">Where things stand, what's due, and any gaps in {@animal.name}'s records.</p>
       <% end %>
     </div>
 
-    <% visible_records = if @record_filter_cat == "", do: @animal.records, else: Enum.filter(@animal.records, &(&1.category == @record_filter_cat)) %>
+    <%!-- Filter and search --%>
+    <% counts = Enum.frequencies_by(@animal.records, & &1.category) %>
+    <div :if={@animal.records != []} class="rx-filter">
+      <input
+        type="search"
+        placeholder="Search records…"
+        value={@record_search}
+        phx-keyup="record_search"
+        phx-debounce="200"
+        class="rx-search"
+      />
+      <div class="rx-chips">
+        <button
+          class={["rx-fchip", @record_filter_cat == "" && "on"]}
+          style="--c:var(--brand)"
+          phx-click="filter_records"
+          phx-value-cat=""
+        >
+          All <small>{length(@animal.records)}</small>
+        </button>
+        <button
+          :for={cat <- @categories}
+          :if={Map.get(counts, cat.id, 0) > 0}
+          class={["rx-fchip", @record_filter_cat == cat.id && "on"]}
+          style={"--c:#{cat.color}"}
+          phx-click="filter_records"
+          phx-value-cat={cat.id}
+        >
+          <span class="rx-dot"></span>{cat.label} <small>{Map.get(counts, cat.id)}</small>
+        </button>
+      </div>
+    </div>
 
-    <%= if length(visible_records) == 0 do %>
+    <% visible_records = filter_records(@animal.records, @record_filter_cat, @record_search, @type_label_map) %>
+
+    <%= if visible_records == [] do %>
       <div class="empty-tab">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="44" height="44">
           <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/>
           <rect x="9" y="3" width="6" height="4" rx="1"/>
           <line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="12" y2="16"/>
         </svg>
-        <p>No records yet. Add vaccinations, vet visits, farrier work, coggins, and more.</p>
+        <p>{if @animal.records == [], do: "No records yet. Tap West Nile, Deworming, Coggins or another button above to add one.", else: "No records match."}</p>
       </div>
     <% else %>
       <div class="rec-list">
-        <%= for record <- visible_records do %>
-          <div class="rec-row">
-            <div class="rec-info">
-              <span class="rec-type-badge" style={"background:#{Record.category_color(record.category)}"}>
-                <%= @type_label_map[record.record_type] || record.record_type %>
-              </span>
-              <div class="rec-title"><%= record.title %></div>
-              <div class="rec-meta">
-                <span class="rec-meta-item">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                  <%= Calendar.strftime(record.date, "%b %d, %Y") %>
+        <%= for {month, records} <- Enum.chunk_by(visible_records, &{&1.date.year, &1.date.month}) |> Enum.map(&{hd(&1).date, &1}) do %>
+          <div class="rx-month">{Calendar.strftime(month, "%B %Y")}</div>
+          <%= for record <- records do %>
+          <div class="rec-row rx-row" id={"record-#{record.id}"} style={"--c:#{cat_color(@categories, record.category)}"}>
+              <div class="rec-info">
+                <span class="rec-type-badge" style="background:var(--c)">
+                  <%= @type_label_map[record.record_type] || record.record_type %>
                 </span>
-                <%= if record.person && record.person != "" do %>
+                <div class="rec-title"><%= record.title %></div>
+                <div class="rec-meta">
                   <span class="rec-meta-item">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                    <%= record.person %>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    <%= Calendar.strftime(record.date, "%b %d, %Y") %>
                   </span>
+                  <%= if record.person && record.person != "" do %>
+                    <span class="rec-meta-item">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                      <%= record.person %>
+                    </span>
+                  <% end %>
+                  <%= if record.location && record.location != "" do %>
+                    <span class="rec-meta-item">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                      <%= record.location %>
+                    </span>
+                  <% end %>
+                  <%= if record.created_by && record.created_by != "" do %>
+                    <span class="rec-meta-item" style="color:var(--text3)">by <%= record.created_by %></span>
+                  <% end %>
+                  <%= if record.cost do %>
+                    <span class="rec-cost">$<%= :erlang.float_to_binary(Decimal.to_float(record.cost), decimals: 2) %></span>
+                  <% end %>
+                </div>
+                <%= if record.next_due_date do %>
+                  <% overdue = Date.compare(record.next_due_date, today) == :lt %>
+                  <div style="margin-top:6px">
+                    <span class={"rec-due #{if overdue, do: "rec-overdue"}"}>
+                      <%= if overdue, do: "⚠ Overdue · ", else: "Due · " %><%= Calendar.strftime(record.next_due_date, "%b %d, %Y") %>
+                    </span>
+                  </div>
                 <% end %>
-                <%= if record.location && record.location != "" do %>
-                  <span class="rec-meta-item">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                    <%= record.location %>
-                  </span>
+                <%= if record.description && record.description != "" do %>
+                  <div class="rec-desc"><%= record.description %></div>
                 <% end %>
-                <%= if record.created_by && record.created_by != "" do %>
-                  <span class="rec-meta-item" style="color:var(--text3)">by <%= record.created_by %></span>
+                <%= if record.notes && record.notes != "" do %>
+                  <div class="rec-desc" style="color:var(--text3);font-style:italic"><%= record.notes %></div>
                 <% end %>
-                <%= if record.cost do %>
-                  <span class="rec-cost">$<%= :erlang.float_to_binary(Decimal.to_float(record.cost), decimals: 2) %></span>
+                <%= if length(record.tags) > 0 do %>
+                  <div class="rec-tags">
+                    <%= for tag <- record.tags do %>
+                      <span class="rec-tag">#<%= tag %></span>
+                    <% end %>
+                  </div>
                 <% end %>
               </div>
-              <%= if record.next_due_date do %>
-                <% today = Date.utc_today()
-                   overdue = Date.compare(record.next_due_date, today) == :lt %>
-                <div style="margin-top:6px">
-                  <span class={"rec-due #{if overdue, do: "rec-overdue"}"}>
-                    <%= if overdue, do: "⚠ Overdue · ", else: "Due · " %><%= Calendar.strftime(record.next_due_date, "%b %d, %Y") %>
-                  </span>
-                </div>
-              <% end %>
-              <%= if record.description && record.description != "" do %>
-                <div class="rec-desc"><%= record.description %></div>
-              <% end %>
-              <%= if record.notes && record.notes != "" do %>
-                <div class="rec-desc" style="color:var(--text3);font-style:italic"><%= record.notes %></div>
-              <% end %>
-              <%= if length(record.tags) > 0 do %>
-                <div class="rec-tags">
-                  <%= for tag <- record.tags do %>
-                    <span class="rec-tag">#<%= tag %></span>
-                  <% end %>
+              <%= if @is_superuser do %>
+                <div class="rec-actions">
+                  <button class="btn-icon" phx-click="edit_record" phx-value-id={record.id} title="Edit">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                      <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+                      <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                    </svg>
+                  </button>
+                  <button class="tl-del" phx-click="delete_record" phx-value-id={record.id}
+                          data-confirm="Delete this record?">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                      <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
+                    </svg>
+                  </button>
                 </div>
               <% end %>
             </div>
-            <%= if @is_superuser do %>
-              <div class="rec-actions">
-                <button class="btn-icon" phx-click="edit_record" phx-value-id={record.id} title="Edit">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
-                    <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
-                    <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                  </svg>
-                </button>
-                <button class="tl-del" phx-click="delete_record" phx-value-id={record.id}
-                        data-confirm="Delete this record?">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
-                    <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
-                  </svg>
-                </button>
-              </div>
-            <% end %>
-          </div>
+          <% end %>
         <% end %>
       </div>
     <% end %>
@@ -1161,10 +1383,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   <%= if @tab == "documents" do %>
     <%
       doc_q = String.downcase(@doc_search)
+      typed_docs = if @doc_filter_type == "", do: @animal.documents, else: Enum.filter(@animal.documents, &(&1.doc_type == @doc_filter_type))
+      doc_counts = @animal.documents |> Enum.reject(&(&1.doc_type in [nil, ""])) |> Enum.frequencies_by(& &1.doc_type)
       visible_docs = if doc_q == "" do
-        @animal.documents
+        typed_docs
       else
-        Enum.filter(@animal.documents, fn d ->
+        Enum.filter(typed_docs, fn d ->
           date_str = if d.doc_date, do: Calendar.strftime(d.doc_date, "%b %d %Y %B %Y"), else: ""
           String.contains?(String.downcase(d.title || ""), doc_q) or
           String.contains?(String.downcase(d.doc_type || ""), doc_q) or
@@ -1195,6 +1419,25 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
           Save All for Offline
         </button>
       </div>
+      <div :if={map_size(doc_counts) > 1} class="rx-chips" style="margin-bottom:14px">
+        <button
+          class={["rx-fchip", @doc_filter_type == "" && "on"]}
+          style="--c:var(--brand)"
+          phx-click="filter_docs"
+          phx-value-type=""
+        >
+          All <small>{length(@animal.documents)}</small>
+        </button>
+        <button
+          :for={{type, n} <- Enum.sort_by(doc_counts, &elem(&1, 0))}
+          class={["rx-fchip", @doc_filter_type == type && "on"]}
+          style={"--c:#{doc_color(type, @categories, @record_types_by_cat)}"}
+          phx-click="filter_docs"
+          phx-value-type={type}
+        >
+          <span class="rx-dot"></span>{type} <small>{n}</small>
+        </button>
+      </div>
     <% end %>
 
     <div id="pdf-viewer-overlay" style="display:none;position:fixed;inset:0;background:#000;z-index:9999;flex-direction:column">
@@ -1211,7 +1454,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
           <p style="font-size:14px;color:var(--text3);padding:20px 0">No documents match "<%= @doc_search %>".</p>
         <% end %>
         <%= for doc <- visible_docs do %>
-          <div class="doc-row">
+          <div class="doc-row rx-doc" style={"--c:#{doc_color(doc.doc_type, @categories, @record_types_by_cat)}"}>
             <a href={doc.file_url} onclick="openPdfViewer(event, this.href, this.title)" class="doc-icon" style="color:var(--brand);text-decoration:none" title={doc.title}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="18" height="18">
                 <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
@@ -1230,7 +1473,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
                   </span>
                 <% end %>
                 <%= if doc.doc_type && doc.doc_type != "" do %>
-                  <span style="background:var(--brand-muted,#ede9fe);color:var(--brand);font-size:11px;font-weight:700;padding:2px 7px;border-radius:20px;letter-spacing:.02em">
+                  <span class="rx-doc-badge" style={"--c:#{doc_color(doc.doc_type, @categories, @record_types_by_cat)}"}>
                     <%= doc.doc_type %>
                   </span>
                 <% end %>
@@ -1717,6 +1960,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 <!-- ── Record Modal ───────────────────────────────────────────────────────── -->
 <%= if @record_modal do %>
   <% editing = @record_editing %>
+  <% draft = @record_editing || @record_draft %>
   <div class="dlg-wrap">
     <div class="dlg-backdrop" phx-click="close_record"></div>
     <div class="dlg" style="max-width:580px">
@@ -1740,7 +1984,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
                   <%= if cat_types != [] do %>
                     <optgroup label={cat.label}>
                       <%= for type <- cat_types do %>
-                        <option value={type.slug} selected={editing && editing.record_type == type.slug}>
+                        <option value={type.slug} selected={draft && draft.record_type == type.slug}>
                           <%= type.label %>
                         </option>
                       <% end %>
@@ -1751,34 +1995,34 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
             </div>
             <div class="form-field">
               <label>Date *</label>
-              <input type="date" name="record[date]" value={editing && editing.date} required/>
+              <input type="date" name="record[date]" value={draft && draft.date} required/>
             </div>
           </div>
 
           <div class="form-field">
             <label>Title *</label>
             <input type="text" name="record[title]"
-                   value={editing && editing.title}
+                   value={draft && draft.title}
                    placeholder="e.g. Annual West Nile Vaccination" required/>
           </div>
 
           <div class="form-field">
             <label>Description</label>
             <textarea name="record[description]" rows="2"
-                      placeholder="What was done, findings, results…"><%= editing && editing.description %></textarea>
+                      placeholder="What was done, findings, results…"><%= draft && draft.description %></textarea>
           </div>
 
           <div class="form-row">
             <div class="form-field">
               <label>Veterinarian / Person</label>
               <input type="text" name="record[person]"
-                     value={editing && editing.person}
+                     value={draft && draft.person}
                      placeholder="Dr. Smith / Jake's Farrier"/>
             </div>
             <div class="form-field">
               <label>Location</label>
               <input type="text" name="record[location]"
-                     value={editing && editing.location}
+                     value={draft && draft.location}
                      placeholder="Clinic name or address"/>
             </div>
           </div>
@@ -1787,12 +2031,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
             <div class="form-field">
               <label>Cost ($)</label>
               <input type="number" step="0.01" name="record[cost]"
-                     value={editing && editing.cost}
+                     value={draft && draft.cost}
                      placeholder="0.00"/>
             </div>
             <div class="form-field">
               <label>Next Due Date</label>
-              <input type="date" name="record[next_due_date]" value={editing && editing.next_due_date}/>
+              <input type="date" name="record[next_due_date]" value={draft && draft.next_due_date}/>
             </div>
           </div>
 
@@ -1800,7 +2044,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
             <div class="form-field">
               <label>Created By</label>
               <input type="text" name="record[created_by]"
-                     value={editing && editing.created_by}
+                     value={draft && draft.created_by}
                      placeholder="Your name"/>
             </div>
             <div class="form-field">
@@ -1814,7 +2058,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
           <div class="form-field">
             <label>Notes</label>
             <textarea name="record[notes]" rows="2"
-                      placeholder="Any additional notes…"><%= editing && editing.notes %></textarea>
+                      placeholder="Any additional notes…"><%= draft && draft.notes %></textarea>
           </div>
 
           <div class="section-divider" style="margin-top:18px">Attachments <span style="font-weight:400;color:var(--text3)">(optional)</span></div>

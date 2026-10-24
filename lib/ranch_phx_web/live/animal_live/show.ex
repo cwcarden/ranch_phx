@@ -1,7 +1,9 @@
 defmodule RanchPhxWeb.AnimalLive.Show do
   use RanchPhxWeb, :live_view
   alias RanchPhx.Animals
-  alias RanchPhx.Animals.{Animal, TimelineEvent, Record}
+  alias RanchPhx.Animals.{Animal, TimelineEvent, Record, CareSchedule, RecordsAI}
+  alias RanchPhx.Training.Coach
+  import RanchPhxWeb.TrainingComponents, only: [coach_answer: 1]
   alias RanchPhx.Accounts.Scope
   require Decimal
 
@@ -23,6 +25,17 @@ defmodule RanchPhxWeb.AnimalLive.Show do
      |> assign(:record_editing, nil)
      |> assign(:record_changeset, Animals.change_record(%Record{}))
      |> assign(:record_filter_cat, "")
+     |> assign(:record_draft, nil)
+     |> assign(:record_search, "")
+     |> assign(:ai_on, Coach.configured?())
+     |> assign(:summary, nil)
+     |> assign(:summary_loading, false)
+     |> assign(:rec_voice_open, false)
+     |> assign(:rec_voice_text, "")
+     |> assign(:rec_voice_loading, false)
+     |> assign(:rec_voice_error, nil)
+     |> assign(:rec_drafts, [])
+     |> assign(:doc_filter_type, "")
      |> assign(:tl_search, "")
      |> assign(:record_types_by_cat, Animals.list_record_types_by_category())
      |> assign(:type_label_map, Animals.record_type_label_map())
@@ -375,6 +388,7 @@ defmodule RanchPhxWeb.AnimalLive.Show do
      socket
      |> assign(:record_modal, true)
      |> assign(:record_editing, nil)
+     |> assign(:record_draft, nil)
      |> assign(:record_changeset, Animals.change_record(%Record{}))}
   end
 
@@ -385,6 +399,147 @@ defmodule RanchPhxWeb.AnimalLive.Show do
      |> assign(:record_modal, true)
      |> assign(:record_editing, record)
      |> assign(:record_changeset, Animals.change_record(record))}
+  end
+
+  # One-tap presets (West Nile, deworming, Coggins…): the Add Record form, filled in
+  # with today's date and the usual next-due date, ready to adjust and save.
+  def handle_event("quick_record", %{"key" => key}, socket) do
+    today = Date.utc_today()
+
+    case Enum.find(presets(socket), &(&1.key == key)) do
+      nil ->
+        {:noreply, socket}
+
+      p ->
+        draft = %Record{
+          record_type: p.record_type,
+          title: p.title,
+          date: today,
+          next_due_date: CareSchedule.next_due(p.interval, today)
+        }
+
+        {:noreply,
+         socket
+         |> assign(:record_modal, true)
+         |> assign(:record_editing, nil)
+         |> assign(:record_draft, draft)
+         |> assign(:record_changeset, Animals.change_record(%Record{}))}
+    end
+  end
+
+  # "+ Log" on a due item: the same kind of record again, dated today, with the
+  # same gap to the next one as last time.
+  def handle_event("redo_record", %{"id" => id}, socket) do
+    case Enum.find(socket.assigns.animal.records, &("#{&1.id}" == id)) do
+      nil ->
+        {:noreply, socket}
+
+      r ->
+        today = Date.utc_today()
+        gap = r.next_due_date && Date.diff(r.next_due_date, r.date)
+
+        draft = %Record{
+          record_type: r.record_type,
+          title: r.title,
+          date: today,
+          next_due_date: gap && gap > 0 && Date.add(today, gap),
+          person: r.person,
+          location: r.location
+        }
+
+        {:noreply,
+         socket
+         |> assign(:record_modal, true)
+         |> assign(:record_editing, nil)
+         |> assign(:record_draft, draft)
+         |> assign(:record_changeset, Animals.change_record(%Record{}))}
+    end
+  end
+
+  def handle_event("record_search", %{"value" => q}, socket),
+    do: {:noreply, assign(socket, :record_search, q)}
+
+  def handle_event("filter_docs", %{"type" => type}, socket),
+    do: {:noreply, assign(socket, :doc_filter_type, type)}
+
+  # ── AI on records ──
+
+  def handle_event("summarize_records", _params, socket) do
+    %{animal: animal} = socket.assigns
+
+    {:noreply,
+     socket
+     |> assign(:summary_loading, true)
+     |> start_async(:rec_summary, fn ->
+       RecordsAI.summarize(animal, animal.records, animal.documents, Date.utc_today())
+     end)}
+  end
+
+  def handle_event("close_summary", _params, socket),
+    do: {:noreply, assign(socket, :summary, nil)}
+
+  def handle_event("toggle_rec_voice", _params, socket),
+    do: {:noreply, assign(socket, :rec_voice_open, !socket.assigns.rec_voice_open)}
+
+  def handle_event("rec_voice_typing", %{"spoken" => text}, socket),
+    do: {:noreply, assign(socket, :rec_voice_text, text)}
+
+  def handle_event("rec_voice_draft", %{"spoken" => text}, socket) do
+    %{animal: animal, is_superuser: su?, rec_voice_loading: busy?} = socket.assigns
+
+    if su? and not busy? and String.trim(text) != "" do
+      types =
+        Animals.list_record_types()
+        |> Enum.map(&%{slug: &1.slug, label: &1.label, category: &1.category})
+
+      {:noreply,
+       socket
+       |> assign(rec_voice_text: text, rec_voice_loading: true, rec_voice_error: nil)
+       |> start_async(:rec_draft, fn ->
+         RecordsAI.draft(animal, text, Date.utc_today(), types)
+       end)}
+    else
+      {:noreply, assign(socket, :rec_voice_text, text)}
+    end
+  end
+
+  def handle_event("toggle_draft", %{"i" => i}, socket) do
+    i = String.to_integer(i)
+
+    drafts =
+      socket.assigns.rec_drafts
+      |> Enum.with_index()
+      |> Enum.map(fn {d, j} -> if j == i, do: Map.update!(d, "keep", &(!&1)), else: d end)
+
+    {:noreply, assign(socket, :rec_drafts, drafts)}
+  end
+
+  def handle_event("discard_drafts", _params, socket),
+    do: {:noreply, assign(socket, rec_drafts: [], rec_voice_error: nil)}
+
+  def handle_event("save_drafts", _params, socket) do
+    %{animal: animal, rec_drafts: drafts, is_superuser: su?} = socket.assigns
+    kept = Enum.filter(drafts, & &1["keep"])
+
+    if su? and kept != [] do
+      results =
+        for d <- kept do
+          d
+          |> Map.drop(["keep", "due_suggested"])
+          |> Map.put("animal_id", animal.id)
+          |> Animals.create_record()
+        end
+
+      saved = Enum.count(results, &match?({:ok, _}, &1))
+
+      {:noreply,
+       socket
+       |> assign(:animal, Animals.get_animal_with_pedigree!(animal.id))
+       |> assign(rec_drafts: [], rec_voice_text: "", rec_voice_open: false)
+       |> put_flash(:info, "Added #{saved} #{if saved == 1, do: "record", else: "records"}.")}
+    else
+      {:noreply, socket}
+    end
   end
 
   def handle_event("close_record", _params, socket) do
@@ -644,6 +799,126 @@ defmodule RanchPhxWeb.AnimalLive.Show do
     case RanchPhx.Training.active_book_for_animal(animal.id) do
       nil -> ~p"/training?horse=#{animal.id}"
       book -> ~p"/training/#{book.id}"
+    end
+  end
+
+  @impl true
+  def handle_async(:rec_summary, {:ok, {:ok, text}}, socket),
+    do: {:noreply, assign(socket, summary: {:ok, text}, summary_loading: false)}
+
+  def handle_async(:rec_summary, {:ok, {:error, reason}}, socket),
+    do:
+      {:noreply,
+       assign(socket, summary: {:error, Coach.error_message(reason)}, summary_loading: false)}
+
+  def handle_async(:rec_summary, {:exit, _}, socket),
+    do:
+      {:noreply,
+       assign(socket,
+         summary: {:error, "Something went wrong. Try again."},
+         summary_loading: false
+       )}
+
+  def handle_async(:rec_draft, {:ok, {:ok, []}}, socket),
+    do:
+      {:noreply,
+       assign(socket,
+         rec_voice_loading: false,
+         rec_voice_error: "Couldn't pick out any records. Try naming what was done."
+       )}
+
+  def handle_async(:rec_draft, {:ok, {:ok, drafts}}, socket),
+    do:
+      {:noreply,
+       assign(socket,
+         rec_voice_loading: false,
+         rec_drafts: Enum.map(drafts, &Map.put(&1, "keep", true))
+       )}
+
+  def handle_async(:rec_draft, {:ok, {:error, reason}}, socket),
+    do:
+      {:noreply,
+       assign(socket, rec_voice_loading: false, rec_voice_error: Coach.error_message(reason))}
+
+  def handle_async(:rec_draft, {:exit, _}, socket),
+    do:
+      {:noreply,
+       assign(socket,
+         rec_voice_loading: false,
+         rec_voice_error: "Something went wrong. Try again."
+       )}
+
+  @doc "Quick-add presets for this animal, limited to record types that still exist."
+  def presets(socket) do
+    slugs = socket.assigns.record_types_by_cat |> Map.values() |> List.flatten() |> Enum.map(& &1.slug)
+    CareSchedule.presets(socket.assigns.animal.kind, slugs)
+  end
+
+  # ── Records helpers (used by the template) ──
+
+  @doc "A category's color from the loaded list (no query per row)."
+  def cat_color(categories, slug) do
+    case Enum.find(categories, &(&1.id == slug)) do
+      nil -> "#6b7280"
+      cat -> cat.color
+    end
+  end
+
+  @doc "The category a record type belongs to."
+  def type_category(types_by_cat, slug) do
+    Enum.find_value(types_by_cat, fn {cat, types} ->
+      if Enum.any?(types, &(&1.slug == slug)), do: cat
+    end)
+  end
+
+  def presets_for_page(kind, types_by_cat) do
+    slugs = types_by_cat |> Map.values() |> List.flatten() |> Enum.map(& &1.slug)
+    CareSchedule.presets(kind, slugs)
+  end
+
+  def due_text(days) when days < -1, do: "#{-days} days overdue"
+  def due_text(-1), do: "1 day overdue"
+  def due_text(0), do: "Due today"
+  def due_text(1), do: "Due tomorrow"
+  def due_text(days), do: "In #{days} days"
+
+  def fmt_iso(nil), do: ""
+
+  def fmt_iso(iso) do
+    case Date.from_iso8601(iso) do
+      {:ok, d} -> Calendar.strftime(d, "%b %-d, %Y")
+      _ -> iso
+    end
+  end
+
+  @doc "Records in the chosen category whose text matches the search."
+  def filter_records(records, cat, query, type_labels) do
+    q = query |> to_string() |> String.trim() |> String.downcase()
+
+    records
+    |> Enum.filter(&(cat == "" or &1.category == cat))
+    |> Enum.filter(fn r ->
+      q == "" or
+        [r.title, r.description, r.notes, r.person, r.location, type_labels[r.record_type]]
+        |> Enum.any?(&String.contains?(String.downcase(&1 || ""), q))
+    end)
+  end
+
+  @doc "A color for a document type: its record type's category color when they match."
+  def doc_color(doc_type, categories, types_by_cat) do
+    t = String.downcase(doc_type || "")
+
+    types_by_cat
+    |> Enum.find_value(fn {cat, types} ->
+      if Enum.any?(types, &(String.downcase(&1.label) == t or &1.slug == t)), do: cat
+    end)
+    |> case do
+      nil ->
+        palette = ~w(#6366f1 #2563eb #0891b2 #16a34a #d97706 #ec4899 #7c3aed #64748b)
+        Enum.at(palette, :erlang.phash2(t, length(palette)))
+
+      cat ->
+        cat_color(categories, cat)
     end
   end
 end
