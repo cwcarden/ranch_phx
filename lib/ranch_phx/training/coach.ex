@@ -718,6 +718,13 @@ defmodule RanchPhx.Training.Coach do
     |> String.trim()
   end
 
+  @doc false
+  # Shared with RanchPhx.Animals.RecordsAI, so all Claude calls use one key and setup.
+  def api_request(body), do: request(body)
+
+  @doc false
+  def model_name, do: model()
+
   defp request(body) do
     opts =
       Keyword.merge(
