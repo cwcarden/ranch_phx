@@ -317,9 +317,10 @@ defmodule RanchPhx.TrainingCoachTest do
       assert [%{result: "good", side: "left"}] = session.activities
       assert [%{progress: "better", note: "Held it for five"}] = session.issue_marks
 
-      # The request forces the one tool, in strict mode, with nullable enums as anyOf.
+      # The one tool, in strict mode, with nullable enums as anyOf.
       [req] = Agent.get(calls, & &1)
-      assert req["tool_choice"] == %{"type" => "tool", "name" => "fill_session"}
+      # No forced tool_choice: the model in use rejects it ("type tool ... not supported").
+      refute Map.has_key?(req, "tool_choice")
       [tool] = req["tools"]
       assert tool["strict"] == true
       item = tool["input_schema"]["properties"]["activities"]["items"]["properties"]
