@@ -9,39 +9,71 @@
     </p>
   </div>
 
-  <a :for={c <- @cards} class="tr-card tr-horse" href={~p"/training/#{c.book.id}"}>
+  <a
+    :for={c <- @cards}
+    class="tr-card tr-horse"
+    href={~p"/training/#{c.book.id}"}
+    id={"book-#{c.book.id}"}
+  >
     <div class="tr-horse-head">
       <.horse_photo horse={c.book.horse} size={64} />
       <div style="flex:1;min-width:0">
-        <div class="tr-row">
-          <h2>{c.book.horse.name}</h2>
-          <span class="tr-muted">{Training.age_label(c.progress.age_months)}</span>
-        </div>
-        <p :if={c.progress.stage} style="margin-top:2px;font-weight:600;color:var(--brand)">
-          Stage {c.progress.stage_number}: {c.progress.stage.name}
+        <h2>{c.book.horse.name}</h2>
+        <p class="tr-muted">
+          {Training.age_label(c.progress.age_months)}<span :if={c.progress.stage}> · Stage {c.progress.stage_number} of {c.progress.stage_count}</span>
         </p>
+        <p :if={c.progress.stage} class="tr-hc-stage">{c.progress.stage.name}</p>
         <p :if={c.book.horse.owner && is_nil(c.book.horse.animal_id)} class="tr-muted">
           Owner: {c.book.horse.owner}
         </p>
       </div>
     </div>
-    <div class="tr-stats">
-      <div class="tr-stat">
+
+    <div class="tr-hc-last">
+      <div class="tr-label">Last session</div>
+      <%= if c.last do %>
         <b>
-          {c.week.sessions}<small
-            :if={c.progress.stage && c.progress.stage.max_sessions_per_week}
-            style="font-size:14px;color:var(--text3)"
-          >/{c.progress.stage.max_sessions_per_week}</small>
+          {when_label(c.last.date, @today)}<span :if={c.last.minutes}> · {c.last.minutes} min</span>
         </b>
-        <span>this week</span>
+        <p>
+          <span :for={{a, i} <- Enum.with_index(c.last.activities, 1)}>
+            {a.activity.name}<span :if={a.result} class={"tr-res res-#{a.result}"}> ({a.result})</span>{comma(
+              i,
+              c.last.activities
+            )}
+          </span>
+        </p>
+      <% else %>
+        <p>Nothing logged yet.</p>
+      <% end %>
+    </div>
+
+    <div class="tr-hc-sum">
+      <div class="tr-hc-box">
+        <div class="tr-label">Last 7 days</div>
+        <% max = c.progress.stage && c.progress.stage.max_sessions_per_week %>
+        <div class={["tr-hc-big", max && c.week.sessions > max && "tr-hc-over"]}>
+          {c.week.sessions}<small :if={max}> of {max}</small>
+        </div>
+        <div class="tr-hc-sub">
+          {if c.week.sessions == 1, do: "session", else: "sessions"} · {c.week.minutes} min total
+        </div>
       </div>
-      <div class="tr-stat"><b>{c.week.minutes}</b><span>minutes</span></div>
-      <div class="tr-stat">
-        <b>{if c.progress.days_to_goal, do: c.progress.days_to_goal, else: "–"}</b>
-        <span>days to goal</span>
+      <div class="tr-hc-box">
+        <div class="tr-label">Next goal</div>
+        <%= if c.progress.next_goal do %>
+          <div class="tr-hc-goal">{c.progress.next_goal.title}</div>
+          <div class="tr-hc-sub">
+            {countdown(c.progress.days_to_goal)} · {Calendar.strftime(
+              c.progress.next_goal.target_date,
+              "%b %-d, %Y"
+            )}
+          </div>
+        <% else %>
+          <div class="tr-hc-sub">No dated goal yet</div>
+        <% end %>
       </div>
     </div>
-    <p class="tr-muted" style="margin-top:10px">{days_since(c.last, @today)}</p>
   </a>
 
   <%= if @is_superuser do %>

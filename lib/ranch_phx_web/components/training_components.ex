@@ -247,6 +247,20 @@ defmodule RanchPhxWeb.TrainingComponents do
     """
   end
 
+  @doc "Short countdown to a date: \"in 16 months\", \"in 12 days\", \"Tomorrow\", \"3 days past\"."
+  def countdown(nil), do: nil
+
+  def countdown(days) when is_integer(days) do
+    cond do
+      days > 90 -> "in #{div(days, 30)} months"
+      days > 1 -> "in #{days} days"
+      days == 1 -> "Tomorrow"
+      days == 0 -> "Today"
+      days == -1 -> "1 day past"
+      true -> "#{-days} days past"
+    end
+  end
+
   @doc """
   Header for a section of the book: a colored icon badge, the title, and actions on the
   right. `kind` picks the section's color (goals, working, stage, trainer, log, sessions).
@@ -649,6 +663,22 @@ defmodule RanchPhxWeb.TrainingComponents do
       .tr-mark-row > b { font-size: 16px; }
       .sec-log .tr-btn-primary { background: var(--sec); border-color: var(--sec); }
       [data-theme="dark"] .sec-log .tr-btn-primary { color: #052e16; }
+
+      /* ── Training overview cards ── */
+      .tr-hc-stage { margin-top: 2px; font-size: 15px; font-weight: 600; color: var(--brand); line-height: 1.3; }
+      .tr-hc-last { margin-top: 14px; padding: 10px 12px; border-radius: 12px; background: var(--surface2); border-left: 4px solid #2563eb; }
+      [data-theme="dark"] .tr-hc-last { border-left-color: #60a5fa; }
+      .tr-hc-last .tr-label { margin-bottom: 2px; }
+      .tr-hc-last b { font-size: 16px; }
+      .tr-hc-last p { font-size: 15px; color: var(--text2); margin-top: 2px; }
+      .tr-hc-sum { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+      .tr-hc-box { padding: 10px 12px; border-radius: 12px; background: var(--surface2); min-width: 0; }
+      .tr-hc-box .tr-label { margin-bottom: 4px; }
+      .tr-hc-big { font-size: 22px; font-weight: 800; line-height: 1.1; }
+      .tr-hc-big small { font-size: 14px; font-weight: 600; color: var(--text2); }
+      .tr-hc-sub { font-size: 14px; color: var(--text2); margin-top: 2px; line-height: 1.3; }
+      .tr-hc-goal { font-size: 15px; font-weight: 700; line-height: 1.25; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+      .tr-hc-over { color: #dc2626; }
 
       /* ── Session history: a date badge, then what happened ── */
       .tr-sess { display: grid; grid-template-columns: 48px 1fr; gap: 12px; padding: 14px 0; border-top: 1px solid var(--border); }
