@@ -247,4 +247,32 @@ defmodule RanchPhxWeb.AnimalRecordsTest do
     assert html =~ "find any records"
     refute has_element?(view, "#visit-sheet")
   end
+
+  test "log a weight and see the gain on the Overview and the animal card",
+       %{conn: conn, animal: animal} do
+    {:ok, _} =
+      Animals.create_event(%{
+        "animal_id" => animal.id,
+        "event_type" => "weight",
+        "title" => "700 lb",
+        "event_date" => Date.add(Date.utc_today(), -30)
+      })
+
+    {:ok, view, _} = live(conn, ~p"/animals/#{animal.id}")
+    view |> element("#log-weight") |> render_click()
+
+    view
+    |> form("#weigh-form",
+      weigh: %{lbs: "736", method: "tape", date: Date.to_iso8601(Date.utc_today())}
+    )
+    |> render_submit()
+
+    assert has_element?(view, "#growth", "736 lb")
+    assert has_element?(view, "#growth", "+1.2 lb")
+    assert has_element?(view, "#growth", "last by tape")
+
+    {:ok, list, _} = live(conn, ~p"/")
+    assert has_element?(list, ".card-insights", "736 lb")
+    assert has_element?(list, ".card-insights", "+1.2 lb/day")
+  end
 end

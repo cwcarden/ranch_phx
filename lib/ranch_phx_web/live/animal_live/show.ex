@@ -1,7 +1,7 @@
 defmodule RanchPhxWeb.AnimalLive.Show do
   use RanchPhxWeb, :live_view
   alias RanchPhx.Animals
-  alias RanchPhx.Animals.{Animal, TimelineEvent, Record, CareSchedule, CarePreset, RecordsAI}
+  alias RanchPhx.Animals.{Animal, TimelineEvent, Record, CareSchedule, CarePreset, RecordsAI, Insights}
   alias RanchPhx.Training.Coach
   import RanchPhxWeb.TrainingComponents, only: [coach_answer: 1]
   alias RanchPhx.Accounts.Scope
@@ -40,6 +40,7 @@ defmodule RanchPhxWeb.AnimalLive.Show do
      |> assign(:visit, nil)
      |> assign(:editing_presets, false)
      |> assign(:scan_loading, false)
+     |> assign(:weigh, nil)
      |> assign(:scan_error, nil)
      |> assign(:preset_error, nil)
      |> assign(:tl_search, "")
@@ -568,6 +569,62 @@ defmodule RanchPhxWeb.AnimalLive.Show do
          |> assign(:record_editing, nil)
          |> assign(:record_draft, draft)
          |> assign(:record_changeset, Animals.change_record(%Record{}))}
+    end
+  end
+
+  # ── Weigh-in ──
+
+  def handle_event("open_weigh", _params, socket) do
+    method = Insights.latest_method(socket.assigns.animal.timeline_events) || "scale"
+    {:noreply, assign(socket, :weigh, %{"date" => Date.to_iso8601(Date.utc_today()), "lbs" => "", "method" => method, "note" => "", "error" => nil})}
+  end
+
+  def handle_event("close_weigh", _params, socket), do: {:noreply, assign(socket, :weigh, nil)}
+
+  def handle_event("weigh_change", %{"weigh" => params}, socket),
+    do: {:noreply, assign(socket, :weigh, Map.merge(socket.assigns.weigh, params))}
+
+  def handle_event("save_weigh", %{"weigh" => params}, socket) do
+    %{animal: animal, is_superuser: su?} = socket.assigns
+    weigh = Map.merge(socket.assigns.weigh, params)
+
+    lbs =
+      case Float.parse(String.replace("#{weigh["lbs"]}", ",", "")) do
+        {n, _} when n >= 1 and n <= 5000 -> round(n)
+        _ -> nil
+      end
+
+    method = if weigh["method"] in ~w(scale tape estimate), do: weigh["method"]
+
+    cond do
+      not su? ->
+        {:noreply, socket}
+
+      is_nil(lbs) ->
+        {:noreply, assign(socket, :weigh, Map.put(weigh, "error", "Enter the weight in pounds."))}
+
+      true ->
+        attrs = %{
+          "animal_id" => animal.id,
+          "event_type" => "weight",
+          "title" => "#{lbs} lb#{if method, do: " (#{method})"}",
+          "description" => blank(weigh["note"]),
+          "event_date" => weigh["date"],
+          "metadata" => %{"lbs" => lbs, "method" => method}
+        }
+
+        case Animals.create_event(attrs) do
+          {:ok, _} ->
+            {:noreply,
+             socket
+             |> assign(:animal, Animals.get_animal_with_pedigree!(animal.id))
+             |> assign(:weigh, nil)
+             |> put_flash(:info, "Weight saved: #{lbs} lb.")}
+
+          {:error, cs} ->
+            msg = Enum.map_join(cs.errors, ", ", fn {f, {m, _}} -> "#{Phoenix.Naming.humanize(f)} #{m}" end)
+            {:noreply, assign(socket, :weigh, Map.put(weigh, "error", msg))}
+        end
     end
   end
 

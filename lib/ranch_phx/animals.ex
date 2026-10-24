@@ -14,6 +14,22 @@ defmodule RanchPhx.Animals do
     |> Repo.all()
   end
 
+  @doc """
+  What the animal cards need for their insights, for many animals in a few queries:
+  `%{animal_id => %{events: weight events, records: records}}`.
+  """
+  def insight_inputs([]), do: %{}
+
+  def insight_inputs(ids) do
+    events =
+      Repo.all(from e in TimelineEvent, where: e.animal_id in ^ids and e.event_type == "weight")
+      |> Enum.group_by(& &1.animal_id)
+
+    records = Repo.all(from r in Record, where: r.animal_id in ^ids) |> Enum.group_by(& &1.animal_id)
+
+    Map.new(ids, &{&1, %{events: Map.get(events, &1, []), records: Map.get(records, &1, [])}})
+  end
+
   def list_all_animals_for_pedigree(search \\ nil) do
     base = from a in Animal, order_by: [asc: a.name]
     if search && search != "" do
