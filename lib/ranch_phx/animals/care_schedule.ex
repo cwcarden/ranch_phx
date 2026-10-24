@@ -1,55 +1,65 @@
 defmodule RanchPhx.Animals.CareSchedule do
   @moduledoc """
-  Routine care: one-tap presets for common records (West Nile, deworming, Coggins…),
-  the usual interval to the next one, and what's due or overdue for an animal.
+  Routine care: when each kind of care was last done, what was used, and when it's due.
 
-  Intervals are common starting points, not veterinary advice; the next-due date is
-  always shown so it can be changed to whatever the vet recommends.
+  "Kind of care" groups records so the newest one wins: every deworming counts as one
+  kind whatever the product, and a vaccination counts toward each disease it covers, so
+  a Core EQ Innovator shot (EWT, West Nile and Rabies) satisfies all three.
+
+  Intervals come from the quick-add presets (`RanchPhx.Animals.CarePreset`) and are
+  starting points the owner can change, not veterinary advice.
   """
+  alias RanchPhx.Animals.CarePreset
 
-  # {key, button label, record type slug, title, interval}
-  @horse [
-    {"west_nile", "West Nile", "vaccination", "West Nile vaccine", {:months, 12}},
-    {"ewt", "EWT / Tetanus", "vaccination", "EEE/WEE/Tetanus vaccine", {:months, 12}},
-    {"rhino_flu", "Rhino / Flu", "vaccination", "Rhino/Flu vaccine", {:months, 6}},
-    {"rabies", "Rabies", "vaccination", "Rabies vaccine", {:months, 12}},
-    {"strangles", "Strangles", "vaccination", "Strangles vaccine", {:months, 12}},
-    {"deworming", "Deworming", "deworming", "Deworming", {:months, 3}},
-    {"coggins", "Coggins", "coggins", "Coggins test", {:months, 12}},
-    {"trim", "Trim", "trim", "Hoof trim", {:weeks, 6}},
-    {"shoeing", "Shoes", "shoeing", "Shoeing", {:weeks, 6}},
-    {"dental", "Dental", "dental_float", "Dental float", {:months, 12}}
+  # Words in a vaccination's title or details, and the diseases they mean.
+  @vaccine_words [
+    {"innovator", ["ewt", "west_nile", "rabies"]},
+    {"vetera gold", ["ewt", "rhino_flu", "west_nile"]},
+    {"west nile", ["west_nile"]},
+    {"wnv", ["west_nile"]},
+    {"vewt", ["ewt"]},
+    {"ewt", ["ewt"]},
+    {"eee", ["ewt"]},
+    {"wee", ["ewt"]},
+    {"tetanus", ["ewt"]},
+    {"sleeping sickness", ["ewt"]},
+    {"rhino", ["rhino_flu"]},
+    {"flu", ["rhino_flu"]},
+    {"influenza", ["rhino_flu"]},
+    {"ehv", ["rhino_flu"]},
+    {"rabies", ["rabies"]},
+    {"strangles", ["strangles"]},
+    {"dhpp", ["dhpp"]},
+    {"distemper", ["dhpp"]},
+    {"parvo", ["dhpp"]},
+    {"bordetella", ["bordetella"]},
+    {"kennel cough", ["bordetella"]}
   ]
 
-  @dog [
-    {"rabies", "Rabies", "vaccination", "Rabies vaccine", {:months, 12}},
-    {"dhpp", "DHPP", "vaccination", "DHPP vaccine", {:months, 12}},
-    {"bordetella", "Bordetella", "vaccination", "Bordetella vaccine", {:months, 12}},
-    {"deworming", "Deworming", "deworming", "Deworming", {:months, 3}},
-    {"heartworm", "Heartworm", "medication", "Heartworm prevention", {:months, 1}},
-    {"vet_visit", "Vet visit", "vet_visit", "Wellness exam", {:months, 12}}
+  @disease_names %{
+    "ewt" => "EWT / Tetanus",
+    "west_nile" => "West Nile",
+    "rhino_flu" => "Rhino / Flu",
+    "rabies" => "Rabies",
+    "strangles" => "Strangles",
+    "dhpp" => "DHPP",
+    "bordetella" => "Bordetella"
+  }
+
+  # Common dewormers, offered as one-tap choices along with ones used before.
+  @dewormers [
+    "Ivermectin",
+    "Panacur PowerPac",
+    "Quest Plus",
+    "Safe-Guard",
+    "Strongid",
+    "Equimax",
+    "Zimecterin Gold"
   ]
 
-  @other [
-    {"vaccination", "Vaccination", "vaccination", "Vaccination", {:months, 12}},
-    {"deworming", "Deworming", "deworming", "Deworming", {:months, 3}},
-    {"vet_visit", "Vet visit", "vet_visit", "Vet visit", nil}
-  ]
+  def dewormers, do: @dewormers
 
-  @doc """
-  Quick-add presets for an animal kind, keeping only record types that still exist
-  (`type_slugs`), as maps with `:key, :label, :record_type, :title, :interval`.
-  """
-  def presets(kind, type_slugs) do
-    kind
-    |> presets_for()
-    |> Enum.filter(fn {_, _, type, _, _} -> type in type_slugs end)
-    |> Enum.map(fn {key, label, type, title, interval} ->
-      %{key: key, label: label, record_type: type, title: title, interval: interval}
-    end)
-  end
-
-  @doc "Next due date for a preset's interval, from `date`."
+  @doc "Next due date for an interval, from `date`."
   def next_due(nil, _date), do: nil
 
   def next_due({:months, n}, %Date{} = date) do
@@ -60,55 +70,96 @@ defmodule RanchPhx.Animals.CareSchedule do
 
   def next_due({:weeks, n}, %Date{} = date), do: Date.add(date, n * 7)
 
-  # Words that identify each vaccine in a title, so "WNV booster" counts as West Nile.
-  @vaccine_words %{
-    "west_nile" => ["west nile", "wnv"],
-    "ewt" => ["eee", "wee", "tetanus", "ewt", "4-way", "5-way", "sleeping sickness"],
-    "rhino_flu" => ["rhino", "flu", "influenza", "ehv"],
-    "rabies" => ["rabies"],
-    "strangles" => ["strangles"],
-    "dhpp" => ["dhpp", "distemper", "parvo"],
-    "bordetella" => ["bordetella", "kennel cough"]
-  }
+  @doc "Diseases a vaccination covers, from its title and details (product)."
+  def covers(record_type, title, details \\ nil)
+
+  def covers("vaccination", title, details) do
+    text = String.downcase("#{title} #{details}")
+
+    @vaccine_words
+    # A word must start a word ("rhino" matches "rhinopneumonitis", "wee" not "between").
+    |> Enum.filter(fn {word, _} -> Regex.match?(~r/(?<![a-z])#{Regex.escape(word)}/, text) end)
+    |> Enum.flat_map(&elem(&1, 1))
+    |> Enum.uniq()
+  end
+
+  def covers(_type, _title, _details), do: []
+
+  def disease_name(key), do: Map.get(@disease_names, key, key)
 
   @doc """
-  The usual next-due date for a record of `record_type` titled `title`, done on `date`,
-  for an animal of `kind`, or nil when there's no usual interval. Vaccinations need a
-  title that names the vaccine; other types (deworming, Coggins, trim…) match by type.
+  The usual next-due date for a new record, from the presets for this kind of animal:
+  for vaccinations, a preset covering the same diseases; otherwise a preset of the same
+  type. Nil when no preset has an interval for it.
   """
-  def suggested_due(kind, record_type, title, %Date{} = date) do
-    title = String.downcase(title || "")
-
-    kind
-    |> presets_for()
-    |> Enum.find(fn {key, _, type, _, _} ->
-      type == record_type and
-        (type != "vaccination" or
-           Enum.any?(Map.get(@vaccine_words, key, []), &String.contains?(title, &1)))
-    end)
-    |> case do
-      {_, _, _, _, interval} -> next_due(interval, date)
+  def suggested_due(presets, record_type, title, %Date{} = date) do
+    case matching_preset(presets, record_type, title) do
       nil -> nil
+      p -> next_due(CarePreset.interval(p), date)
     end
   end
 
-  defp presets_for("horse"), do: @horse
-  defp presets_for("dog"), do: @dog
-  defp presets_for(_), do: @other
+  @doc "The preset a record of this type and title would come from, if any."
+  def matching_preset(presets, record_type, title) do
+    wanted = MapSet.new(covers(record_type, title))
+
+    presets
+    |> Enum.filter(&(&1.record_type == record_type))
+    |> Enum.find(fn p ->
+      record_type != "vaccination" or
+        (MapSet.size(wanted) > 0 and
+           MapSet.subset?(wanted, MapSet.new(covers(p.record_type, p.title, p.product))))
+    end)
+  end
 
   @doc """
-  What's due within `days` days or already overdue, soonest first. Only the most
-  recent record of each kind counts: last year's West Nile shot isn't overdue once
-  this year's is logged. Returns `%{record, days}` (negative days = overdue).
+  Every kind of care that has a next-due date, from the newest record of each kind,
+  soonest first: `%{record, days, covers}`. `days` is negative when overdue; `covers`
+  names the diseases a vaccination counts for. A combination vaccine that is the newest
+  for several diseases appears once.
   """
-  def due(records, %Date{} = today, days \\ 45) do
+  def status(records, %Date{} = today) do
     records
-    |> Enum.group_by(&{&1.record_type, normalize(&1.title)})
-    |> Enum.map(fn {_, rs} -> Enum.max_by(rs, &Date.to_gregorian_days(&1.date)) end)
-    |> Enum.filter(&(&1.next_due_date && Date.diff(&1.next_due_date, today) <= days))
-    |> Enum.map(&%{record: &1, days: Date.diff(&1.next_due_date, today)})
+    |> Enum.reject(&(Date.compare(&1.date, today) == :gt))
+    |> Enum.flat_map(fn r -> Enum.map(kinds(r), &{&1, r}) end)
+    |> Enum.group_by(&elem(&1, 0), &elem(&1, 1))
+    |> Enum.map(fn {_, rs} -> Enum.max_by(rs, &{Date.to_gregorian_days(&1.date), &1.id}) end)
+    |> Enum.uniq_by(& &1.id)
+    |> Enum.filter(& &1.next_due_date)
+    |> Enum.map(fn r ->
+      %{
+        record: r,
+        days: Date.diff(r.next_due_date, today),
+        covers: r.record_type |> covers(r.title, r.description) |> Enum.map(&disease_name/1)
+      }
+    end)
     |> Enum.sort_by(& &1.days)
   end
+
+  @doc "Records dated after today (planned treatments), soonest first."
+  def planned(records, %Date{} = today) do
+    records
+    |> Enum.filter(&(Date.compare(&1.date, today) == :gt))
+    |> Enum.sort_by(&Date.to_gregorian_days(&1.date))
+  end
+
+  @doc "Only what's overdue or due within `days` days."
+  def due(records, %Date{} = today, days \\ 45),
+    do: records |> status(today) |> Enum.filter(&(&1.days <= days))
+
+  defp kinds(%{record_type: "vaccination"} = r) do
+    case covers("vaccination", r.title, r.description) do
+      [] -> [{"vaccination", normalize(r.title)}]
+      keys -> Enum.map(keys, &{"vaccine", &1})
+    end
+  end
+
+  # One running schedule per type, whatever the product or wording.
+  defp kinds(%{record_type: type})
+       when type in ~w(deworming coggins dental_float trim shoeing health_cert),
+       do: [{type}]
+
+  defp kinds(r), do: [{r.record_type, normalize(r.title)}]
 
   defp normalize(title),
     do:

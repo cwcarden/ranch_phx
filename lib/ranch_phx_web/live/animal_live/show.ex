@@ -1,7 +1,7 @@
 defmodule RanchPhxWeb.AnimalLive.Show do
   use RanchPhxWeb, :live_view
   alias RanchPhx.Animals
-  alias RanchPhx.Animals.{Animal, TimelineEvent, Record, CareSchedule, RecordsAI}
+  alias RanchPhx.Animals.{Animal, TimelineEvent, Record, CareSchedule, CarePreset, RecordsAI}
   alias RanchPhx.Training.Coach
   import RanchPhxWeb.TrainingComponents, only: [coach_answer: 1]
   alias RanchPhx.Accounts.Scope
@@ -34,8 +34,14 @@ defmodule RanchPhxWeb.AnimalLive.Show do
      |> assign(:rec_voice_text, "")
      |> assign(:rec_voice_loading, false)
      |> assign(:rec_voice_error, nil)
-     |> assign(:rec_drafts, [])
      |> assign(:doc_filter_type, "")
+     |> assign(:presets, Animals.list_care_presets(animal.kind))
+     |> assign(:quick_selected, [])
+     |> assign(:visit, nil)
+     |> assign(:editing_presets, false)
+     |> assign(:scan_loading, false)
+     |> assign(:scan_error, nil)
+     |> assign(:preset_error, nil)
      |> assign(:tl_search, "")
      |> assign(:record_types_by_cat, Animals.list_record_types_by_category())
      |> assign(:type_label_map, Animals.record_type_label_map())
@@ -66,6 +72,8 @@ defmodule RanchPhxWeb.AnimalLive.Show do
      |> assign(:lightbox_url, nil)
      |> allow_upload(:photo, accept: ~w(.jpg .jpeg .png .webp .gif .heic .heif), max_entries: 10, max_file_size: 20_000_000)
      |> allow_upload(:document, accept: ~w(.pdf .doc .docx .jpg .jpeg .png .txt), max_entries: 5, max_file_size: 50_000_000)
+     |> allow_upload(:scan, accept: ~w(.jpg .jpeg .png .webp .pdf), max_entries: 1, max_file_size: 25_000_000, auto_upload: true, progress: &handle_progress/3)
+     |> allow_upload(:visit_doc, accept: ~w(.pdf .doc .docx .jpg .jpeg .png .heic .txt), max_entries: 5, max_file_size: 50_000_000)
      |> allow_upload(:record_doc, accept: ~w(.pdf .doc .docx .jpg .jpeg .png .txt), max_entries: 5, max_file_size: 50_000_000)}
   end
 
@@ -401,30 +409,137 @@ defmodule RanchPhxWeb.AnimalLive.Show do
      |> assign(:record_changeset, Animals.change_record(record))}
   end
 
-  # One-tap presets (West Nile, deworming, Coggins…): the Add Record form, filled in
-  # with today's date and the usual next-due date, ready to adjust and save.
-  def handle_event("quick_record", %{"key" => key}, socket) do
+  # ── Quick add: pick one or more, then fill in one visit ──
+
+  def handle_event("toggle_quick", %{"id" => id}, socket) do
+    id = String.to_integer(id)
+    sel = socket.assigns.quick_selected
+    sel = if id in sel, do: List.delete(sel, id), else: sel ++ [id]
+    {:noreply, assign(socket, :quick_selected, sel)}
+  end
+
+  def handle_event("clear_quick", _params, socket),
+    do: {:noreply, assign(socket, :quick_selected, [])}
+
+  def handle_event("start_visit", _params, socket) do
+    %{presets: presets, quick_selected: sel} = socket.assigns
+    picked = for id <- sel, p = Enum.find(presets, &(&1.id == id)), do: p
     today = Date.utc_today()
 
-    case Enum.find(presets(socket), &(&1.key == key)) do
-      nil ->
-        {:noreply, socket}
+    visit = %{
+      "date" => Date.to_iso8601(today),
+      "person" => last_person(socket.assigns.animal.records),
+      "location" => "",
+      "notes" => "",
+      "items" => Enum.map(picked, &visit_item(&1, today))
+    }
 
-      p ->
-        draft = %Record{
-          record_type: p.record_type,
-          title: p.title,
-          date: today,
-          next_due_date: CareSchedule.next_due(p.interval, today)
-        }
+    {:noreply, assign(socket, visit: visit, quick_selected: [])}
+  end
 
-        {:noreply,
-         socket
-         |> assign(:record_modal, true)
-         |> assign(:record_editing, nil)
-         |> assign(:record_draft, draft)
-         |> assign(:record_changeset, Animals.change_record(%Record{}))}
+  def handle_event("close_visit", _params, socket), do: {:noreply, assign(socket, :visit, nil)}
+
+  def handle_event("visit_change", %{"visit" => params} = payload, socket) do
+    {:noreply,
+     assign(socket, :visit, merge_visit(socket.assigns.visit, params, payload["_target"]))}
+  end
+
+  def handle_event("pick_product", %{"i" => i, "product" => product}, socket) do
+    {:noreply, update_item(socket, String.to_integer(i), &Map.put(&1, "product", product))}
+  end
+
+  def handle_event("remove_visit_item", %{"i" => i}, socket) do
+    items = List.delete_at(socket.assigns.visit["items"], String.to_integer(i))
+    visit = if items == [], do: nil, else: Map.put(socket.assigns.visit, "items", items)
+    {:noreply, assign(socket, :visit, visit)}
+  end
+
+  def handle_event("save_visit", %{"visit" => params}, socket) do
+    %{animal: animal, is_superuser: su?} = socket.assigns
+    visit = merge_visit(socket.assigns.visit, params, nil)
+
+    if su? and visit do
+      results =
+        for item <- visit["items"] do
+          Animals.create_record(%{
+            "animal_id" => animal.id,
+            "record_type" => item["record_type"],
+            "title" => item["title"],
+            "description" => describe(item, visit["date"]),
+            "date" => blank(item["date"]) || visit["date"],
+            "next_due_date" => blank(item["next_due"]),
+            "cost" => blank(item["cost"]),
+            "person" => blank(visit["person"]),
+            "location" => blank(visit["location"]),
+            "notes" => blank(visit["notes"])
+          })
+        end
+
+      case Enum.filter(results, &match?({:error, _}, &1)) do
+        [] ->
+          save_visit_docs(socket, animal, visit)
+          attach_scan(animal, visit)
+          n = length(results)
+
+          {:noreply,
+           socket
+           |> assign(:animal, Animals.get_animal_with_pedigree!(animal.id))
+           |> assign(:visit, nil)
+           |> put_flash(:info, "Added #{n} #{if n == 1, do: "record", else: "records"}.")}
+
+        [{:error, cs} | _] ->
+          msg =
+            cs.errors
+            |> Enum.map_join(", ", fn {f, {m, _}} -> "#{Phoenix.Naming.humanize(f)} #{m}" end)
+
+          {:noreply, assign(socket, :visit, Map.put(visit, "error", "Couldn't save: #{msg}"))}
+      end
+    else
+      {:noreply, socket}
     end
+  end
+
+  # ── Editing the quick-add buttons ──
+
+  def handle_event("toggle_presets", _params, socket),
+    do:
+      {:noreply,
+       assign(socket, editing_presets: !socket.assigns.editing_presets, preset_error: nil)}
+
+  def handle_event("preset_save", %{"preset" => params}, socket) do
+    %{animal: animal, is_superuser: su?} = socket.assigns
+
+    result =
+      cond do
+        not su? -> :skip
+        params["id"] in [nil, ""] -> Animals.create_care_preset(animal.kind, params)
+        true -> params["id"] |> Animals.get_care_preset!() |> Animals.update_care_preset(params)
+      end
+
+    case result do
+      {:error, cs} ->
+        msg =
+          Enum.map_join(cs.errors, ", ", fn {f, {m, _}} ->
+            "#{Phoenix.Naming.humanize(f)} #{m}"
+          end)
+
+        {:noreply, assign(socket, :preset_error, msg)}
+
+      _ ->
+        {:noreply,
+         assign(socket, presets: Animals.list_care_presets(animal.kind), preset_error: nil)}
+    end
+  end
+
+  def handle_event("preset_delete", %{"id" => id}, socket) do
+    if socket.assigns.is_superuser,
+      do: id |> Animals.get_care_preset!() |> Animals.delete_care_preset()
+
+    {:noreply,
+     assign(socket,
+       presets: Animals.list_care_presets(socket.assigns.animal.kind),
+       quick_selected: List.delete(socket.assigns.quick_selected, String.to_integer(id))
+     )}
   end
 
   # "+ Log" on a due item: the same kind of record again, dated today, with the
@@ -488,6 +603,8 @@ defmodule RanchPhxWeb.AnimalLive.Show do
     %{animal: animal, is_superuser: su?, rec_voice_loading: busy?} = socket.assigns
 
     if su? and not busy? and String.trim(text) != "" do
+      presets = socket.assigns.presets
+
       types =
         Animals.list_record_types()
         |> Enum.map(&%{slug: &1.slug, label: &1.label, category: &1.category})
@@ -496,51 +613,15 @@ defmodule RanchPhxWeb.AnimalLive.Show do
        socket
        |> assign(rec_voice_text: text, rec_voice_loading: true, rec_voice_error: nil)
        |> start_async(:rec_draft, fn ->
-         RecordsAI.draft(animal, text, Date.utc_today(), types)
+         RecordsAI.draft(animal, text, Date.utc_today(), types, presets)
        end)}
     else
       {:noreply, assign(socket, :rec_voice_text, text)}
     end
   end
 
-  def handle_event("toggle_draft", %{"i" => i}, socket) do
-    i = String.to_integer(i)
-
-    drafts =
-      socket.assigns.rec_drafts
-      |> Enum.with_index()
-      |> Enum.map(fn {d, j} -> if j == i, do: Map.update!(d, "keep", &(!&1)), else: d end)
-
-    {:noreply, assign(socket, :rec_drafts, drafts)}
-  end
-
-  def handle_event("discard_drafts", _params, socket),
-    do: {:noreply, assign(socket, rec_drafts: [], rec_voice_error: nil)}
-
-  def handle_event("save_drafts", _params, socket) do
-    %{animal: animal, rec_drafts: drafts, is_superuser: su?} = socket.assigns
-    kept = Enum.filter(drafts, & &1["keep"])
-
-    if su? and kept != [] do
-      results =
-        for d <- kept do
-          d
-          |> Map.drop(["keep", "due_suggested"])
-          |> Map.put("animal_id", animal.id)
-          |> Animals.create_record()
-        end
-
-      saved = Enum.count(results, &match?({:ok, _}, &1))
-
-      {:noreply,
-       socket
-       |> assign(:animal, Animals.get_animal_with_pedigree!(animal.id))
-       |> assign(rec_drafts: [], rec_voice_text: "", rec_voice_open: false)
-       |> put_flash(:info, "Added #{saved} #{if saved == 1, do: "record", else: "records"}.")}
-    else
-      {:noreply, socket}
-    end
-  end
+  def handle_event("scan_validate", _params, socket),
+    do: {:noreply, assign(socket, :scan_error, nil)}
 
   def handle_event("close_record", _params, socket) do
     {:noreply, assign(socket, :record_modal, false)}
@@ -832,7 +913,36 @@ defmodule RanchPhxWeb.AnimalLive.Show do
       {:noreply,
        assign(socket,
          rec_voice_loading: false,
-         rec_drafts: Enum.map(drafts, &Map.put(&1, "keep", true))
+         rec_voice_text: "",
+         visit: visit_from_drafts(drafts, socket.assigns.presets, nil)
+       )}
+
+  def handle_async(:scan, {:ok, {{:ok, []}, _attach}}, socket),
+    do:
+      {:noreply,
+       assign(socket,
+         scan_loading: false,
+         scan_error:
+           "Couldn't find any records on that. Try a clearer photo of the itemized part."
+       )}
+
+  def handle_async(:scan, {:ok, {{:ok, drafts}, attach}}, socket),
+    do:
+      {:noreply,
+       assign(socket,
+         scan_loading: false,
+         visit: visit_from_drafts(drafts, socket.assigns.presets, attach)
+       )}
+
+  def handle_async(:scan, {:ok, {{:error, reason}, _}}, socket),
+    do: {:noreply, assign(socket, scan_loading: false, scan_error: Coach.error_message(reason))}
+
+  def handle_async(:scan, {:exit, _}, socket),
+    do:
+      {:noreply,
+       assign(socket,
+         scan_loading: false,
+         scan_error: "Something went wrong reading that. Try again."
        )}
 
   def handle_async(:rec_draft, {:ok, {:error, reason}}, socket),
@@ -848,10 +958,51 @@ defmodule RanchPhxWeb.AnimalLive.Show do
          rec_voice_error: "Something went wrong. Try again."
        )}
 
-  @doc "Quick-add presets for this animal, limited to record types that still exist."
-  def presets(socket) do
-    slugs = socket.assigns.record_types_by_cat |> Map.values() |> List.flatten() |> Enum.map(& &1.slug)
-    CareSchedule.presets(socket.assigns.animal.kind, slugs)
+  # A scanned photo or PDF arrives: keep a copy for the animal's documents, then
+  # have the AI read it in the background.
+  def handle_progress(:scan, entry, socket) do
+    if entry.done? do
+      %{animal: animal, presets: presets} = socket.assigns
+
+      file =
+        consume_uploaded_entry(socket, entry, fn %{path: tmp} ->
+          doc_dir = Path.join([@uploads_dir, "animals", "#{animal.id}", "documents"])
+          File.mkdir_p!(doc_dir)
+          ext = Path.extname(entry.client_name) |> String.downcase()
+          name = "#{:crypto.strong_rand_bytes(8) |> Base.url_encode64(padding: false)}#{ext}"
+          File.cp!(tmp, Path.join(doc_dir, name))
+
+          {:ok,
+           %{
+             binary: File.read!(tmp),
+             mime: entry.client_type,
+             url: "/uploads/animals/#{animal.id}/documents/#{name}",
+             size: entry.client_size
+           }}
+        end)
+
+      types =
+        Animals.list_record_types()
+        |> Enum.map(&%{slug: &1.slug, label: &1.label, category: &1.category})
+
+      attach = Map.delete(file, :binary)
+
+      {:noreply,
+       socket
+       |> assign(scan_loading: true, scan_error: nil)
+       |> start_async(:scan, fn ->
+         {RecordsAI.draft_from_file(
+            animal,
+            file.binary,
+            file.mime,
+            Date.utc_today(),
+            types,
+            presets
+          ), attach}
+       end)}
+    else
+      {:noreply, socket}
+    end
   end
 
   # ── Records helpers (used by the template) ──
@@ -869,11 +1020,6 @@ defmodule RanchPhxWeb.AnimalLive.Show do
     Enum.find_value(types_by_cat, fn {cat, types} ->
       if Enum.any?(types, &(&1.slug == slug)), do: cat
     end)
-  end
-
-  def presets_for_page(kind, types_by_cat) do
-    slugs = types_by_cat |> Map.values() |> List.flatten() |> Enum.map(& &1.slug)
-    CareSchedule.presets(kind, slugs)
   end
 
   def due_text(days) when days < -1, do: "#{-days} days overdue"
@@ -921,4 +1067,216 @@ defmodule RanchPhxWeb.AnimalLive.Show do
         cat_color(categories, cat)
     end
   end
+
+  # ── Visit helpers ──
+
+  defp visit_item(preset, date) do
+    interval = CarePreset.interval(preset)
+
+    %{
+      "preset_id" => preset.id,
+      "label" => preset.label,
+      "record_type" => preset.record_type,
+      "title" => preset.title,
+      "product" => preset.product || "",
+      "date" => "",
+      "days" => "",
+      "next_due" => date_str(CareSchedule.next_due(interval, date)),
+      "cost" => "",
+      "interval" => interval,
+      "due_touched" => false,
+      "choices" => product_choices(preset)
+    }
+  end
+
+  # One-tap product choices: dewormers used before plus common ones; for other types,
+  # products used before (e.g. a vaccine brand).
+  defp product_choices(%{record_type: "deworming", product: product}) do
+    ([product] ++ Animals.recent_products("deworming") ++ CareSchedule.dewormers())
+    |> Enum.reject(&(&1 in [nil, ""]))
+    |> Enum.uniq_by(&String.downcase/1)
+    |> Enum.take(7)
+  end
+
+  defp product_choices(%{record_type: type}), do: Animals.recent_products(type, 4)
+
+  # Form edits merged into the visit. When a date changes, next-due dates that weren't
+  # typed by hand move with it.
+  defp merge_visit(nil, _params, _target), do: nil
+
+  defp merge_visit(visit, params, target) do
+    visit = Map.merge(visit, Map.take(params, ~w(date person location notes)))
+    item_params = params["items"] || %{}
+
+    items =
+      visit["items"]
+      |> Enum.with_index()
+      |> Enum.map(fn {item, i} ->
+        ip = Map.get(item_params, "#{i}", %{})
+        item = Map.merge(item, Map.take(ip, ~w(title product date next_due cost days)))
+
+        idx = "#{i}"
+
+        case target do
+          ["visit", "items", ^idx, "next_due"] ->
+            Map.put(item, "due_touched", true)
+
+          # A date changed, or saving: next-due dates not typed by hand follow the dates.
+          t when t == nil or (is_list(t) and length(t) > 1 and hd(tl(t)) in ["date", "items"]) ->
+            if item["due_touched"], do: item, else: put_next_due(item, visit["date"])
+
+          _ ->
+            item
+        end
+      end)
+
+    visit |> Map.put("items", items) |> Map.delete("error")
+  end
+
+  # Next due counts from when it's given (or starts), else the visit date.
+  defp put_next_due(%{"interval" => nil} = item, _visit_date), do: item
+
+  defp put_next_due(item, visit_date) do
+    case parse_date(blank(item["date"]) || visit_date) do
+      nil -> item
+      from -> Map.put(item, "next_due", date_str(CareSchedule.next_due(item["interval"], from)))
+    end
+  end
+
+  defp update_item(socket, i, fun) do
+    visit = socket.assigns.visit
+    assign(socket, :visit, Map.put(visit, "items", List.update_at(visit["items"], i, fun)))
+  end
+
+  defp save_visit_docs(socket, animal, visit) do
+    doc_dir = Path.join([@uploads_dir, "animals", "#{animal.id}", "documents"])
+    File.mkdir_p!(doc_dir)
+    labels = Enum.map_join(visit["items"], ", ", & &1["label"])
+    date = parse_date(visit["date"])
+    title = "Vet visit #{if date, do: Calendar.strftime(date, "%b %-d, %Y")} (#{labels})"
+
+    consume_uploaded_entries(socket, :visit_doc, fn %{path: tmp}, entry ->
+      ext = Path.extname(entry.client_name)
+      name = "#{:crypto.strong_rand_bytes(8) |> Base.url_encode64(padding: false)}#{ext}"
+      File.cp!(tmp, Path.join(doc_dir, name))
+      url = "/uploads/animals/#{animal.id}/documents/#{name}"
+
+      Animals.create_document(%{
+        animal_id: animal.id,
+        title: String.slice(title, 0, 200),
+        doc_type:
+          if(Enum.any?(visit["items"], &(&1["record_type"] == "health_cert")),
+            do: "Health Certificate",
+            else: "Vet Record"
+          ),
+        doc_date: date,
+        file_url: url,
+        mime_type: entry.client_type,
+        file_size: entry.client_size
+      })
+
+      {:ok, url}
+    end)
+  end
+
+  # The vet or farrier named most recently, to save retyping it.
+  defp last_person(records) do
+    records
+    |> Enum.find(&(&1.person not in [nil, ""] and &1.category == "health"))
+    |> then(&((&1 && &1.person) || ""))
+  end
+
+  defp blank(v) when v in [nil, ""], do: nil
+  defp blank(v), do: v
+
+  defp date_str(nil), do: ""
+  defp date_str(%Date{} = d), do: Date.to_iso8601(d)
+
+  defp parse_date(s) do
+    case Date.from_iso8601(to_string(s)) do
+      {:ok, d} -> d
+      _ -> nil
+    end
+  end
+
+  @doc "\"in 6 months\" / \"in 12 days\" / \"25 days overdue\" for the care card."
+  def due_relative(days) when days < 0, do: due_text(days)
+  def due_relative(days) when days > 75, do: "in #{round(days / 30.4)} months"
+  def due_relative(days), do: due_text(days) |> String.replace("In ", "in ")
+
+  # Turns AI drafts (spoken or scanned) into the visit form, to check and edit.
+  defp visit_from_drafts(drafts, presets, attach) do
+    visit_date =
+      drafts |> Enum.frequencies_by(& &1["date"]) |> Enum.max_by(&elem(&1, 1)) |> elem(0)
+
+    items =
+      Enum.map(drafts, fn d ->
+        preset = CareSchedule.matching_preset(presets, d["record_type"], d["title"])
+
+        %{
+          "preset_id" => preset && preset.id,
+          "label" => (preset && preset.label) || d["title"],
+          "record_type" => d["record_type"],
+          "title" => d["title"],
+          "product" => d["description"] || "",
+          "date" => if(d["date"] == visit_date, do: "", else: d["date"]),
+          "days" => "",
+          "next_due" => d["next_due_date"] || "",
+          "cost" => if(d["cost"], do: to_string(d["cost"]), else: ""),
+          "interval" => preset && CarePreset.interval(preset),
+          "due_touched" => d["next_due_date"] != nil and not d["due_suggested"],
+          "choices" =>
+            product_choices(%{record_type: d["record_type"], product: d["description"]})
+        }
+      end)
+
+    %{
+      "date" => visit_date,
+      "person" => Enum.find_value(drafts, "", & &1["person"]),
+      "location" => Enum.find_value(drafts, "", & &1["location"]),
+      "notes" => "",
+      "items" => items,
+      "attach" => attach
+    }
+  end
+
+  # The product, plus the schedule when it runs several days:
+  # "Panacur PowerPac · daily for 5 days, Oct 31 – Nov 4".
+  defp describe(item, visit_date) do
+    product = blank(item["product"])
+
+    with {n, _} when n > 1 <- Integer.parse("#{item["days"]}"),
+         %Date{} = start <- parse_date(blank(item["date"]) || visit_date) do
+      stop = Date.add(start, n - 1)
+
+      course =
+        "daily for #{n} days, #{Calendar.strftime(start, "%b %-d")} – #{Calendar.strftime(stop, "%b %-d")}"
+
+      Enum.join(Enum.reject([product, course], &is_nil/1), " · ")
+    else
+      _ -> product
+    end
+  end
+
+  defp attach_scan(_animal, %{"attach" => nil}), do: :ok
+
+  defp attach_scan(animal, %{"attach" => a} = visit) do
+    date = parse_date(visit["date"])
+
+    Animals.create_document(%{
+      animal_id: animal.id,
+      title: "Vet paperwork #{if date, do: Calendar.strftime(date, "%b %-d, %Y")}",
+      doc_type:
+        if(Enum.any?(visit["items"], &(&1["record_type"] == "health_cert")),
+          do: "Health Certificate",
+          else: "Vet Record"
+        ),
+      doc_date: date,
+      file_url: a.url,
+      mime_type: a.mime,
+      file_size: a.size
+    })
+  end
+
+  defp attach_scan(_animal, _visit), do: :ok
 end

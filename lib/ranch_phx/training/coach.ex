@@ -760,6 +760,9 @@ defmodule RanchPhx.Training.Coach do
 
   def error_message(:empty), do: "Type a question first."
 
+  def error_message(:unsupported_file),
+    do: "That file type can't be read. Use a photo (JPG or PNG) or a PDF."
+
   def error_message(:no_api_key),
     do: "The TrAIner isn't set up yet. Add ANTHROPIC_API_KEY on the server and restart."
 
