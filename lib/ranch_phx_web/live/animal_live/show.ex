@@ -41,6 +41,8 @@ defmodule RanchPhxWeb.AnimalLive.Show do
      |> assign(:editing_presets, false)
      |> assign(:scan_loading, false)
      |> assign(:weigh, nil)
+     |> assign(:weights_open, false)
+     |> assign(:weight_pick, [])
      |> assign(:scan_error, nil)
      |> assign(:preset_error, nil)
      |> assign(:tl_search, "")
@@ -79,7 +81,19 @@ defmodule RanchPhxWeb.AnimalLive.Show do
   end
 
   @impl true
-  def handle_params(_params, _uri, socket), do: {:noreply, socket}
+  # Links from the animal cards: ?weight=1 opens the weight history, ?tab=records a tab.
+  def handle_params(params, _uri, socket) do
+    socket =
+      case params["tab"] do
+        tab when tab in ~w(overview records documents photos pedigree timeline genetics expenses) ->
+          assign(socket, :tab, tab)
+
+        _ ->
+          socket
+      end
+
+    {:noreply, if(params["weight"], do: open_weights(socket), else: socket)}
+  end
 
   @impl true
   def handle_event("switch_tab", %{"tab" => tab}, socket) do
@@ -626,6 +640,27 @@ defmodule RanchPhxWeb.AnimalLive.Show do
             {:noreply, assign(socket, :weigh, Map.put(weigh, "error", msg))}
         end
     end
+  end
+
+  # ── Weight history ──
+
+  def handle_event("open_weights", _params, socket), do: {:noreply, open_weights(socket)}
+
+  def handle_event("close_weights", _params, socket),
+    do: {:noreply, assign(socket, weights_open: false, weight_pick: [])}
+
+  # Tap two weigh-ins to compare them; a third tap starts a new pair.
+  def handle_event("pick_weight", %{"i" => i}, socket) do
+    i = String.to_integer(i)
+
+    pick =
+      case socket.assigns.weight_pick do
+        [^i] -> []
+        [a] -> [a, i]
+        _ -> [i]
+      end
+
+    {:noreply, assign(socket, :weight_pick, pick)}
   end
 
   def handle_event("record_search", %{"value" => q}, socket),
@@ -1336,4 +1371,17 @@ defmodule RanchPhxWeb.AnimalLive.Show do
   end
 
   defp attach_scan(_animal, _visit), do: :ok
+
+  defp open_weights(socket) do
+    n = length(weight_points(socket.assigns.animal))
+    # Start by comparing the first and latest weigh-ins.
+    assign(socket, weights_open: true, weight_pick: if(n >= 2, do: [0, n - 1], else: []))
+  end
+
+  def weight_points(animal), do: Insights.weights(animal.timeline_events, animal.records)
+
+  @doc "+1.2 / -0.4 with the sign, for gains."
+  def signed(nil), do: "–"
+  def signed(n) when is_float(n), do: "#{if n >= 0, do: "+"}#{:erlang.float_to_binary(n, decimals: 1)}"
+  def signed(n), do: "#{if n >= 0, do: "+"}#{n}"
 end

@@ -152,4 +152,86 @@ defmodule RanchPhx.Animals.Insights do
       pts -> Enum.map_join(pts, " ", fn {x, y, _, _} -> "#{x},#{y}" end)
     end
   end
+
+  @doc """
+  Each weigh-in, oldest first, with the change since the one before:
+  `%{date, lbs, change, days, per_day}` (change, days and per_day nil for the first).
+  """
+  def rows(points) do
+    points
+    |> Enum.with_index()
+    |> Enum.map(fn {{date, lbs}, i} ->
+      prev = if i > 0, do: Enum.at(points, i - 1)
+
+      case prev do
+        nil ->
+          %{date: date, lbs: lbs, change: nil, days: nil, per_day: nil}
+
+        {pd, pl} ->
+          days = Date.diff(date, pd)
+
+          %{
+            date: date,
+            lbs: lbs,
+            change: lbs - pl,
+            days: days,
+            per_day: if(days > 0, do: Float.round((lbs - pl) / days, 2))
+          }
+      end
+    end)
+  end
+
+  @doc "The gain between two weigh-ins (by position, either order): `%{from, to, change, days, per_day}`."
+  def compare(points, i, j) do
+    [a, b] = Enum.sort([i, j])
+    {d1, w1} = Enum.at(points, a)
+    {d2, w2} = Enum.at(points, b)
+    days = Date.diff(d2, d1)
+
+    %{
+      from: {d1, w1},
+      to: {d2, w2},
+      change: w2 - w1,
+      days: days,
+      per_day: if(days > 0, do: Float.round((w2 - w1) / days, 2))
+    }
+  end
+
+  @doc """
+  A chart with axes for weigh-ins on a `w` by `h` canvas: the placed points
+  `[{x, y, date, lbs}]`, gridlines with pound labels, and a few date labels.
+  """
+  def chart(points, w, h) when length(points) >= 2 do
+    {left, right, top, bottom} = {40, 14, 24, 26}
+    ys = Enum.map(points, &elem(&1, 1))
+    step = nice_step(Enum.max(ys) - Enum.min(ys))
+    lo = floor(Enum.min(ys) / step) * step
+    hi = max(ceil(Enum.max(ys) / step) * step, lo + step)
+    {d0, _} = hd(points)
+    {dn, _} = List.last(points)
+    span = max(Date.diff(dn, d0), 1)
+    x = fn d -> Float.round(left + Date.diff(d, d0) / span * (w - left - right), 1) end
+    y = fn v -> Float.round(top + (hi - v) / (hi - lo) * (h - top - bottom), 1) end
+
+    middle = if span > 45, do: [Date.add(d0, div(span, 2))], else: []
+
+    %{
+      pts: Enum.map(points, fn {d, v} -> {x.(d), y.(v), d, v} end),
+      yticks: for(v <- lo..hi//step, do: {y.(v), v}),
+      # First and last labels line up with the chart's edges so they aren't cut off.
+      xticks:
+        ([{d0, "start"}] ++ Enum.map(middle, &{&1, "middle"}) ++ [{dn, "end"}])
+        |> Enum.map(fn {d, anchor} -> {x.(d), Calendar.strftime(d, "%b %-d"), anchor} end),
+      left: left,
+      right: w - right,
+      bottom: h - bottom
+    }
+  end
+
+  def chart(_points, _w, _h), do: nil
+
+  # A round gridline step giving about four lines.
+  defp nice_step(range) do
+    Enum.find([5, 10, 20, 25, 50, 100, 200, 250, 500], 1000, &(range / &1 <= 4))
+  end
 end

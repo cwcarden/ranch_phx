@@ -326,6 +326,30 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .wg-method [class^="hero-"] { width: 22px; height: 22px; }
 .wg-method.on { border-color: #16a34a; background: color-mix(in srgb, #16a34a 12%, var(--surface)); color: #16a34a; }
 @media (max-width: 600px) { .dlg.rx-weigh { height: auto; margin-top: auto; border-radius: 16px 16px 0 0; } .dlg-wrap.rx-sheet-wrap:has(.rx-weigh) { align-items: flex-end; } }
+.gr-chart { cursor: pointer; }
+.gr-more { margin-top: 6px; background: none; border: none; padding: 0; min-height: 36px; color: #16a34a; font-size: 14px; font-weight: 700; cursor: pointer; }
+.wh-compare { margin: 6px 0 4px; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, #16a34a 9%, var(--surface)); min-height: 52px; }
+.wh-cmp-range { font-size: 14px; color: var(--text2); }
+.wh-cmp-range span { font-weight: 700; color: var(--text); }
+.wh-cmp-result { font-size: 16px; margin-top: 2px; }
+.wh-cmp-result b.up, .wh-row .up { color: #16a34a; }
+.wh-cmp-result b.down, .wh-row .down { color: #dc2626; }
+.wh-cmp-hint { font-size: 14px; color: var(--text2); line-height: 32px; }
+.wh-chart { width: 100%; height: auto; display: block; margin: 4px 0 10px; }
+.wh-grid { stroke: var(--border); stroke-width: 1; }
+.wh-axis { font-size: 11px; fill: var(--text3); }
+.wh-band { fill: #16a34a; opacity: .1; }
+.wh-line { fill: none; stroke: #16a34a; stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.wh-pt { cursor: pointer; }
+.wh-hit { fill: transparent; }
+.wh-dot { fill: #16a34a; stroke: var(--surface); stroke-width: 2; }
+.wh-pt.on .wh-dot { fill: #d97706; }
+.wh-label { font-size: 12px; font-weight: 800; fill: var(--text); }
+.wh-table { display: grid; gap: 2px; }
+.wh-row { display: grid; grid-template-columns: 1.4fr .8fr 1.2fr .8fr; gap: 6px; align-items: center; padding: 10px 8px; border: none; border-radius: 10px; background: none; color: var(--text); font-size: 14px; text-align: left; cursor: pointer; min-height: 44px; font-family: inherit; }
+.wh-row small { color: var(--text3); font-size: 12px; }
+.wh-row.on { background: color-mix(in srgb, #d97706 14%, var(--surface)); }
+.wh-head { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text3); cursor: default; min-height: 0; padding-bottom: 4px; border-bottom: 1px solid var(--border); border-radius: 0; }
 .tr-prose { font-size: 16px; line-height: 1.6; color: var(--text); }
 .tr-prose p { margin: 0 0 10px; }
 .tr-prose ul, .tr-prose ol { margin: 0 0 10px; padding-left: 20px; display: grid; gap: 5px; }
@@ -717,13 +741,16 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
         </div>
       </div>
       <% pts = Insights.chart_points(wt.points, 320, 96, 8) %>
-      <svg :if={pts != []} class="gr-chart" viewBox="0 0 320 112" preserveAspectRatio="none" role="img" aria-label="Weight over time">
+      <svg :if={pts != []} class="gr-chart" phx-click="open_weights" id="growth-chart" viewBox="0 0 320 112" preserveAspectRatio="none" role="img" aria-label="Weight over time">
         <polyline points={Enum.map_join(pts, " ", fn {x, y, _, _} -> "#{x},#{y}" end)} fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" />
         <circle :for={{x, y, d, lbs} <- pts} cx={x} cy={y} r="3.5" fill="currentColor"><title>{Calendar.strftime(d, "%b %-d")}: {lbs} lb</title></circle>
         <text x="8" y="110" class="gr-axis">{Calendar.strftime(elem(hd(wt.points), 0), "%b %-d")}</text>
         <text x="312" y="110" text-anchor="end" class="gr-axis">{Calendar.strftime(wt.date, "%b %-d")}</text>
       </svg>
       <p :if={is_nil(wt.per_day)} class="rx-sub">Add another weigh-in a week or more later to see the gain.</p>
+      <button :if={wt.count >= 1} class="gr-more" phx-click="open_weights" id="open-weights">
+        See every weigh-in and compare →
+      </button>
       <p class="rx-sub gr-foot">
         {wt.count} weigh-{if wt.count == 1, do: "in", else: "ins"}<span :if={m = Insights.latest_method(@animal.timeline_events)}> · last by {m}</span>
       </p>
@@ -1961,7 +1988,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
           </svg>
         </button>
       </div>
-      <form method="get" action={~p"/animals/#{@animal.id}/report"} target="_blank">
+      <form method="get" action={~p"/animals/#{@animal.id}/report"}>
         <div class="dlg-body">
           <div class="section-divider" style="margin-top:0">Sections to include</div>
           <div class="rpt-check-group">
@@ -1976,6 +2003,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
             <label class="rpt-check">
               <input type="checkbox" name="pedigree" value="1" checked/>
               <span>Pedigree</span>
+            </label>
+            <label class="rpt-check">
+              <input type="checkbox" name="weight" value="1" checked/>
+              <span>Weight chart &amp; weigh-ins</span>
             </label>
             <label class="rpt-check">
               <input type="checkbox" name="timeline" value="1"/>
@@ -2017,7 +2048,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
             </div>
           </div>
           <p style="font-size:12px;color:var(--text3);margin-top:10px">
-            Opens in a new tab. Use your browser's Print → Save as PDF to export.
+            Opens the report. Tap Save / Share PDF to save it to Files, print it, or send it.
           </p>
         </div>
         <div class="dlg-footer" style="justify-content:flex-end">
@@ -2198,6 +2229,94 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 <% end %>
 
 <!-- ── Record Modal ───────────────────────────────────────────────────────── -->
+<%= if @weights_open do %>
+  <% pts = weight_points(@animal) %>
+  <% ch = Insights.chart(pts, 340, 210) %>
+  <% rows = Insights.rows(pts) %>
+  <% cmp = if length(@weight_pick) == 2, do: Insights.compare(pts, hd(@weight_pick), List.last(@weight_pick)) %>
+  <% trend = Insights.weight_trend(pts) %>
+  <div class="dlg-wrap rx-sheet-wrap">
+    <div class="dlg-backdrop" phx-click="close_weights"></div>
+    <div class="dlg rx-sheet" id="weights-sheet">
+      <div class="dlg-header">
+        <h2>{@animal.name}'s weight</h2>
+        <button class="btn-icon" phx-click="close_weights" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <div class="dlg-body">
+        <p :if={pts == []} class="rx-sub">No weigh-ins yet.</p>
+
+        <div :if={trend} class="gr-stats">
+          <div><b>{trend.latest} lb</b><small>{Calendar.strftime(trend.date, "%b %-d, %Y")}</small></div>
+          <div :if={trend.per_day}><b class={if trend.per_day < 0, do: "down", else: "up"}>{signed(trend.per_day)} lb</b><small>a day, all weigh-ins</small></div>
+          <div><b>{trend.count}</b><small>weigh-ins</small></div>
+        </div>
+
+        <%!-- Comparison of the two picked weigh-ins --%>
+        <div class="wh-compare" id="weight-compare">
+          <%= cond do %>
+            <% cmp -> %>
+              <div class="wh-cmp-range">
+                {Calendar.strftime(elem(cmp.from, 0), "%b %-d")} <span>{elem(cmp.from, 1)} lb</span>
+                → {Calendar.strftime(elem(cmp.to, 0), "%b %-d")} <span>{elem(cmp.to, 1)} lb</span>
+              </div>
+              <div class="wh-cmp-result">
+                <b class={if cmp.change < 0, do: "down", else: "up"}>{signed(cmp.change)} lb</b>
+                in {cmp.days} {if cmp.days == 1, do: "day", else: "days"}<span :if={cmp.per_day}> = <b class={if cmp.per_day < 0, do: "down", else: "up"}>{signed(cmp.per_day)} lb/day</b></span>
+              </div>
+            <% length(@weight_pick) == 1 -> %>
+              <div class="wh-cmp-hint">Now tap a second weigh-in to compare.</div>
+            <% length(pts) >= 2 -> %>
+              <div class="wh-cmp-hint">Tap two weigh-ins on the chart or in the list to compare them.</div>
+            <% true -> %>
+          <% end %>
+        </div>
+
+        <svg :if={ch} class="wh-chart" viewBox="0 0 340 210" role="img" aria-label="Weight over time">
+          <%= for {y, v} <- ch.yticks do %>
+            <line x1={ch.left} x2={ch.right} y1={y} y2={y} class="wh-grid" />
+            <text x={ch.left - 6} y={y + 4} text-anchor="end" class="wh-axis">{v}</text>
+          <% end %>
+          <text :for={{x, label, anchor} <- ch.xticks} x={x} y={ch.bottom + 18} text-anchor={anchor} class="wh-axis">{label}</text>
+          <% sel = if cmp, do: Enum.map(@weight_pick, &Enum.at(ch.pts, &1)) |> Enum.sort(), else: [] %>
+          <rect
+            :if={length(sel) == 2}
+            x={elem(hd(sel), 0)}
+            y="8"
+            width={max(elem(List.last(sel), 0) - elem(hd(sel), 0), 1)}
+            height={ch.bottom - 8}
+            class="wh-band"
+          />
+          <polyline points={Enum.map_join(ch.pts, " ", fn {x, y, _, _} -> "#{x},#{y}" end)} class="wh-line" />
+          <%= for {{x, y, d, lbs}, i} <- Enum.with_index(ch.pts) do %>
+            <g class={["wh-pt", i in @weight_pick && "on"]} phx-click="pick_weight" phx-value-i={i}>
+              <circle cx={x} cy={y} r="14" class="wh-hit" />
+              <circle cx={x} cy={y} r={if i in @weight_pick, do: 6, else: 4} class="wh-dot" />
+              <text :if={i in @weight_pick} x={x} y={y - 12} text-anchor="middle" class="wh-label">{lbs}</text>
+              <title>{Calendar.strftime(d, "%b %-d, %Y")}: {lbs} lb</title>
+            </g>
+          <% end %>
+        </svg>
+
+        <div :if={rows != []} class="wh-table" id="weight-rows">
+          <div class="wh-row wh-head"><span>Date</span><span>Weight</span><span>Change</span><span>lb/day</span></div>
+          <%= for {r, i} <- rows |> Enum.with_index() |> Enum.reverse() do %>
+            <button type="button" class={["wh-row", i in @weight_pick && "on"]} phx-click="pick_weight" phx-value-i={i}>
+              <span>{Calendar.strftime(r.date, "%b %-d, %Y")}</span>
+              <span><b>{r.lbs}</b></span>
+              <span class={r.change && r.change < 0 && "down"}>{if r.change, do: "#{signed(r.change)} lb", else: "–"}<small :if={r.days}> / {r.days}d</small></span>
+              <span class={r.per_day && r.per_day < 0 && "down"}>{signed(r.per_day)}</span>
+            </button>
+          <% end %>
+        </div>
+      </div>
+    </div>
+  </div>
+<% end %>
+
 <%= if @weigh do %>
   <div class="dlg-wrap rx-sheet-wrap">
     <div class="dlg-backdrop" phx-click="close_weigh"></div>

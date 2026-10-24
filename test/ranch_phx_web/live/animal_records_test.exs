@@ -275,4 +275,35 @@ defmodule RanchPhxWeb.AnimalRecordsTest do
     assert has_element?(list, ".card-insights", "736 lb")
     assert has_element?(list, ".card-insights", "+1.2 lb/day")
   end
+
+  test "weight history from the card link: compare two weigh-ins; report has the chart",
+       %{conn: conn, animal: animal} do
+    for {days, lbs} <- [{80, 640}, {40, 690}, {0, 735}] do
+      {:ok, _} =
+        Animals.create_event(%{
+          "animal_id" => animal.id,
+          "event_type" => "weight",
+          "title" => "#{lbs} lb",
+          "event_date" => Date.add(Date.utc_today(), -days)
+        })
+    end
+
+    {:ok, view, _} = live(conn, ~p"/animals/#{animal.id}?weight=1")
+    # Opens comparing the first and latest.
+    assert has_element?(view, "#weight-compare", "+95 lb")
+    assert has_element?(view, "#weight-compare", "80 days")
+
+    view |> element("#weight-rows button[phx-value-i='1']") |> render_click()
+    assert has_element?(view, "#weight-compare", "second weigh-in")
+    view |> element("#weight-rows button[phx-value-i='2']") |> render_click()
+    assert has_element?(view, "#weight-compare", "+45 lb")
+    assert has_element?(view, "#weight-compare", "+1.1 lb/day")
+
+    html = conn |> get(~p"/animals/#{animal.id}/report?weight=1") |> html_response(200)
+    assert html =~ "Weight"
+    assert html =~ "polyline"
+    assert html =~ "Save / Share PDF"
+    # A page of its own: not wrapped in the app's page.
+    assert length(String.split(html, "<html")) == 2
+  end
 end
