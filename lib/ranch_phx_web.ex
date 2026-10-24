@@ -88,6 +88,7 @@ defmodule RanchPhxWeb do
       import Phoenix.HTML
       # Core UI components
       import RanchPhxWeb.CoreComponents
+      import RanchPhxWeb.AppNav
 
       # Common modules used in templates
       alias Phoenix.LiveView.JS
