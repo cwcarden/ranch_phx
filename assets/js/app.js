@@ -398,6 +398,52 @@ window.addEventListener("phx:page-loading-stop", _info => topbar.hide())
 // connect if there are any LiveViews on the page
 liveSocket.connect()
 
+// Light/dark switch in the top bar.
+window.addEventListener("ranch:toggle-theme", () => {
+  const next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark"
+  document.documentElement.setAttribute("data-theme", next)
+  try { localStorage.setItem("phx:theme", next) } catch (_) {}
+})
+
+// Keep pages alive on iPhone. Safari (and the home-screen app) can bring back a page
+// from memory with its live connection gone, so taps do nothing until the app is
+// closed. Reload a page restored that way, reconnect when the app comes back to the
+// front, and show a small note while the connection is down.
+const isLivePage = () => !!document.querySelector("[data-phx-session]")
+
+window.addEventListener("pageshow", e => {
+  if (e.persisted && isLivePage()) window.location.reload()
+})
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState !== "visible" || !isLivePage() || liveSocket.isConnected()) return
+  liveSocket.connect()
+  setTimeout(() => {
+    if (!liveSocket.isConnected() && navigator.onLine !== false) window.location.reload()
+  }, 4000)
+})
+
+let downSince = null
+const note = document.createElement("button")
+note.type = "button"
+note.textContent = "Reconnecting… tap to reload"
+note.setAttribute("style", "position:fixed;left:50%;transform:translateX(-50%);top:calc(60px + env(safe-area-inset-top));z-index:1000;display:none;padding:10px 16px;border-radius:20px;border:none;background:#111827;color:#fff;font:600 14px -apple-system,system-ui,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.25)")
+note.addEventListener("click", () => window.location.reload())
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => document.body.appendChild(note))
+else document.body.appendChild(note)
+setInterval(() => {
+  if (!isLivePage() || document.visibilityState !== "visible" || liveSocket.isConnected()) {
+    downSince = null
+    note.style.display = "none"
+    return
+  }
+  downSince = downSince || Date.now()
+  if (Date.now() - downSince > 2500) {
+    note.textContent = navigator.onLine === false ? "No signal. Will reconnect." : "Reconnecting… tap to reload"
+    note.style.display = "block"
+  }
+}, 1000)
+
 // expose liveSocket on window for web console debug logs and latency simulation:
 // >> liveSocket.enableDebug()
 // >> liveSocket.enableLatencySim(1000)  // enabled for duration of browser session

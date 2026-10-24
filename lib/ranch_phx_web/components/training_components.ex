@@ -425,7 +425,7 @@ defmodule RanchPhxWeb.TrainingComponents do
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--surface2); color: var(--text); font-size: 17px; line-height: 1.45; }
 
-      .tr-topbar { position: sticky; top: 0; z-index: 50; height: 56px; display: flex; align-items: center; gap: 12px; padding: 0 16px; background: var(--surface); border-bottom: 1px solid var(--border); }
+      .tr-topbar { position: sticky; top: calc(52px + env(safe-area-inset-top)); z-index: 50; height: 56px; display: flex; align-items: center; gap: 12px; padding: 0 16px; background: var(--surface); border-bottom: 1px solid var(--border); }
       .tr-back { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; color: var(--brand); font-weight: 600; text-decoration: none; font-size: 16px; }
       .tr-title { font-weight: 700; font-size: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -546,14 +546,14 @@ defmodule RanchPhxWeb.TrainingComponents do
       [data-theme="dark"] .sec-log      { --sec: #4ade80; --sec-soft: #0d2e1a; }
       [data-theme="dark"] .sec-sessions { --sec: #60a5fa; --sec-soft: #0f1f3d; }
 
-      .tr-sec { border-top: 4px solid var(--sec); scroll-margin-top: 112px; }
+      .tr-sec { border-top: 4px solid var(--sec); scroll-margin-top: calc(164px + env(safe-area-inset-top)); }
       .tr-sec-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; min-height: 40px; }
       .tr-sec-head h2 { flex: 1; min-width: 0; }
       .tr-sec-ico { flex: none; width: 34px; height: 34px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; background: var(--sec-soft); color: var(--sec); }
       .tr-sec-ico [class^="hero-"] { width: 20px; height: 20px; }
       .tr-sec-actions { display: flex; align-items: center; gap: 6px; }
 
-      .tr-jump { position: sticky; top: 56px; z-index: 40; display: flex; gap: 8px; overflow-x: auto; padding: 10px 16px; margin: 0 -16px; background: var(--surface2); scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+      .tr-jump { position: sticky; top: calc(108px + env(safe-area-inset-top)); z-index: 40; display: flex; gap: 8px; overflow-x: auto; padding: 10px 16px; margin: 0 -16px; background: var(--surface2); scrollbar-width: none; -webkit-overflow-scrolling: touch; }
       .tr-jump::-webkit-scrollbar { display: none; }
       .tr-jump a { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 0 14px 0 10px; border-radius: 19px; background: var(--surface); border: 1.5px solid var(--border); color: var(--text); font-size: 15px; font-weight: 600; text-decoration: none; }
       .tr-jump a [class^="hero-"] { width: 18px; height: 18px; color: var(--sec); }
