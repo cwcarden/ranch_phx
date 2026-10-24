@@ -280,6 +280,66 @@ Hooks.CoachDeck = {
   destroyed() { this.el.removeEventListener("click", this.onClick) },
 }
 
+// Session timer: tap to start, tap to stop, and the minutes box fills itself in. The start
+// time is kept on the phone, so it keeps counting through a locked screen or a reload.
+// Saving the form while it's running stops it and uses the time so far.
+Hooks.SessionTimer = {
+  mounted() {
+    this.key = this.el.dataset.key
+    this.label = this.el.querySelector("[data-timer-label]")
+    this.form = this.el.closest("form")
+    this.onClick = () => (this.started() ? this.stop() : this.start())
+    this.onSubmit = () => { if (this.started()) this.stop() }
+    this.el.addEventListener("click", this.onClick)
+    // Capture phase, so the minutes are in place before LiveView reads the form.
+    this.form?.addEventListener("submit", this.onSubmit, true)
+    this.render()
+    this.tick = setInterval(() => this.render(), 1000)
+  },
+  destroyed() {
+    clearInterval(this.tick)
+    this.form?.removeEventListener("submit", this.onSubmit, true)
+  },
+  started() {
+    try { return Number(localStorage.getItem(this.key)) || null } catch (_) { return this.memory || null }
+  },
+  start() {
+    const now = Date.now()
+    this.memory = now
+    try { localStorage.setItem(this.key, String(now)) } catch (_) {}
+    this.render()
+  },
+  stop() {
+    const began = this.started()
+    this.memory = null
+    try { localStorage.removeItem(this.key) } catch (_) {}
+    if (began) {
+      const minutes = Math.max(1, Math.round((Date.now() - began) / 60000))
+      const input = this.form?.querySelector("input[name='session[minutes_typed]']")
+      if (input) {
+        input.value = String(minutes)
+        input.dispatchEvent(new Event("input", {bubbles: true}))
+      }
+      this.label.textContent = `Timed ${minutes} min · start again`
+      this.el.classList.remove("running")
+      return
+    }
+    this.render()
+  },
+  render() {
+    const began = this.started()
+    this.el.classList.toggle("running", !!began)
+    if (!began) {
+      if (!this.label.textContent.startsWith("Timed")) this.label.textContent = "Start a timer"
+      return
+    }
+    const s = Math.floor((Date.now() - began) / 1000)
+    const mm = String(Math.floor(s / 60)).padStart(2, "0")
+    const ss = String(s % 60).padStart(2, "0")
+    this.label.textContent = `${mm}:${ss} · tap to stop`
+  },
+}
+
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,

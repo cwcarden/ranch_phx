@@ -41,6 +41,9 @@ defmodule RanchPhxWeb.TrainingLive.Book do
      |> assign(:coach_question, "")
      |> assign(:coach_loading, nil)
      |> assign(:coach_error, nil)
+     |> assign(:voice_text, "")
+     |> assign(:voice_loading, false)
+     |> assign(:voice_note, nil)
      |> allow_upload(:photo,
        accept: Uploads.image_types(),
        max_entries: 1,
@@ -115,6 +118,42 @@ defmodule RanchPhxWeb.TrainingLive.Book do
         {:noreply, socket |> fill_from(ids, last.minutes, last.tags) |> put_warnings()}
     end
   end
+
+  # "Log this" on the Today card: fill in the suggested activities and length.
+  def handle_event("plan_fill", _params, socket) do
+    plan = socket.assigns.plan
+
+    {:noreply,
+     socket |> fill_from(Enum.map(plan.activities, & &1.id), plan.minutes, []) |> put_warnings()}
+  end
+
+  # Talk-to-log: the TrAIner reads what was said and fills in the form to check over.
+  def handle_event("voice_typing", %{"spoken" => text}, socket),
+    do: {:noreply, assign(socket, :voice_text, text)}
+
+  def handle_event("voice_fill", %{"spoken" => text}, socket) do
+    %{book: book, today: today, activities: activities, tags: tags, issues: issues} =
+      socket.assigns
+
+    open = loggable_issues(issues, socket.assigns.params)
+    live_tags = Enum.reject(tags, & &1.archived)
+
+    cond do
+      not socket.assigns.is_superuser or socket.assigns.voice_loading or String.trim(text) == "" ->
+        {:noreply, assign(socket, :voice_text, text)}
+
+      true ->
+        {:noreply,
+         socket
+         |> assign(voice_text: text, voice_loading: true, voice_note: nil)
+         |> start_async(:voice, fn ->
+           Coach.read_session(book, text, today, activities, live_tags, open)
+         end)}
+    end
+  end
+
+  def handle_event("voice_clear", _params, socket),
+    do: {:noreply, assign(socket, voice_text: "", voice_note: nil)}
 
   def handle_event("apply_routine", %{"id" => id}, socket) do
     case Enum.find(socket.assigns.routines, &("#{&1.id}" == id)) do
@@ -477,6 +516,31 @@ defmodule RanchPhxWeb.TrainingLive.Book do
      socket |> assign(:coach_loading, nil) |> assign(:coach_error, Coach.error_message(reason))}
   end
 
+  def handle_async(:voice, {:ok, {:ok, filled}}, socket) do
+    {params, summary} = merge_spoken(socket.assigns.params, filled, socket.assigns)
+
+    {:noreply,
+     socket
+     |> assign(:params, params)
+     |> assign(:voice_loading, false)
+     |> assign(:voice_note, {:ok, summary})
+     |> put_activity_options()
+     |> put_warnings()}
+  end
+
+  def handle_async(:voice, {:ok, {:error, reason}}, socket) do
+    {:noreply,
+     assign(socket, voice_loading: false, voice_note: {:error, Coach.error_message(reason)})}
+  end
+
+  def handle_async(:voice, {:exit, _reason}, socket) do
+    {:noreply,
+     assign(socket,
+       voice_loading: false,
+       voice_note: {:error, "Something went wrong reading that. Try again."}
+     )}
+  end
+
   def handle_async(:coach, {:exit, reason}, socket) do
     require Logger
     Logger.error("Coach crashed: #{inspect(reason)}")
@@ -650,6 +714,96 @@ defmodule RanchPhxWeb.TrainingLive.Book do
     socket |> assign(:params, params) |> put_activity_options()
   end
 
+  # Adds what the TrAIner read from the spoken notes to the form, keeping what's already
+  # picked. Returns the new params and a short list of what was filled in.
+  @doc false
+  def merge_spoken(params, filled, %{activities: activities, today: today} = assigns) do
+    by_name = Map.new(activities, &{String.downcase(&1.name), &1})
+    known_issues = MapSet.new(assigns.issues, & &1.id)
+    known_tags = MapSet.new(assigns.tags, & &1.slug)
+
+    picked =
+      for a <- filled["activities"] || [],
+          act = by_name[String.downcase(a["activity"] || "")],
+          do: {act, a}
+
+    details =
+      Enum.reduce(picked, params["details"], fn {act, a}, acc ->
+        prev = Map.get(acc, "#{act.id}", %{})
+
+        Map.put(
+          acc,
+          "#{act.id}",
+          prev
+          |> put_if("result", a["result"])
+          |> put_if("side", a["side"])
+          |> put_if("note", a["note"])
+        )
+      end)
+
+    marks =
+      for m <- filled["working_on"] || [],
+          MapSet.member?(known_issues, m["id"]),
+          m["progress"] in ~w(better same worse),
+          into: params["issues"],
+          do: {"#{m["id"]}", %{"progress" => m["progress"], "note" => m["note"] || ""}}
+
+    tags = Enum.filter(filled["tags"] || [], &MapSet.member?(known_tags, &1))
+
+    note =
+      case {String.trim(params["note"] || ""), filled["note"]} do
+        {_, n} when n in [nil, ""] -> params["note"]
+        {"", n} -> n
+        {old, n} -> old <> "\n" <> n
+      end
+
+    params =
+      params
+      |> Map.put(
+        "activity_ids",
+        Enum.uniq(params["activity_ids"] ++ Enum.map(picked, fn {act, _} -> "#{act.id}" end))
+      )
+      |> Map.put("details", details)
+      |> Map.put("issues", marks)
+      |> Map.put("tags", Enum.uniq(params["tags"] ++ tags))
+      |> Map.put("note", note)
+      |> put_minutes(filled["minutes"])
+      |> put_spoken_date(filled["date"], today)
+
+    summary =
+      [
+        picked != [] &&
+          "#{length(picked)} #{if length(picked) == 1, do: "activity", else: "activities"}",
+        filled["minutes"] && "#{filled["minutes"]} min",
+        (filled["working_on"] || []) != [] && "Working on",
+        tags != [] && "how he was",
+        filled["note"] not in [nil, ""] && "a note"
+      ]
+      |> Enum.filter(&is_binary/1)
+
+    {params, summary}
+  end
+
+  defp put_if(map, _key, v) when v in [nil, ""], do: map
+  defp put_if(map, key, v), do: Map.put(map, key, v)
+
+  defp put_spoken_date(params, nil, _today), do: params
+
+  defp put_spoken_date(params, iso, today) do
+    with {:ok, date} <- Date.from_iso8601(iso), true <- Date.compare(date, today) != :gt do
+      iso = Date.to_iso8601(date)
+      chip? = iso in Enum.map(date_chips(today), &elem(&1, 0))
+
+      Map.merge(params, %{
+        "date" => iso,
+        "date_chip" => if(chip?, do: iso),
+        "date_typed" => if(chip?, do: "", else: iso)
+      })
+    else
+      _ -> params
+    end
+  end
+
   # Keeps the last date used, so several past days can be logged in a row.
   defp reset_form(socket, date \\ nil) do
     date = date || Date.to_iso8601(socket.assigns.today)
@@ -683,6 +837,10 @@ defmodule RanchPhxWeb.TrainingLive.Book do
     |> assign(:sessions, sessions)
     |> assign(:routines, Training.list_routines(book.horse_id))
     |> assign(:issues, Training.list_issues(book.horse_id))
+    |> then(fn socket ->
+      %{progress: progress, issues: issues, gated: gated} = socket.assigns
+      assign(socket, :plan, Training.today_plan(progress.stage, sessions, issues, gated, today))
+    end)
     |> put_activity_options()
     |> put_warnings()
   end
