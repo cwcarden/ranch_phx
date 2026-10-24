@@ -22,7 +22,7 @@ defmodule RanchPhx.Animals do
 
   def insight_inputs(ids) do
     events =
-      Repo.all(from e in TimelineEvent, where: e.animal_id in ^ids and e.event_type == "weight")
+      Repo.all(from e in TimelineEvent, where: e.animal_id in ^ids and e.event_type in ["weight", "height"])
       |> Enum.group_by(& &1.animal_id)
 
     records = Repo.all(from r in Record, where: r.animal_id in ^ids) |> Enum.group_by(& &1.animal_id)

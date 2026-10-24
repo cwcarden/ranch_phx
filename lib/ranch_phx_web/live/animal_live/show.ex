@@ -40,9 +40,9 @@ defmodule RanchPhxWeb.AnimalLive.Show do
      |> assign(:visit, nil)
      |> assign(:editing_presets, false)
      |> assign(:scan_loading, false)
-     |> assign(:weigh, nil)
-     |> assign(:weights_open, false)
-     |> assign(:weight_pick, [])
+     |> assign(:measure, nil)
+     |> assign(:data_metric, nil)
+     |> assign(:data_pick, [])
      |> assign(:scan_error, nil)
      |> assign(:preset_error, nil)
      |> assign(:tl_search, "")
@@ -81,7 +81,8 @@ defmodule RanchPhxWeb.AnimalLive.Show do
   end
 
   @impl true
-  # Links from the animal cards: ?weight=1 opens the weight history, ?tab=records a tab.
+  # Links from the animal cards: ?data=weight (or ?weight=1) opens the growth data,
+  # ?tab=records a tab.
   def handle_params(params, _uri, socket) do
     socket =
       case params["tab"] do
@@ -92,7 +93,14 @@ defmodule RanchPhxWeb.AnimalLive.Show do
           socket
       end
 
-    {:noreply, if(params["weight"], do: open_weights(socket), else: socket)}
+    metric =
+      cond do
+        params["data"] in ~w(weight height) -> params["data"]
+        params["weight"] -> "weight"
+        true -> nil
+      end
+
+    {:noreply, if(metric, do: open_data(socket, metric), else: socket)}
   end
 
   @impl true
@@ -588,43 +596,67 @@ defmodule RanchPhxWeb.AnimalLive.Show do
 
   # ── Weigh-in ──
 
-  def handle_event("open_weigh", _params, socket) do
-    method = Insights.latest_method(socket.assigns.animal.timeline_events) || "scale"
-    {:noreply, assign(socket, :weigh, %{"date" => Date.to_iso8601(Date.utc_today()), "lbs" => "", "method" => method, "note" => "", "error" => nil})}
+  # Log a weight or a height: a number, how it was measured, the date and a note.
+  def handle_event("open_measure", %{"metric" => metric}, socket) when metric in ~w(weight height) do
+    method =
+      Insights.latest_method(socket.assigns.animal.timeline_events, metric) ||
+        if(metric == "weight", do: "scale", else: "stick")
+
+    {:noreply,
+     assign(socket, :measure, %{
+       "metric" => metric,
+       "date" => Date.to_iso8601(Date.utc_today()),
+       "value" => "",
+       "method" => method,
+       "note" => "",
+       "error" => nil
+     })}
   end
 
-  def handle_event("close_weigh", _params, socket), do: {:noreply, assign(socket, :weigh, nil)}
+  def handle_event("close_measure", _params, socket), do: {:noreply, assign(socket, :measure, nil)}
 
-  def handle_event("weigh_change", %{"weigh" => params}, socket),
-    do: {:noreply, assign(socket, :weigh, Map.merge(socket.assigns.weigh, params))}
+  def handle_event("measure_change", %{"measure" => params}, socket),
+    do: {:noreply, assign(socket, :measure, Map.merge(socket.assigns.measure, params))}
 
-  def handle_event("save_weigh", %{"weigh" => params}, socket) do
+  def handle_event("save_measure", %{"measure" => params}, socket) do
     %{animal: animal, is_superuser: su?} = socket.assigns
-    weigh = Map.merge(socket.assigns.weigh, params)
+    m = Map.merge(socket.assigns.measure, params)
+    weight? = m["metric"] == "weight"
+    methods = if weight?, do: ~w(scale tape estimate), else: ~w(stick tape estimate)
+    method = if m["method"] in methods, do: m["method"]
 
-    lbs =
-      case Float.parse(String.replace("#{weigh["lbs"]}", ",", "")) do
-        {n, _} when n >= 1 and n <= 5000 -> round(n)
-        _ -> nil
+    # Weight in pounds; height typed in hands (14.2) or inches (58 in).
+    value =
+      if weight? do
+        case Float.parse(String.replace("#{m["value"]}", ",", "")) do
+          {n, _} when n >= 1 and n <= 5000 -> round(n)
+          _ -> nil
+        end
+      else
+        Insights.parse_height(m["value"])
       end
-
-    method = if weigh["method"] in ~w(scale tape estimate), do: weigh["method"]
 
     cond do
       not su? ->
         {:noreply, socket}
 
-      is_nil(lbs) ->
-        {:noreply, assign(socket, :weigh, Map.put(weigh, "error", "Enter the weight in pounds."))}
+      is_nil(value) ->
+        msg = if weight?, do: "Enter the weight in pounds.", else: "Enter the height in hands, like 14.2."
+        {:noreply, assign(socket, :measure, Map.put(m, "error", msg))}
 
       true ->
+        {title, meta} =
+          if weight?,
+            do: {"#{value} lb", %{"lbs" => value}},
+            else: {"#{Insights.hands(value)} hh", %{"inches" => value}}
+
         attrs = %{
           "animal_id" => animal.id,
-          "event_type" => "weight",
-          "title" => "#{lbs} lb#{if method, do: " (#{method})"}",
-          "description" => blank(weigh["note"]),
-          "event_date" => weigh["date"],
-          "metadata" => %{"lbs" => lbs, "method" => method}
+          "event_type" => m["metric"],
+          "title" => "#{title}#{if method, do: " (#{method})"}",
+          "description" => blank(m["note"]),
+          "event_date" => m["date"],
+          "metadata" => Map.put(meta, "method", method)
         }
 
         case Animals.create_event(attrs) do
@@ -632,35 +664,36 @@ defmodule RanchPhxWeb.AnimalLive.Show do
             {:noreply,
              socket
              |> assign(:animal, Animals.get_animal_with_pedigree!(animal.id))
-             |> assign(:weigh, nil)
-             |> put_flash(:info, "Weight saved: #{lbs} lb.")}
+             |> assign(:measure, nil)
+             |> put_flash(:info, "Saved: #{title}.")}
 
           {:error, cs} ->
-            msg = Enum.map_join(cs.errors, ", ", fn {f, {m, _}} -> "#{Phoenix.Naming.humanize(f)} #{m}" end)
-            {:noreply, assign(socket, :weigh, Map.put(weigh, "error", msg))}
+            msg = Enum.map_join(cs.errors, ", ", fn {f, {e, _}} -> "#{Phoenix.Naming.humanize(f)} #{e}" end)
+            {:noreply, assign(socket, :measure, Map.put(m, "error", msg))}
         end
     end
   end
 
-  # ── Weight history ──
+  # ── Growth data (weight and height history) ──
 
-  def handle_event("open_weights", _params, socket), do: {:noreply, open_weights(socket)}
+  def handle_event("open_data", %{"metric" => metric}, socket) when metric in ~w(weight height),
+    do: {:noreply, open_data(socket, metric)}
 
-  def handle_event("close_weights", _params, socket),
-    do: {:noreply, assign(socket, weights_open: false, weight_pick: [])}
+  def handle_event("close_data", _params, socket),
+    do: {:noreply, assign(socket, data_metric: nil, data_pick: [])}
 
-  # Tap two weigh-ins to compare them; a third tap starts a new pair.
-  def handle_event("pick_weight", %{"i" => i}, socket) do
+  # Tap two entries to compare them; a third tap starts a new pair.
+  def handle_event("pick_point", %{"i" => i}, socket) do
     i = String.to_integer(i)
 
     pick =
-      case socket.assigns.weight_pick do
+      case socket.assigns.data_pick do
         [^i] -> []
         [a] -> [a, i]
         _ -> [i]
       end
 
-    {:noreply, assign(socket, :weight_pick, pick)}
+    {:noreply, assign(socket, :data_pick, pick)}
   end
 
   def handle_event("record_search", %{"value" => q}, socket),
@@ -1372,13 +1405,28 @@ defmodule RanchPhxWeb.AnimalLive.Show do
 
   defp attach_scan(_animal, _visit), do: :ok
 
-  defp open_weights(socket) do
-    n = length(weight_points(socket.assigns.animal))
-    # Start by comparing the first and latest weigh-ins.
-    assign(socket, weights_open: true, weight_pick: if(n >= 2, do: [0, n - 1], else: []))
+  defp open_data(socket, metric) do
+    n = length(metric_points(socket.assigns.animal, metric))
+    # Start by comparing the first and latest entries.
+    assign(socket, data_metric: metric, data_pick: if(n >= 2, do: [0, n - 1], else: []))
   end
 
-  def weight_points(animal), do: Insights.weights(animal.timeline_events, animal.records)
+  def metric_points(animal, "weight"), do: Insights.weights(animal.timeline_events, animal.records)
+  def metric_points(animal, "height"), do: Insights.heights(animal.timeline_events, animal.records)
+
+  @doc "A value in its unit: 792 lb, or 14.2 hh for a height in inches."
+  def fmt_value("weight", v), do: "#{v} lb"
+  def fmt_value("height", v), do: "#{Insights.hands(v)} hh"
+
+  @doc "A change in its unit: +45 lb, +1.5 in."
+  def fmt_change(_metric, nil), do: "–"
+  def fmt_change("weight", v), do: "#{signed(v)} lb"
+  def fmt_change("height", v), do: "#{signed(v * 1.0)} in"
+
+  @doc "A rate per day as shown: lb/day for weight, inches a month for height."
+  def fmt_rate(_metric, nil), do: "–"
+  def fmt_rate("weight", per_day), do: "#{signed(per_day * 1.0)} lb/day"
+  def fmt_rate("height", per_day), do: "#{signed(per_day * 30.4)} in/mo"
 
   @doc "+1.2 / -0.4 with the sign, for gains."
   def signed(nil), do: "–"

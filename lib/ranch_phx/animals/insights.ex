@@ -61,21 +61,95 @@ defmodule RanchPhx.Animals.Insights do
     |> Enum.sort_by(&Date.to_gregorian_days(elem(&1, 0)))
   end
 
+  # ── Height ──
+
+  @doc """
+  Inches from text like "14.2 hh", "14.2 hands", "58 in" or "58\"". Hands are written
+  hands.inches (14.2 is 14 hands 2 inches = 58 in). A bare number from 8 to 19 is
+  read as hands. Nil when there's none.
+  """
+  def parse_height(text) do
+    text = String.downcase(to_string(text))
+
+    cond do
+      m = Regex.run(~r/(\d{2,3}(?:\.\d)?)\s*(?:in\b|inch|inches|")/, text) ->
+        m |> Enum.at(1) |> Float.parse() |> elem(0)
+
+      m = Regex.run(~r/(?<![\d.])(\d{1,2})(?:\.([0-3]))?\s*(?:hh|h\b|hands?)?(?![\d.])/, text) ->
+        hands = String.to_integer(Enum.at(m, 1))
+        extra = if Enum.at(m, 2) in [nil, ""], do: 0, else: String.to_integer(Enum.at(m, 2))
+        if hands in 8..19, do: hands * 4.0 + extra
+
+      true ->
+        nil
+    end
+  end
+
+  @doc "Dated heights in inches, oldest first, from height events and height records."
+  def heights(events, records) do
+    from_events =
+      for e <- events,
+          e.event_type == "height",
+          date = event_date(e),
+          inches = stored(e, "inches") || parse_height("#{e.title} #{e.description}"),
+          do: {date, inches, e.inserted_at}
+
+    from_records =
+      for r <- records,
+          r.record_type == "height",
+          inches = parse_height("#{r.title} #{r.description} #{r.notes}"),
+          do: {r.date, inches, r.inserted_at}
+
+    one_per_day(from_events ++ from_records)
+  end
+
+  @doc "Inches as hands: 58 → \"14.2\", 57.5 → \"14.1½\"."
+  def hands(inches) when is_number(inches) do
+    whole = trunc(inches / 4)
+    rest = inches - whole * 4
+    half = if rest - trunc(rest) >= 0.5, do: "½", else: ""
+    "#{whole}.#{trunc(rest)}#{half}"
+  end
+
+  defp stored(%{metadata: %{} = meta}, key) do
+    case meta[key] do
+      n when is_number(n) -> n * 1.0
+      _ -> nil
+    end
+  end
+
+  defp stored(_, _), do: nil
+
+  defp one_per_day(entries) do
+    entries
+    |> Enum.group_by(&elem(&1, 0))
+    |> Enum.map(fn {date, es} ->
+      {date, es |> Enum.max_by(&elem(&1, 2), NaiveDateTime) |> elem(1)}
+    end)
+    |> Enum.sort_by(&Date.to_gregorian_days(elem(&1, 0)))
+  end
+
+  @doc "How the latest entry of `type` (\"weight\" or \"height\") was measured, if recorded."
+  def latest_method(events, type) do
+    events
+    |> Enum.filter(&(&1.event_type == type and is_map(&1.metadata) and &1.metadata["method"]))
+    |> Enum.max_by(&{Date.to_gregorian_days(event_date(&1)), &1.inserted_at}, fn -> nil end)
+    |> then(&(&1 && &1.metadata["method"]))
+  end
+
   # Weigh-ins logged with the weight form keep the number itself.
   defp stored_lbs(%{metadata: %{"lbs" => lbs}}) when is_number(lbs), do: round(lbs)
   defp stored_lbs(_), do: nil
 
   @doc "How the latest weigh-in was measured (\"scale\", \"tape\", \"estimate\"), if recorded."
-  def latest_method(events) do
-    events
-    |> Enum.filter(&(&1.event_type == "weight" and is_map(&1.metadata) and &1.metadata["method"]))
-    |> Enum.max_by(&{Date.to_gregorian_days(event_date(&1)), &1.inserted_at}, fn -> nil end)
-    |> then(&(&1 && &1.metadata["method"]))
-  end
+  def latest_method(events), do: latest_method(events, "weight")
 
   defp event_date(%{event_date: %Date{} = d}), do: d
   defp event_date(%{inserted_at: %NaiveDateTime{} = t}), do: NaiveDateTime.to_date(t)
   defp event_date(_), do: nil
+
+  @doc "Same as `weight_trend/1`, for any measurement (heights in inches too)."
+  def trend(points), do: weight_trend(points)
 
   @doc """
   The weight picture: latest weight, average gain per day across all weigh-ins (a
@@ -115,7 +189,7 @@ defmodule RanchPhx.Animals.Insights do
     my = Enum.sum(Enum.map(xy, &elem(&1, 1))) / n
     num = Enum.sum(Enum.map(xy, fn {x, y} -> (x - mx) * (y - my) end))
     den = Enum.sum(Enum.map(xy, fn {x, _} -> (x - mx) * (x - mx) end))
-    if den == 0, do: nil, else: Float.round(num / den, 2)
+    if den == 0, do: nil, else: Float.round(num / den, 4)
   end
 
   @doc """
@@ -175,7 +249,7 @@ defmodule RanchPhx.Animals.Insights do
             lbs: lbs,
             change: lbs - pl,
             days: days,
-            per_day: if(days > 0, do: Float.round((lbs - pl) / days, 2))
+            per_day: if(days > 0, do: Float.round((lbs - pl) / days, 4))
           }
       end
     end)
@@ -193,7 +267,7 @@ defmodule RanchPhx.Animals.Insights do
       to: {d2, w2},
       change: w2 - w1,
       days: days,
-      per_day: if(days > 0, do: Float.round((w2 - w1) / days, 2))
+      per_day: if(days > 0, do: Float.round((w2 - w1) / days, 4))
     }
   end
 
@@ -201,10 +275,19 @@ defmodule RanchPhx.Animals.Insights do
   A chart with axes for weigh-ins on a `w` by `h` canvas: the placed points
   `[{x, y, date, lbs}]`, gridlines with pound labels, and a few date labels.
   """
-  def chart(points, w, h) when length(points) >= 2 do
+  def chart(points, w, h, opts \\ [])
+
+  def chart(points, w, h, opts) when length(points) >= 2 do
     {left, right, top, bottom} = {40, 14, 24, 26}
     ys = Enum.map(points, &elem(&1, 1))
-    step = nice_step(Enum.max(ys) - Enum.min(ys))
+    range = Enum.max(ys) - Enum.min(ys)
+    # opts[:step] keeps gridlines on whole units (4 inches = one hand), widened for long ranges.
+    step =
+      case opts[:step] do
+        nil -> nice_step(range)
+        base -> base * max(ceil(range / (base * 4)), 1)
+      end
+
     lo = floor(Enum.min(ys) / step) * step
     hi = max(ceil(Enum.max(ys) / step) * step, lo + step)
     {d0, _} = hd(points)
@@ -228,10 +311,10 @@ defmodule RanchPhx.Animals.Insights do
     }
   end
 
-  def chart(_points, _w, _h), do: nil
+  def chart(_points, _w, _h, _opts), do: nil
 
   # A round gridline step giving about four lines.
   defp nice_step(range) do
-    Enum.find([5, 10, 20, 25, 50, 100, 200, 250, 500], 1000, &(range / &1 <= 4))
+    Enum.find([1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500], 1000, &(range / &1 <= 4))
   end
 end
