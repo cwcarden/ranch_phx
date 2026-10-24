@@ -350,6 +350,28 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .wh-row small { color: var(--text3); font-size: 12px; }
 .wh-row.on { background: color-mix(in srgb, #d97706 14%, var(--surface)); }
 .wh-head { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text3); cursor: default; min-height: 0; padding-bottom: 4px; border-bottom: 1px solid var(--border); border-radius: 0; }
+.gw-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.gw-tile { position: relative; padding: 12px 12px 10px; border-radius: 12px; border: 1px solid var(--border); border-top: 3px solid var(--mc); background: color-mix(in srgb, var(--mc) 5%, var(--surface)); display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.gw-tile.has { cursor: pointer; }
+.gw-tile.has:active { background: color-mix(in srgb, var(--mc) 12%, var(--surface)); }
+.gw-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--mc); }
+.gw-val { font-size: 22px; font-weight: 800; }
+.gw-rate { font-size: 14px; font-weight: 700; color: var(--mc); }
+.gw-rate.muted { color: var(--text3); font-weight: 500; }
+.gw-spark { width: 100%; height: 30px; color: var(--mc); margin: 4px 0 2px; }
+.gw-log { align-self: flex-start; margin-top: 4px; min-height: 34px; padding: 0 10px; border-radius: 17px; border: 1.5px solid color-mix(in srgb, var(--mc) 40%, var(--border)); background: var(--surface); color: var(--mc); font-size: 13px; font-weight: 700; cursor: pointer; }
+.dt-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: 12px; background: var(--surface2); border: 1px solid var(--border); margin-bottom: 12px; }
+.dt-tab { min-height: 40px; border: none; border-radius: 9px; background: none; color: var(--text2); font-size: 15px; font-weight: 700; cursor: pointer; }
+.dt-tab.on { background: var(--tc); color: #fff; }
+#data-sheet .wh-compare { background: color-mix(in srgb, var(--mc) 9%, var(--surface)); }
+#data-sheet .wh-line { stroke: var(--mc); }
+#data-sheet .wh-dot { fill: var(--mc); }
+#data-sheet .wh-band { fill: var(--mc); }
+#data-sheet .gr-stats b.up, #data-sheet .wh-cmp-result b.up { color: var(--mc); }
+#data-sheet .gr-more { color: var(--mc); }
+#data-sheet .wh-row.on { background: color-mix(in srgb, var(--mc) 14%, var(--surface)); }
+#measure-sheet .wg-method.on { border-color: var(--mc); background: color-mix(in srgb, var(--mc) 12%, var(--surface)); color: var(--mc); }
+#measure-sheet .rx-save { background: var(--mc); }
 .tr-prose { font-size: 16px; line-height: 1.6; color: var(--text); }
 .tr-prose p { margin: 0 0 10px; }
 .tr-prose ul, .tr-prose ol { margin: 0 0 10px; padding-left: 20px; display: grid; gap: 5px; }
@@ -715,46 +737,49 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 
   <!-- ── OVERVIEW ─────────────────────────────────────────────────────────── -->
   <%= if @tab == "overview" do %>
-    <% wt = @animal.timeline_events |> Insights.weights(@animal.records) |> Insights.weight_trend() %>
-    <div :if={wt || @is_superuser} class="rx-card growth" id="growth">
+    <% wt = @animal |> metric_points("weight") |> Insights.trend() %>
+    <% ht = @animal |> metric_points("height") |> Insights.trend() %>
+    <div :if={wt || ht || @is_superuser} class="rx-card growth" id="growth">
       <div class="rx-head">
-        <span class="rx-ico" style="--c:#16a34a"><.icon name="hero-scale" /></span>
-        <h3>Weight</h3>
-        <button :if={@is_superuser} class="btn btn-primary btn-sm gr-log" phx-click="open_weigh" id="log-weight">
-          + Log weight
-        </button>
+        <span class="rx-ico" style="--c:#16a34a"><.icon name="hero-chart-bar" /></span>
+        <h3>Growth</h3>
       </div>
-      <p :if={is_nil(wt)} class="rx-sub">Log weigh-ins to see how fast he's gaining.</p>
-      <%= if wt do %>
-      <div class="gr-stats">
-        <div>
-          <b>{wt.latest} lb</b>
-          <small>{Calendar.strftime(wt.date, "%b %-d, %Y")}</small>
-        </div>
-        <div :if={wt.per_day}>
-          <b class={if wt.per_day < 0, do: "down", else: "up"}>{if wt.per_day >= 0, do: "+"}{:erlang.float_to_binary(wt.per_day * 1.0, decimals: 1)} lb</b>
-          <small>a day on average</small>
-        </div>
-        <div :if={wt.month_change}>
-          <b class={if wt.month_change.lbs < 0, do: "down", else: "up"}>{if wt.month_change.lbs >= 0, do: "+"}{wt.month_change.lbs} lb</b>
-          <small>in the last {round(wt.month_change.days / 7)} weeks</small>
-        </div>
+      <div class="gw-tiles">
+        <%= for {metric, t, color, label} <- [{"weight", wt, "#16a34a", "Weight"}, {"height", ht, "#2563eb", "Height"}] do %>
+          <% spark = t && Insights.sparkline(t.points, 120, 30) %>
+          <div
+            class={["gw-tile", t && "has"]}
+            style={"--mc:#{color}"}
+            id={"growth-#{metric}"}
+            phx-click={t && "open_data"}
+            phx-value-metric={metric}
+            role={t && "button"}
+          >
+            <div class="gw-label">{label}</div>
+            <%= if t do %>
+              <b class="gw-val">{fmt_value(metric, t.latest)}</b>
+              <div :if={t.per_day} class="gw-rate">{fmt_rate(metric, t.per_day)}</div>
+              <div :if={is_nil(t.per_day)} class="gw-rate muted">{t.count} {if t.count == 1, do: "entry", else: "entries"}</div>
+              <svg :if={spark} class="gw-spark" viewBox="0 0 120 30" preserveAspectRatio="none" aria-hidden="true">
+                <polyline points={spark} fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" />
+              </svg>
+            <% else %>
+              <div class="gw-rate muted">No entries yet</div>
+            <% end %>
+            <button
+              :if={@is_superuser}
+              type="button"
+              class="gw-log"
+              phx-click="open_measure"
+              phx-value-metric={metric}
+              id={"log-#{metric}"}
+            >
+              + Log {String.downcase(label)}
+            </button>
+          </div>
+        <% end %>
       </div>
-      <% pts = Insights.chart_points(wt.points, 320, 96, 8) %>
-      <svg :if={pts != []} class="gr-chart" phx-click="open_weights" id="growth-chart" viewBox="0 0 320 112" preserveAspectRatio="none" role="img" aria-label="Weight over time">
-        <polyline points={Enum.map_join(pts, " ", fn {x, y, _, _} -> "#{x},#{y}" end)} fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" />
-        <circle :for={{x, y, d, lbs} <- pts} cx={x} cy={y} r="3.5" fill="currentColor"><title>{Calendar.strftime(d, "%b %-d")}: {lbs} lb</title></circle>
-        <text x="8" y="110" class="gr-axis">{Calendar.strftime(elem(hd(wt.points), 0), "%b %-d")}</text>
-        <text x="312" y="110" text-anchor="end" class="gr-axis">{Calendar.strftime(wt.date, "%b %-d")}</text>
-      </svg>
-      <p :if={is_nil(wt.per_day)} class="rx-sub">Add another weigh-in a week or more later to see the gain.</p>
-      <button :if={wt.count >= 1} class="gr-more" phx-click="open_weights" id="open-weights">
-        See every weigh-in and compare →
-      </button>
-      <p class="rx-sub gr-foot">
-        {wt.count} weigh-{if wt.count == 1, do: "in", else: "ins"}<span :if={m = Insights.latest_method(@animal.timeline_events)}> · last by {m}</span>
-      </p>
-      <% end %>
+      <p :if={wt || ht} class="rx-sub gr-foot">Tap weight or height for the chart, every entry, and comparisons.</p>
     </div>
     <div class="overview-grid">
       <div class="info-card">
@@ -2006,7 +2031,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
             </label>
             <label class="rpt-check">
               <input type="checkbox" name="weight" value="1" checked/>
-              <span>Weight chart &amp; weigh-ins</span>
+              <span>Growth: weight &amp; height charts</span>
             </label>
             <label class="rpt-check">
               <input type="checkbox" name="timeline" value="1"/>
@@ -2229,59 +2254,80 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 <% end %>
 
 <!-- ── Record Modal ───────────────────────────────────────────────────────── -->
-<%= if @weights_open do %>
-  <% pts = weight_points(@animal) %>
-  <% ch = Insights.chart(pts, 340, 210) %>
+<%= if @data_metric do %>
+  <% m = @data_metric %>
+  <% color = if m == "weight", do: "#16a34a", else: "#2563eb" %>
+  <% pts = metric_points(@animal, m) %>
+  <% ch = Insights.chart(pts, 340, 210, if(m == "height", do: [step: 4], else: [])) %>
   <% rows = Insights.rows(pts) %>
-  <% cmp = if length(@weight_pick) == 2, do: Insights.compare(pts, hd(@weight_pick), List.last(@weight_pick)) %>
-  <% trend = Insights.weight_trend(pts) %>
+  <% cmp = if length(@data_pick) == 2, do: Insights.compare(pts, hd(@data_pick), List.last(@data_pick)) %>
+  <% trend = Insights.trend(pts) %>
   <div class="dlg-wrap rx-sheet-wrap">
-    <div class="dlg-backdrop" phx-click="close_weights"></div>
-    <div class="dlg rx-sheet" id="weights-sheet">
+    <div class="dlg-backdrop" phx-click="close_data"></div>
+    <div class="dlg rx-sheet" id="data-sheet" style={"--mc:#{color}"}>
       <div class="dlg-header">
-        <h2>{@animal.name}'s weight</h2>
-        <button class="btn-icon" phx-click="close_weights" aria-label="Close">
+        <h2>{@animal.name}'s growth</h2>
+        <button class="btn-icon" phx-click="close_data" aria-label="Close">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
             <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
           </svg>
         </button>
       </div>
       <div class="dlg-body">
-        <p :if={pts == []} class="rx-sub">No weigh-ins yet.</p>
-
-        <div :if={trend} class="gr-stats">
-          <div><b>{trend.latest} lb</b><small>{Calendar.strftime(trend.date, "%b %-d, %Y")}</small></div>
-          <div :if={trend.per_day}><b class={if trend.per_day < 0, do: "down", else: "up"}>{signed(trend.per_day)} lb</b><small>a day, all weigh-ins</small></div>
-          <div><b>{trend.count}</b><small>weigh-ins</small></div>
+        <div class="dt-tabs" role="tablist">
+          <button
+            :for={{metric, label, c} <- [{"weight", "Weight", "#16a34a"}, {"height", "Height", "#2563eb"}]}
+            type="button"
+            role="tab"
+            aria-selected={to_string(m == metric)}
+            class={["dt-tab", m == metric && "on"]}
+            style={"--tc:#{c}"}
+            phx-click="open_data"
+            phx-value-metric={metric}
+            id={"tab-#{metric}"}
+          >
+            {label}
+          </button>
         </div>
 
-        <%!-- Comparison of the two picked weigh-ins --%>
-        <div class="wh-compare" id="weight-compare">
+        <p :if={pts == []} class="rx-sub" style="margin:10px 0">
+          No {m} entries yet.
+          <button :if={@is_superuser} class="gr-more" phx-click="open_measure" phx-value-metric={m}>+ Log {m}</button>
+        </p>
+
+        <div :if={trend} class="gr-stats">
+          <div><b>{fmt_value(m, trend.latest)}</b><small>{Calendar.strftime(trend.date, "%b %-d, %Y")}</small></div>
+          <div :if={trend.per_day}><b class={if trend.per_day < 0, do: "down", else: "up"}>{fmt_rate(m, trend.per_day)}</b><small>average, all entries</small></div>
+          <div><b>{trend.count}</b><small>{if trend.count == 1, do: "entry", else: "entries"}</small></div>
+        </div>
+
+        <div :if={pts != []} class="wh-compare" id="data-compare">
           <%= cond do %>
             <% cmp -> %>
               <div class="wh-cmp-range">
-                {Calendar.strftime(elem(cmp.from, 0), "%b %-d")} <span>{elem(cmp.from, 1)} lb</span>
-                → {Calendar.strftime(elem(cmp.to, 0), "%b %-d")} <span>{elem(cmp.to, 1)} lb</span>
+                {Calendar.strftime(elem(cmp.from, 0), "%b %-d")} <span>{fmt_value(m, elem(cmp.from, 1))}</span>
+                → {Calendar.strftime(elem(cmp.to, 0), "%b %-d")} <span>{fmt_value(m, elem(cmp.to, 1))}</span>
               </div>
               <div class="wh-cmp-result">
-                <b class={if cmp.change < 0, do: "down", else: "up"}>{signed(cmp.change)} lb</b>
-                in {cmp.days} {if cmp.days == 1, do: "day", else: "days"}<span :if={cmp.per_day}> = <b class={if cmp.per_day < 0, do: "down", else: "up"}>{signed(cmp.per_day)} lb/day</b></span>
+                <b class={if cmp.change < 0, do: "down", else: "up"}>{fmt_change(m, cmp.change)}</b>
+                over {cmp.days} {if cmp.days == 1, do: "day", else: "days"}<span :if={cmp.per_day}> = <b class={if cmp.per_day < 0, do: "down", else: "up"}>{fmt_rate(m, cmp.per_day)}</b></span>
               </div>
-            <% length(@weight_pick) == 1 -> %>
-              <div class="wh-cmp-hint">Now tap a second weigh-in to compare.</div>
+            <% length(@data_pick) == 1 -> %>
+              <div class="wh-cmp-hint">Now tap a second entry to compare.</div>
             <% length(pts) >= 2 -> %>
-              <div class="wh-cmp-hint">Tap two weigh-ins on the chart or in the list to compare them.</div>
+              <div class="wh-cmp-hint">Tap two entries on the chart or in the list to compare them.</div>
             <% true -> %>
+              <div class="wh-cmp-hint">Log another entry later to see the change.</div>
           <% end %>
         </div>
 
-        <svg :if={ch} class="wh-chart" viewBox="0 0 340 210" role="img" aria-label="Weight over time">
+        <svg :if={ch} class="wh-chart" viewBox="0 0 340 210" role="img" aria-label={"#{m} over time"}>
           <%= for {y, v} <- ch.yticks do %>
             <line x1={ch.left} x2={ch.right} y1={y} y2={y} class="wh-grid" />
-            <text x={ch.left - 6} y={y + 4} text-anchor="end" class="wh-axis">{v}</text>
+            <text x={ch.left - 6} y={y + 4} text-anchor="end" class="wh-axis">{if m == "height", do: "#{Insights.hands(v)}", else: v}</text>
           <% end %>
           <text :for={{x, label, anchor} <- ch.xticks} x={x} y={ch.bottom + 18} text-anchor={anchor} class="wh-axis">{label}</text>
-          <% sel = if cmp, do: Enum.map(@weight_pick, &Enum.at(ch.pts, &1)) |> Enum.sort(), else: [] %>
+          <% sel = if cmp, do: Enum.map(@data_pick, &Enum.at(ch.pts, &1)) |> Enum.sort(), else: [] %>
           <rect
             :if={length(sel) == 2}
             x={elem(hd(sel), 0)}
@@ -2291,74 +2337,97 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
             class="wh-band"
           />
           <polyline points={Enum.map_join(ch.pts, " ", fn {x, y, _, _} -> "#{x},#{y}" end)} class="wh-line" />
-          <%= for {{x, y, d, lbs}, i} <- Enum.with_index(ch.pts) do %>
-            <g class={["wh-pt", i in @weight_pick && "on"]} phx-click="pick_weight" phx-value-i={i}>
+          <%= for {{x, y, d, v}, i} <- Enum.with_index(ch.pts) do %>
+            <g class={["wh-pt", i in @data_pick && "on"]} phx-click="pick_point" phx-value-i={i}>
               <circle cx={x} cy={y} r="14" class="wh-hit" />
-              <circle cx={x} cy={y} r={if i in @weight_pick, do: 6, else: 4} class="wh-dot" />
-              <text :if={i in @weight_pick} x={x} y={y - 12} text-anchor="middle" class="wh-label">{lbs}</text>
-              <title>{Calendar.strftime(d, "%b %-d, %Y")}: {lbs} lb</title>
+              <circle cx={x} cy={y} r={if i in @data_pick, do: 6, else: 4} class="wh-dot" />
+              <text :if={i in @data_pick} x={x} y={y - 12} text-anchor={cond do
+                x > ch.right - 24 -> "end"
+                x < ch.left + 24 -> "start"
+                true -> "middle"
+              end} class="wh-label">{if m == "height", do: Insights.hands(v), else: v}</text>
+              <title>{Calendar.strftime(d, "%b %-d, %Y")}: {fmt_value(m, v)}</title>
             </g>
           <% end %>
         </svg>
 
-        <div :if={rows != []} class="wh-table" id="weight-rows">
-          <div class="wh-row wh-head"><span>Date</span><span>Weight</span><span>Change</span><span>lb/day</span></div>
+        <div :if={rows != []} class="wh-table" id="data-rows">
+          <div class="wh-row wh-head"><span>Date</span><span>{if m == "weight", do: "Weight", else: "Height"}</span><span>Change</span><span>{if m == "weight", do: "lb/day", else: "in/mo"}</span></div>
           <%= for {r, i} <- rows |> Enum.with_index() |> Enum.reverse() do %>
-            <button type="button" class={["wh-row", i in @weight_pick && "on"]} phx-click="pick_weight" phx-value-i={i}>
+            <button type="button" class={["wh-row", i in @data_pick && "on"]} phx-click="pick_point" phx-value-i={i}>
               <span>{Calendar.strftime(r.date, "%b %-d, %Y")}</span>
-              <span><b>{r.lbs}</b></span>
-              <span class={r.change && r.change < 0 && "down"}>{if r.change, do: "#{signed(r.change)} lb", else: "–"}<small :if={r.days}> / {r.days}d</small></span>
-              <span class={r.per_day && r.per_day < 0 && "down"}>{signed(r.per_day)}</span>
+              <span><b>{if m == "height", do: Insights.hands(r.lbs), else: r.lbs}</b></span>
+              <span class={r.change && r.change < 0 && "down"}>{fmt_change(m, r.change)}<small :if={r.days}> / {r.days}d</small></span>
+              <span class={r.per_day && r.per_day < 0 && "down"}>{if r.per_day, do: (if m == "height", do: signed(r.per_day * 30.4), else: signed(r.per_day)), else: "–"}</span>
             </button>
           <% end %>
         </div>
+        <button :if={@is_superuser and pts != []} class="gr-more" style="margin-top:8px" phx-click="open_measure" phx-value-metric={m}>
+          + Log {m}
+        </button>
       </div>
     </div>
   </div>
 <% end %>
 
-<%= if @weigh do %>
+<%= if @measure do %>
+  <% weight? = @measure["metric"] == "weight" %>
   <div class="dlg-wrap rx-sheet-wrap">
-    <div class="dlg-backdrop" phx-click="close_weigh"></div>
-    <div class="dlg rx-sheet rx-weigh" id="weigh-sheet">
+    <div class="dlg-backdrop" phx-click="close_measure"></div>
+    <div class="dlg rx-sheet rx-weigh" id="measure-sheet" style={"--mc:#{if weight?, do: "#16a34a", else: "#2563eb"}"}>
       <div class="dlg-header">
-        <h2>Log weight</h2>
-        <button class="btn-icon" phx-click="close_weigh" aria-label="Close">
+        <h2>{if weight?, do: "Log weight", else: "Log height"}</h2>
+        <button class="btn-icon" phx-click="close_measure" aria-label="Close">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
             <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
           </svg>
         </button>
       </div>
-      <form id="weigh-form" phx-change="weigh_change" phx-submit="save_weigh">
+      <form id="measure-form" phx-change="measure_change" phx-submit="save_measure">
         <div class="dlg-body">
           <label class="rx-vfield">
-            <span>Weight</span>
+            <span>{if weight?, do: "Weight", else: "Height at the withers"}</span>
             <div class="wg-num">
-              <input type="number" name="weigh[lbs]" value={@weigh["lbs"]} inputmode="decimal" step="any" min="1" max="5000" placeholder="0" autofocus required />
-              <b>lb</b>
+              <input
+                type={if weight?, do: "number", else: "text"}
+                name="measure[value]"
+                value={@measure["value"]}
+                inputmode="decimal"
+                step="any"
+                placeholder={if weight?, do: "0", else: "14.2"}
+                autofocus
+                required
+              />
+              <b>{if weight?, do: "lb", else: "hh"}</b>
             </div>
+            <small :if={!weight?} class="rx-sub">Hands.inches: 14.2 is 14 hands 2 inches. Or type inches, like 58 in.</small>
           </label>
           <div class="rx-vfield">
             <span>How was it measured?</span>
             <div class="wg-methods">
-              <label :for={{v, l, ico} <- [{"scale", "Scale", "hero-scale"}, {"tape", "Weight tape", "hero-variable"}, {"estimate", "Estimate", "hero-eye"}]} class={["wg-method", @weigh["method"] == v && "on"]}>
-                <input type="radio" name="weigh[method]" value={v} checked={@weigh["method"] == v} />
+              <label
+                :for={{v, l, ico} <- if(weight?, do: [{"scale", "Scale", "hero-scale"}, {"tape", "Weight tape", "hero-variable"}, {"estimate", "Estimate", "hero-eye"}], else: [{"stick", "Stick", "hero-arrows-up-down"}, {"tape", "Tape", "hero-variable"}, {"estimate", "Estimate", "hero-eye"}])}
+                class={["wg-method", @measure["method"] == v && "on"]}
+              >
+                <input type="radio" name="measure[method]" value={v} checked={@measure["method"] == v} />
                 <.icon name={ico} /> {l}
               </label>
             </div>
           </div>
           <label class="rx-vfield">
             <span>Date</span>
-            <input type="date" name="weigh[date]" value={@weigh["date"]} max={Date.to_iso8601(Date.utc_today())} required />
+            <input type="date" name="measure[date]" value={@measure["date"]} max={Date.to_iso8601(Date.utc_today())} required />
           </label>
           <label class="rx-vfield">
             <span>Note (optional)</span>
-            <input type="text" name="weigh[note]" value={@weigh["note"]} placeholder="e.g. after feeding" />
+            <input type="text" name="measure[note]" value={@measure["note"]} placeholder={if weight?, do: "e.g. after feeding", else: "e.g. barefoot, level ground"} />
           </label>
-          <p :if={@weigh["error"]} class="rx-err">{@weigh["error"]}</p>
+          <p :if={@measure["error"]} class="rx-err">{@measure["error"]}</p>
         </div>
         <div class="rx-sheet-foot">
-          <button type="submit" class="btn btn-primary rx-save" id="save-weigh" phx-disable-with="Saving…">Save weight</button>
+          <button type="submit" class="btn btn-primary rx-save" id="save-measure" phx-disable-with="Saving…">
+            {if weight?, do: "Save weight", else: "Save height"}
+          </button>
         </div>
       </form>
     </div>

@@ -68,6 +68,11 @@ defmodule RanchPhxWeb.AnimalReportController do
       |> RanchPhx.Animals.Insights.weights(animal.records)
       |> Enum.filter(fn {d, _} -> date_in_range?(d, date_from, date_to) end)
 
+    heights =
+      animal.timeline_events
+      |> RanchPhx.Animals.Insights.heights(animal.records)
+      |> Enum.filter(fn {d, _} -> date_in_range?(d, date_from, date_to) end)
+
     # The print layout is a whole page of its own; without the app's page around it,
     # the PDF maker isn't handed app styles it can't read.
     conn
@@ -85,7 +90,8 @@ defmodule RanchPhxWeb.AnimalReportController do
         report_title: animal.name,
         type_label_map: Animals.record_type_label_map(),
         pedigree_map: pedigree_map,
-        weights: weights
+        weights: weights,
+        heights: heights
       )
   end
 

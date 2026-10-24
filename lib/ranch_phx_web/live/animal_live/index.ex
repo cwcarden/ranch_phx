@@ -109,6 +109,7 @@ defmodule RanchPhxWeb.AnimalLive.Index do
       {a.id,
        %{
          weight: events |> Insights.weights(records) |> Insights.weight_trend(),
+         height: events |> Insights.heights(records) |> Insights.trend(),
          care: Insights.care_alert(records, today),
          training: Map.get(training, a.id)
        }}

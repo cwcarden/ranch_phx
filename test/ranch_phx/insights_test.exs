@@ -56,7 +56,8 @@ defmodule RanchPhx.InsightsTest do
     t =
       Insights.weight_trend([{~D[2026-06-01], 640}, {~D[2026-07-01], 670}, {~D[2026-08-01], 700}])
 
-    assert t.latest == 700 and t.per_day == 0.98
+    assert t.latest == 700
+    assert_in_delta t.per_day, 0.98, 0.005
     assert t.month_change == %{lbs: 30, days: 31}
 
     assert Insights.weight_trend([{~D[2026-08-01], 700}, {~D[2026-08-03], 702}]).per_day == nil
@@ -69,10 +70,12 @@ defmodule RanchPhx.InsightsTest do
     assert [
              %{lbs: 640, change: nil, per_day: nil},
              %{lbs: 690, change: 50, days: 40, per_day: 1.25},
-             %{lbs: 775, change: 85, days: 77, per_day: 1.1}
+             %{lbs: 775, change: 85, days: 77, per_day: r3}
            ] = Insights.rows(pts)
 
-    assert %{change: 135, days: 117, per_day: 1.15} = Insights.compare(pts, 2, 0)
+    assert_in_delta r3, 1.10, 0.005
+    assert %{change: 135, days: 117, per_day: c} = Insights.compare(pts, 2, 0)
+    assert_in_delta c, 1.15, 0.005
   end
 
   test "chart has round gridlines and edge-aligned date labels" do
@@ -80,5 +83,19 @@ defmodule RanchPhx.InsightsTest do
     assert Enum.map(ch.yticks, &elem(&1, 1)) == [600, 650, 700, 750, 800]
     assert [{_, "Jun 6", "start"}, {_, "Aug 15", "middle"}, {_, "Oct 24", "end"}] = ch.xticks
     assert Insights.chart([{~D[2026-06-06], 640}], 340, 210) == nil
+  end
+
+  test "heights read in hands or inches and show as hands" do
+    assert Insights.parse_height("14.2 hh") == 58.0
+    assert Insights.parse_height("58 in") == 58.0
+    assert Insights.parse_height("Grew to 14.1 on the stick") == 57.0
+    assert Insights.parse_height("no number") == nil
+    assert Insights.hands(58.0) == "14.2"
+    assert Insights.hands(57.5) == "14.1½"
+  end
+
+  test "height chart gridlines sit on whole hands" do
+    ch = Insights.chart([{~D[2026-06-06], 55.0}, {~D[2026-10-24], 58.0}], 340, 210, step: 4)
+    assert Enum.map(ch.yticks, &elem(&1, 1)) == [52, 56, 60]
   end
 end

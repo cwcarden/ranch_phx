@@ -75,6 +75,7 @@ a.ci-row:active { background: var(--surface2); }
 .ci-main { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ci-main b { color: var(--text); font-weight: 700; }
 .ci-rate { color: #16a34a; font-weight: 700; }
+.ci-row.ht .ci-rate, .ci-row.ht .ci-spark, .ci-row.ht .ci-ico { color: #2563eb; }
 .ci-rate.down { color: #dc2626; }
 .ci-spark { flex: none; color: #16a34a; }
 .ci-row.soon .ci-ico, .ci-row.soon b { color: #d97706; }
@@ -229,8 +230,8 @@ a.ci-row:active { background: var(--surface2); }
           </a>
               <% ins = @insights[animal.id] %>
               <% spark = ins && ins.weight && Insights.sparkline(ins.weight.points, 72, 22) %>
-              <div :if={ins && (ins.weight || ins.care || ins.training)} class="card-insights">
-                <a :if={ins.weight} class="ci-row" href={"/animals/#{animal.id}?weight=1"} aria-label={"#{animal.name}'s weight history"}>
+              <div :if={ins && (ins.weight || ins.height || ins.care || ins.training)} class="card-insights">
+                <a :if={ins.weight} class="ci-row" href={"/animals/#{animal.id}?data=weight"} aria-label={"#{animal.name}'s weight history"}>
                   <.icon name="hero-scale" class="ci-ico" />
                   <span class="ci-main">
                     <b>{ins.weight.latest} lb</b><span
@@ -240,6 +241,19 @@ a.ci-row:active { background: var(--surface2); }
                   </span>
                   <svg :if={spark} class="ci-spark" viewBox="0 0 72 22" width="72" height="22" aria-hidden="true">
                     <polyline points={spark} fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </a>
+                <a :if={ins.height} class="ci-row ht" href={"/animals/#{animal.id}?data=height"} aria-label={"#{animal.name}'s height history"}>
+                  <.icon name="hero-arrows-up-down" class="ci-ico" />
+                  <span class="ci-main">
+                    <b>{Insights.hands(ins.height.latest)} hh</b><span
+                      :if={ins.height.per_day && ins.height.per_day > 0}
+                      class="ci-rate"
+                    > +{:erlang.float_to_binary(ins.height.per_day * 30.4, decimals: 1)} in/mo</span>
+                  </span>
+                  <% hspark = Insights.sparkline(ins.height.points, 72, 22) %>
+                  <svg :if={hspark} class="ci-spark" viewBox="0 0 72 22" width="72" height="22" aria-hidden="true">
+                    <polyline points={hspark} fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                   </svg>
                 </a>
                 <a :if={ins.care} class={["ci-row", if(ins.care.days < 0, do: "over", else: "soon")]} href={"/animals/#{animal.id}?tab=records"}>

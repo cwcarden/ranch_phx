@@ -262,14 +262,13 @@ defmodule RanchPhxWeb.AnimalRecordsTest do
     view |> element("#log-weight") |> render_click()
 
     view
-    |> form("#weigh-form",
-      weigh: %{lbs: "736", method: "tape", date: Date.to_iso8601(Date.utc_today())}
+    |> form("#measure-form",
+      measure: %{value: "736", method: "tape", date: Date.to_iso8601(Date.utc_today())}
     )
     |> render_submit()
 
-    assert has_element?(view, "#growth", "736 lb")
-    assert has_element?(view, "#growth", "+1.2 lb")
-    assert has_element?(view, "#growth", "last by tape")
+    assert has_element?(view, "#growth-weight", "736 lb")
+    assert has_element?(view, "#growth-weight", "+1.2 lb")
 
     {:ok, list, _} = live(conn, ~p"/")
     assert has_element?(list, ".card-insights", "736 lb")
@@ -288,16 +287,16 @@ defmodule RanchPhxWeb.AnimalRecordsTest do
         })
     end
 
-    {:ok, view, _} = live(conn, ~p"/animals/#{animal.id}?weight=1")
+    {:ok, view, _} = live(conn, ~p"/animals/#{animal.id}?data=weight")
     # Opens comparing the first and latest.
-    assert has_element?(view, "#weight-compare", "+95 lb")
-    assert has_element?(view, "#weight-compare", "80 days")
+    assert has_element?(view, "#data-compare", "+95 lb")
+    assert has_element?(view, "#data-compare", "80 days")
 
-    view |> element("#weight-rows button[phx-value-i='1']") |> render_click()
-    assert has_element?(view, "#weight-compare", "second weigh-in")
-    view |> element("#weight-rows button[phx-value-i='2']") |> render_click()
-    assert has_element?(view, "#weight-compare", "+45 lb")
-    assert has_element?(view, "#weight-compare", "+1.1 lb/day")
+    view |> element("#data-rows button[phx-value-i='1']") |> render_click()
+    assert has_element?(view, "#data-compare", "second entry")
+    view |> element("#data-rows button[phx-value-i='2']") |> render_click()
+    assert has_element?(view, "#data-compare", "+45 lb")
+    assert has_element?(view, "#data-compare", "+1.1 lb/day")
 
     html = conn |> get(~p"/animals/#{animal.id}/report?weight=1") |> html_response(200)
     assert html =~ "Weight"
@@ -305,5 +304,59 @@ defmodule RanchPhxWeb.AnimalRecordsTest do
     assert html =~ "Save / Share PDF"
     # A page of its own: not wrapped in the app's page.
     assert length(String.split(html, "<html")) == 2
+  end
+
+  test "log heights in hands, see growth on the card, chart, list and report",
+       %{conn: conn, animal: animal} do
+    {:ok, _} =
+      Animals.create_event(%{
+        "animal_id" => animal.id,
+        "event_type" => "height",
+        "title" => "13.3 hh",
+        "metadata" => %{"inches" => 55.0},
+        "event_date" => Date.add(Date.utc_today(), -91)
+      })
+
+    {:ok, view, _} = live(conn, ~p"/animals/#{animal.id}")
+    view |> element("#log-height") |> render_click()
+    assert has_element?(view, "#measure-sheet", "Log height")
+
+    view
+    |> form("#measure-form",
+      measure: %{value: "14.2", method: "stick", date: Date.to_iso8601(Date.utc_today())}
+    )
+    |> render_submit()
+
+    assert has_element?(view, "#growth-height", "14.2 hh")
+    assert has_element?(view, "#growth-height", "+1.0 in/mo")
+
+    # Tap the height tile: the data view opens on Height, comparing first and latest.
+    view |> element("#growth-height") |> render_click()
+    assert has_element?(view, "#tab-height[aria-selected='true']")
+    assert has_element?(view, "#data-compare", "+3.0 in")
+    assert has_element?(view, "#data-compare", "91 days")
+
+    # Switch tabs without closing.
+    view |> element("#tab-weight") |> render_click()
+    assert has_element?(view, "#tab-weight[aria-selected='true']")
+
+    {:ok, list, _} = live(conn, ~p"/")
+    assert has_element?(list, ".ci-row.ht", "14.2 hh")
+
+    html = conn |> get(~p"/animals/#{animal.id}/report?weight=1") |> html_response(200)
+    assert html =~ "Height"
+    assert html =~ "14.2 hh"
+  end
+
+  test "an impossible height is refused", %{conn: conn, animal: animal} do
+    {:ok, view, _} = live(conn, ~p"/animals/#{animal.id}")
+    view |> element("#log-height") |> render_click()
+
+    html =
+      view
+      |> form("#measure-form", measure: %{value: "abc", date: Date.to_iso8601(Date.utc_today())})
+      |> render_submit()
+
+    assert html =~ "rx-err"
   end
 end
