@@ -430,6 +430,99 @@ defmodule RanchPhx.Training do
     |> Enum.filter(&is_binary/1)
   end
 
+  @doc """
+  What today looks like for a horse, from what's already logged (no AI involved).
+
+  `sessions` are the book's sessions, newest first, with activities preloaded;
+  `issues` are the horse's Working on items with marks preloaded (newest first).
+  Returns:
+
+    * `:days` – the last 7 days, oldest first: `%{date, minutes, worked?}`
+    * `:status` – `:done` (logged today), `:rest` or `:work`
+    * `:reason` – one plain sentence explaining the status
+    * `:focus` – up to two open Working on items to work on, stickiest first
+    * `:activities` – suggested activities (focus items' activities, then last time's),
+      only ones this stage allows
+    * `:minutes` – a suggested length, never over the stage's limit
+  """
+  def today_plan(stage, sessions, issues, gated, %Date{} = today) do
+    by_day = Enum.group_by(sessions, & &1.date)
+
+    days =
+      for offset <- 6..0//-1 do
+        date = Date.add(today, -offset)
+        logged = Map.get(by_day, date, [])
+        minutes = logged |> Enum.map(&(&1.minutes || 0)) |> Enum.sum()
+        %{date: date, minutes: minutes, worked?: logged != []}
+      end
+
+    week_sessions = Enum.count(sessions, &(Date.diff(today, &1.date) in 0..6))
+    max_week = stage && stage.max_sessions_per_week
+    streak = days |> Enum.reverse() |> Enum.drop(1) |> Enum.take_while(& &1.worked?) |> length()
+    today_sessions = Map.get(by_day, today, [])
+
+    {status, reason} =
+      cond do
+        today_sessions != [] ->
+          mins = today_sessions |> Enum.map(&(&1.minutes || 0)) |> Enum.sum()
+          {:done, "Logged today#{if mins > 0, do: ": #{mins} min"}. Nice work."}
+
+        max_week && week_sessions >= max_week ->
+          {:rest,
+           "He's had #{week_sessions} of #{max_week} sessions in the last 7 days. Give him the day off."}
+
+        streak >= 3 ->
+          {:rest, "He's worked #{streak} days in a row. A day off lets it soak in."}
+
+        true ->
+          left = max_week && max_week - week_sessions
+
+          {:work,
+           if(left,
+             do:
+               "#{left} #{if left == 1, do: "session", else: "sessions"} left in his 7-day limit.",
+             else: "Good day for a session."
+           )}
+      end
+
+    allowed? = fn a ->
+      not MapSet.member?(gated, a.slug) or (stage && a.slug in stage.session_types)
+    end
+
+    focus =
+      issues
+      |> Enum.reject(&(&1.status == "solved"))
+      |> Enum.sort_by(fn i ->
+        last = i.marks |> List.first() |> then(&(&1 && &1.progress))
+        rank = %{"worse" => 0, "same" => 1, nil => 2, "better" => 3}[last]
+        {rank, Date.to_gregorian_days(i.opened_on)}
+      end)
+      |> Enum.take(2)
+
+    last = List.first(sessions)
+
+    activities =
+      (Enum.map(focus, & &1.activity) ++
+         if(last, do: Enum.map(last.activities, & &1.activity), else: []))
+      |> Enum.reject(&is_nil/1)
+      |> Enum.filter(allowed?)
+      |> Enum.uniq_by(& &1.id)
+      |> Enum.take(3)
+
+    limit = stage && stage.max_session_minutes
+    usual = last && last.minutes
+    minutes = [usual || limit || 20, limit] |> Enum.reject(&is_nil/1) |> Enum.min()
+
+    %{
+      days: days,
+      status: status,
+      reason: reason,
+      focus: focus,
+      activities: activities,
+      minutes: minutes
+    }
+  end
+
   def gated_activities(%Program{stages: stages}),
     do: stages |> Enum.flat_map(& &1.session_types) |> MapSet.new()
 

@@ -537,6 +537,8 @@ defmodule RanchPhxWeb.TrainingComponents do
       .sec-trainer  { --sec: #dc2626; --sec-soft: #fee2e2; }
       .sec-log      { --sec: #16a34a; --sec-soft: #dcfce7; }
       .sec-sessions { --sec: #2563eb; --sec-soft: #dbeafe; }
+      .sec-today    { --sec: #0d9488; --sec-soft: #ccfbf1; }
+      [data-theme="dark"] .sec-today { --sec: #2dd4bf; --sec-soft: #042f2e; }
       [data-theme="dark"] .sec-goals    { --sec: #fbbf24; --sec-soft: #3a2705; }
       [data-theme="dark"] .sec-working  { --sec: #fb7185; --sec-soft: #3f0d1a; }
       [data-theme="dark"] .sec-stage    { --sec: #a78bfa; --sec-soft: #2e1065; }
@@ -663,6 +665,44 @@ defmodule RanchPhxWeb.TrainingComponents do
       .tr-mark-row > b { font-size: 16px; }
       .sec-log .tr-btn-primary { background: var(--sec); border-color: var(--sec); }
       [data-theme="dark"] .sec-log .tr-btn-primary { color: #052e16; }
+
+      /* ── Today ── */
+      .tr-day-status { padding: 4px 12px; border-radius: 14px; font-size: 14px; font-weight: 700; white-space: nowrap; }
+      .tr-day-status.st-work { background: var(--sec-soft); color: var(--sec); }
+      .tr-day-status.st-rest { background: var(--surface2); color: var(--text2); border: 1px solid var(--border); }
+      .tr-day-status.st-done { background: #dcfce7; color: #15803d; }
+      [data-theme="dark"] .tr-day-status.st-done { background: #0d2e1a; color: #4ade80; }
+      .tr-strip { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+      .tr-strip-day { text-align: center; padding: 6px 0; border-radius: 10px; background: var(--surface2); border: 1.5px solid transparent; }
+      .tr-strip-day small { display: block; font-size: 11px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: .02em; }
+      .tr-strip-day span { display: block; font-size: 15px; font-weight: 800; color: var(--text3); margin-top: 2px; }
+      .tr-strip-day.worked { background: var(--sec-soft); }
+      .tr-strip-day.worked span { color: var(--sec); }
+      .tr-strip-day.today { border-color: var(--sec); }
+      .tr-today-reason { margin-top: 12px; font-size: 16px; }
+      .tr-today-plan { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+      .tr-today-focus { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 3px 0; }
+      .tr-today-focus b { font-size: 16px; }
+      .tr-today-focus span { font-size: 14px; }
+      .sec-today .tr-btn-primary { background: var(--sec); border-color: var(--sec); }
+      [data-theme="dark"] .sec-today .tr-btn-primary { color: #042f2e; }
+
+      /* ── Talk-to-log and the timer ── */
+      .tr-voice { margin-bottom: 18px; padding: 12px; border-radius: 12px; border: 1.5px dashed #fca5a5; background: #fff7f7; display: grid; gap: 8px; }
+      [data-theme="dark"] .tr-voice { border-color: #7f1d1d; background: #1f1215; }
+      .tr-voice-head { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 700; }
+      .tr-voice-head [class^="hero-"] { width: 20px; height: 20px; color: #dc2626; }
+      .tr-voice textarea { width: 100%; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); font-size: 16px; line-height: 1.4; font-family: inherit; resize: vertical; }
+      .tr-voice-actions { display: flex; align-items: center; gap: 8px; }
+      .tr-voice .tr-mini.solid { --sec: #dc2626; min-height: 40px; padding: 0 16px; }
+      .tr-voice .tr-dots-anim i { background: #fff; }
+      .tr-voice-note { font-size: 14px; color: var(--text2); }
+      .tr-voice-note.ok { color: #15803d; font-weight: 600; }
+      .tr-voice-note.err { color: #dc2626; font-weight: 600; }
+      [data-theme="dark"] .tr-voice-note.ok { color: #4ade80; }
+      .tr-timer { margin-top: 10px; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border-radius: 22px; border: 1.5px dashed var(--border); background: var(--surface); color: var(--text2); font-size: 15px; font-weight: 600; cursor: pointer; font-variant-numeric: tabular-nums; }
+      .tr-timer [class^="hero-"] { width: 18px; height: 18px; }
+      .tr-timer.running { border-style: solid; border-color: var(--sec); background: var(--sec-soft); color: var(--sec); }
 
       /* ── Training overview cards ── */
       .tr-hc-stage { margin-top: 2px; font-size: 15px; font-weight: 600; color: var(--brand); line-height: 1.3; }

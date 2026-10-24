@@ -266,4 +266,85 @@ defmodule RanchPhx.TrainingCoachTest do
       assert length(Coach.recent_threads(book.id)) == 2
     end
   end
+
+  describe "talk-to-log" do
+    setup :register_and_log_in_user
+
+    defp fill_reply(input),
+      do: %{
+        "model" => "claude-sonnet-5-5",
+        "stop_reason" => "tool_use",
+        "content" => [
+          %{"type" => "tool_use", "id" => "toolu_1", "name" => "fill_session", "input" => input}
+        ]
+      }
+
+    test "fills in the log form from what was said, then saves it",
+         %{conn: conn, book: book, issue: issue, calls: calls} do
+      feet = Enum.find(Training.list_activities(), &(&1.slug == "feet"))
+      tag = Training.list_tags() |> List.first()
+
+      stub_claude(calls, [
+        fill_reply(%{
+          "date" => nil,
+          "minutes" => 25,
+          "activities" => [
+            %{"activity" => "Feet", "result" => "good", "side" => "left", "note" => nil}
+          ],
+          "working_on" => [
+            %{"id" => issue.id, "progress" => "better", "note" => "Held it for five"}
+          ],
+          "tags" => [tag.slug],
+          "note" => "Windy but he settled."
+        })
+      ])
+
+      {:ok, view, _html} = live(conn, ~p"/training/#{book.id}")
+
+      view
+      |> form("#voice-form", spoken: "Twenty five minutes on his feet, left hind was better")
+      |> render_submit()
+
+      render_async(view)
+      assert has_element?(view, "#voice-filled")
+      assert has_element?(view, "#detail-#{feet.id}")
+
+      view |> form("#session-form") |> render_submit()
+      session = Training.last_session(book.id)
+      assert session.minutes == 25
+      assert session.note == "Windy but he settled."
+      assert session.tags == [tag.slug]
+      assert [%{result: "good", side: "left"}] = session.activities
+      assert [%{progress: "better", note: "Held it for five"}] = session.issue_marks
+
+      # The request forces the one tool, in strict mode, with nullable enums as anyOf.
+      [req] = Agent.get(calls, & &1)
+      assert req["tool_choice"] == %{"type" => "tool", "name" => "fill_session"}
+      [tool] = req["tools"]
+      assert tool["strict"] == true
+      item = tool["input_schema"]["properties"]["activities"]["items"]["properties"]
+
+      assert %{"anyOf" => [%{"type" => "string", "enum" => _}, %{"type" => "null"}]} =
+               item["side"]
+
+      refute Enum.any?(Map.values(item), &(is_list(&1["type"]) and Map.has_key?(&1, "enum")))
+    end
+
+    test "says so when nothing could be picked out", %{conn: conn, book: book, calls: calls} do
+      stub_claude(calls, [
+        fill_reply(%{
+          "date" => nil,
+          "minutes" => nil,
+          "activities" => [],
+          "working_on" => [],
+          "tags" => [],
+          "note" => nil
+        })
+      ])
+
+      {:ok, view, _html} = live(conn, ~p"/training/#{book.id}")
+      view |> form("#voice-form", spoken: "um") |> render_submit()
+      assert render_async(view) =~ "Couldn&#39;t pick anything out of that"
+    end
+  end
 end

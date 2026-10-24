@@ -578,6 +578,137 @@ defmodule RanchPhx.Training.Coach do
 
   defp short(date), do: Calendar.strftime(date, "%b %-d")
 
+  # ── Talk-to-log ─────────────────────────────────────────────────────────────
+
+  @reader_system """
+  You fill in a horse training log from what the trainer said about a session, usually
+  dictated on a phone at the barn, so expect run-on sentences and dictation mistakes.
+
+  - Only record what they actually said. Leave anything they didn't mention as null or empty.
+  - Activities: pick from the given names only, matching their words to the closest one
+    ("picked up his feet" is Feet). One entry per activity.
+  - Result for an activity: good, mixed or trouble, judged from how they described it.
+    Side: left, right or both, only if they said.
+  - Working on: only the listed items, by id, and only if they said how it went:
+    better, same or worse.
+  - Tags: only from the given list, only when clearly described (e.g. "distracted").
+  - Minutes: the length if they said it. Date: only if they named a day other than today.
+  - Note: what's left worth keeping, in their own words, lightly cleaned up. Don't add
+    advice or anything they didn't say. Null if nothing is left.
+  """
+
+  @doc """
+  Turn a spoken or typed description of a session into log-form values.
+  `activities`, `tags` and `issues` are what the form offers (open Working on items).
+  Returns `{:ok, %{"activities" => [...], "working_on" => [...], ...}}` or `{:error, reason}`.
+  """
+  def read_session(%Book{} = book, text, %Date{} = today, activities, tags, issues) do
+    text = text |> to_string() |> String.trim() |> String.slice(0, 3000)
+
+    cond do
+      text == "" ->
+        {:error, :empty}
+
+      not configured?() ->
+        {:error, :no_api_key}
+
+      true ->
+        body = %{
+          model: model(),
+          max_tokens: 2000,
+          system: @reader_system,
+          tools: [reader_tool(activities, tags, issues)],
+          tool_choice: %{type: "tool", name: "fill_session"},
+          messages: [
+            %{
+              role: "user",
+              content: """
+              Today is #{Date.to_iso8601(today)} (#{Calendar.strftime(today, "%A")}). Horse: #{book.horse.name}.
+              Open Working on items: #{Jason.encode!(Enum.map(issues, &%{id: &1.id, title: &1.title}))}
+
+              What the trainer said:
+              #{text}
+              """
+            }
+          ]
+        }
+
+        with {:ok, resp} <- request(body) do
+          case Enum.find(resp["content"] || [], &(&1["type"] == "tool_use")) do
+            %{"input" => input} when is_map(input) -> {:ok, input}
+            _ -> {:error, :empty_answer}
+          end
+        end
+    end
+  end
+
+  # Nullable enums are written as anyOf: strict mode rejects an enum next to a type list.
+  defp one_of(values), do: %{anyOf: [%{type: "string", enum: values}, %{type: "null"}]}
+  defp nullable(type, desc), do: %{type: [type, "null"], description: desc}
+
+  defp reader_tool(activities, tags, issues) do
+    working_on =
+      if issues == [] do
+        %{}
+      else
+        %{
+          working_on: %{
+            type: "array",
+            items: %{
+              type: "object",
+              properties: %{
+                id: %{type: "integer", enum: Enum.map(issues, & &1.id)},
+                progress: %{type: "string", enum: ["better", "same", "worse"]},
+                note: nullable("string", "Short note on this item in their words, or null.")
+              },
+              required: ["id", "progress", "note"],
+              additionalProperties: false
+            }
+          }
+        }
+      end
+
+    tag_prop =
+      if tags == [],
+        do: %{},
+        else: %{tags: %{type: "array", items: %{type: "string", enum: Enum.map(tags, & &1.slug)}}}
+
+    properties =
+      %{
+        date: nullable("string", "YYYY-MM-DD if they named another day, else null."),
+        minutes: nullable("integer", "Session length in minutes, or null."),
+        activities: %{
+          type: "array",
+          items: %{
+            type: "object",
+            properties: %{
+              activity: %{type: "string", enum: Enum.map(activities, & &1.name)},
+              result: one_of(["good", "mixed", "trouble"]),
+              side: one_of(["left", "right", "both"]),
+              note: nullable("string", "Short note on this activity, or null.")
+            },
+            required: ["activity", "result", "side", "note"],
+            additionalProperties: false
+          }
+        },
+        note: nullable("string", "The rest worth keeping, in their words, or null.")
+      }
+      |> Map.merge(working_on)
+      |> Map.merge(tag_prop)
+
+    %{
+      name: "fill_session",
+      description: "Fill in the session log form from what the trainer said.",
+      strict: true,
+      input_schema: %{
+        type: "object",
+        properties: properties,
+        required: Map.keys(properties) |> Enum.map(&to_string/1) |> Enum.sort(),
+        additionalProperties: false
+      }
+    }
+  end
+
   # ── HTTP ────────────────────────────────────────────────────────────────────
 
   defp text_of(blocks) do

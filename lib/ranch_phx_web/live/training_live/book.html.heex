@@ -14,6 +14,7 @@
 
   <.section_nav items={
     [
+      {"today", "Today", "hero-sun", "today"},
       {"goals", "Goals", "hero-flag", "goals"},
       {"working-on", "Working on", "hero-wrench-screwdriver", "working"},
       {"now", "Stage", "hero-map", "stage"}
@@ -26,6 +27,65 @@
         else: []
       ) ++ [{"sessions", "Sessions", "hero-calendar-days", "sessions"}]
   } />
+
+  <%!-- Today --%>
+  <div class="tr-card tr-sec sec-today" id="today">
+    <.section_head icon="hero-sun" kind="today">
+      Today
+      <:actions>
+        <span class={["tr-day-status", "st-#{@plan.status}"]}>
+          {case @plan.status do
+            :done -> "✓ Done"
+            :rest -> "Rest day"
+            :work -> "Work day"
+          end}
+        </span>
+      </:actions>
+    </.section_head>
+
+    <div class="tr-strip" aria-label="Last 7 days">
+      <div
+        :for={d <- @plan.days}
+        class={["tr-strip-day", d.worked? && "worked", d.date == @today && "today"]}
+        title={"#{Calendar.strftime(d.date, "%a %b %-d")}: #{if d.worked?, do: "#{d.minutes} min", else: "rest"}"}
+      >
+        <small>{if d.date == @today, do: "Today", else: Calendar.strftime(d.date, "%a")}</small>
+        <span>
+          {if d.worked?, do: if(d.minutes > 0, do: "#{d.minutes}m", else: "✓"), else: "–"}
+        </span>
+      </div>
+    </div>
+
+    <p class="tr-today-reason">{@plan.reason}</p>
+
+    <div :if={@plan.status == :work} class="tr-today-plan" id="today-plan">
+      <div :if={@plan.focus != []}>
+        <div class="tr-label">Focus on</div>
+        <div :for={i <- @plan.focus} class="tr-today-focus">
+          <b>{i.title}</b>
+          <span :if={i.marks != []} class={"tr-res mk-#{List.first(i.marks).progress}"}>
+            last time {progress_icon(List.first(i.marks).progress)} {List.first(i.marks).progress}
+          </span>
+        </div>
+      </div>
+      <div :if={@plan.activities != []} style="margin-top:8px">
+        <div class="tr-label">Suggested</div>
+        <p>
+          {Enum.map_join(@plan.activities, ", ", & &1.name)} · about {@plan.minutes} min
+        </p>
+      </div>
+      <a
+        :if={@is_superuser and @plan.activities != []}
+        href="#log"
+        class="tr-btn tr-btn-primary tr-btn-block"
+        style="margin-top:12px;text-decoration:none"
+        id="plan-fill"
+        phx-click="plan_fill"
+      >
+        Log this session
+      </a>
+    </div>
+  </div>
 
   <%!-- The horse --%>
   <div class="tr-card" id="profile">
@@ -649,6 +709,56 @@
       </button>
     </div>
 
+    <%!-- Talk-to-log --%>
+    <form
+      :if={@coach_on and !@editing}
+      id="voice-form"
+      class="tr-voice"
+      phx-submit="voice_fill"
+      phx-change="voice_typing"
+    >
+      <div class="tr-voice-head">
+        <.icon name="hero-microphone" />
+        <span>Tell the Tr<span class="tr-ai">AI</span>ner what you did</span>
+      </div>
+      <textarea
+        name="spoken"
+        rows="3"
+        placeholder="Tap the mic on your keyboard and talk: “20 minutes, groundwork and feet. Left hind was better, held it for five. Sticky going right.”"
+        disabled={@voice_loading}
+      >{@voice_text}</textarea>
+      <div class="tr-voice-actions">
+        <button type="submit" class="tr-mini solid" disabled={@voice_loading}>
+          <%= if @voice_loading do %>
+            <span class="tr-dots-anim"><i></i><i></i><i></i></span> Filling in…
+          <% else %>
+            <.icon name="hero-sparkles" /> Fill in the form
+          <% end %>
+        </button>
+        <button
+          :if={@voice_text != "" and not @voice_loading}
+          type="button"
+          class="tr-link-btn"
+          phx-click="voice_clear"
+        >
+          Clear
+        </button>
+      </div>
+      <%= case @voice_note do %>
+        <% {:ok, []} -> %>
+          <p class="tr-voice-note">
+            Couldn't pick anything out of that. Try naming what you worked on.
+          </p>
+        <% {:ok, parts} -> %>
+          <p class="tr-voice-note ok" id="voice-filled">
+            ✓ Filled in {Enum.join(parts, ", ")}. Check it over below, then Save.
+          </p>
+        <% {:error, msg} -> %>
+          <p class="tr-voice-note err">{msg}</p>
+        <% nil -> %>
+      <% end %>
+    </form>
+
     <.form for={%{}} as={:session} id="session-form" phx-change="change" phx-submit="save">
       <div class="tr-step">
         <div class="tr-step-head"><span class="tr-step-n">1</span> When</div>
@@ -806,6 +916,16 @@
             placeholder="Other"
           />
         </div>
+        <button
+          type="button"
+          id={"session-timer-#{@book.id}"}
+          class="tr-timer"
+          phx-hook="SessionTimer"
+          phx-update="ignore"
+          data-key={"ranch:timer:#{@book.id}"}
+        >
+          <.icon name="hero-clock" /> <span data-timer-label>Start a timer</span>
+        </button>
       </div>
 
       <div class="tr-step">
