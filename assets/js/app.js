@@ -340,6 +340,49 @@ Hooks.SessionTimer = {
   },
 }
 
+// Scan vet paperwork: photos are shrunk on the phone first (a 12 MP iPhone photo, HEIC
+// included, becomes a ~1 MB JPEG the AI can read), PDFs go up as they are.
+Hooks.ScanPick = {
+  mounted() {
+    this.input = () => this.el.querySelector("[data-scan-input]")
+    this.onChange = async () => {
+      const file = this.input()?.files?.[0]
+      if (!file) return
+      try {
+        const ready = file.type === "application/pdf" ? file : await shrinkImage(file, 2000, 0.85)
+        this.upload("scan", [ready])
+      } catch (_) {
+        this.upload("scan", [file])
+      }
+      this.input().value = ""
+    }
+    this.el.addEventListener("change", this.onChange)
+  },
+  destroyed() { this.el.removeEventListener("change", this.onChange) },
+}
+
+function shrinkImage(file, maxSide, quality) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file)
+    const img = new Image()
+    img.onload = () => {
+      const scale = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight))
+      const canvas = document.createElement("canvas")
+      canvas.width = Math.round(img.naturalWidth * scale)
+      canvas.height = Math.round(img.naturalHeight * scale)
+      canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height)
+      URL.revokeObjectURL(url)
+      canvas.toBlob(blob => {
+        if (!blob) return reject(new Error("no blob"))
+        const name = (file.name || "scan").replace(/\.[^.]+$/, "") + ".jpg"
+        resolve(new File([blob], name, {type: "image/jpeg"}))
+      }, "image/jpeg", quality)
+    }
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("can't read image")) }
+    img.src = url
+  })
+}
+
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,

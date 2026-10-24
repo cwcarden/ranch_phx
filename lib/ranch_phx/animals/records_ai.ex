@@ -103,60 +103,116 @@ defmodule RanchPhx.Animals.RecordsAI do
   - Never invent anything they didn't say.
   """
 
+  @scan_system """
+  You read vet paperwork (a photo or PDF of an invoice, receipt, treatment sheet or
+  health certificate) and turn it into ranch records for one animal.
+
+  - One record per vaccine, test, exam, treatment, service or product dispensed.
+    A combination vaccine (e.g. Core EQ Innovator) is one record; name what it covers
+    in the title, like "Core EQ Innovator (EWT, West Nile, Rabies)".
+  - record_type must be one of the given type slugs; pick the closest. A health
+    certificate exam is health_cert; a general exam is vet_visit; dewormers are deworming.
+  - title: short and specific. description: the product name, dose, lot number or result.
+  - date: the date on the paperwork (YYYY-MM-DD), or null if there isn't one.
+  - cost: that line's charge in dollars. Skip tax, payment and balance lines; put office
+    or farm-call fees on the exam's record if there is one, otherwise skip them.
+  - person: the veterinarian if named; location: the clinic.
+  - If the paperwork says to give something later or over several days, say so in
+    description (e.g. "Start Oct 31, daily for 5 days").
+  - Only what's on the paperwork. If it isn't vet paperwork for an animal, return no records.
+  """
+
   @doc """
   Record drafts from spoken notes. `types` are `%{slug, label, category}` maps for the
-  record types that exist. Returns `{:ok, [draft]}` where each draft is a map with string
-  keys ready for `Animals.create_record/1` (plus "animal_id" to be added), or `{:error, reason}`.
+  record types that exist; `presets` supply the usual next-due intervals. Returns
+  `{:ok, [draft]}` (string-keyed maps) or `{:error, reason}`.
   """
-  def draft(animal, text, %Date{} = today, types) do
+  def draft(animal, text, %Date{} = today, types, presets \\ []) do
     text = text |> to_string() |> String.trim() |> String.slice(0, 3000)
 
-    cond do
-      text == "" ->
-        {:error, :empty}
-
-      not Coach.configured?() ->
-        {:error, :no_api_key}
-
-      true ->
-        body = %{
-          model: Coach.model_name(),
-          max_tokens: 2000,
-          system: @draft_system,
-          tools: [draft_tool(types)],
-          tool_choice: %{type: "tool", name: "add_records"},
-          messages: [
-            %{
-              role: "user",
-              content: """
-              Today is #{Date.to_iso8601(today)}. Animal: #{animal.name} (#{animal.kind}).
-              Record types: #{Jason.encode!(Enum.map(types, &%{slug: &1.slug, label: &1.label}))}
-
-              What they said:
-              #{text}
-              """
-            }
-          ]
-        }
-
-        with {:ok, resp} <- Coach.api_request(body) do
-          case Enum.find(resp["content"] || [], &(&1["type"] == "tool_use")) do
-            %{"input" => %{"records" => records}} when is_list(records) ->
-              slugs = MapSet.new(types, & &1.slug)
-
-              {:ok,
-               records
-               |> Enum.filter(&MapSet.member?(slugs, &1["record_type"]))
-               |> Enum.map(&to_draft(&1, animal, today))}
-
-            _ ->
-              {:error, :empty_answer}
-          end
-        end
+    if text == "" do
+      {:error, :empty}
+    else
+      run(animal, @draft_system, "What they said:\n#{text}", today, types, presets)
     end
   end
 
-  defp to_draft(r, animal, today) do
+  @doc """
+  Record drafts from a photo or PDF of vet paperwork (`binary` with its `mime` type).
+  Same result as `draft/5`.
+  """
+  def draft_from_file(animal, binary, mime, %Date{} = today, types, presets \\ []) do
+    block =
+      case mime do
+        "application/pdf" ->
+          %{
+            type: "document",
+            source: %{type: "base64", media_type: mime, data: Base.encode64(binary)}
+          }
+
+        m when m in ~w(image/jpeg image/png image/webp image/gif) ->
+          %{type: "image", source: %{type: "base64", media_type: m, data: Base.encode64(binary)}}
+
+        _ ->
+          nil
+      end
+
+    if block do
+      run(
+        animal,
+        @scan_system,
+        [block, %{type: "text", text: "Read this paperwork."}],
+        today,
+        types,
+        presets
+      )
+    else
+      {:error, :unsupported_file}
+    end
+  end
+
+  defp run(animal, system, content, today, types, presets) do
+    if not Coach.configured?() do
+      {:error, :no_api_key}
+    else
+      intro = """
+      Today is #{Date.to_iso8601(today)}. Animal: #{animal.name} (#{animal.kind}).
+      Record types: #{Jason.encode!(Enum.map(types, &%{slug: &1.slug, label: &1.label}))}
+      """
+
+      content =
+        case content do
+          text when is_binary(text) -> intro <> "\n" <> text
+          blocks -> [%{type: "text", text: intro} | blocks]
+        end
+
+      body = %{
+        model: Coach.model_name(),
+        max_tokens: 3000,
+        system: system,
+        tools: [draft_tool(types)],
+        tool_choice: %{type: "tool", name: "add_records"},
+        messages: [%{role: "user", content: content}]
+      }
+
+      with {:ok, resp} <- Coach.api_request(body) do
+        case Enum.find(resp["content"] || [], &(&1["type"] == "tool_use")) do
+          %{"input" => %{"records" => records}} when is_list(records) ->
+            slugs = MapSet.new(types, & &1.slug)
+
+            {:ok,
+             records
+             |> Enum.filter(&MapSet.member?(slugs, &1["record_type"]))
+             |> Enum.map(&to_draft(&1, presets, today))}
+
+          _ ->
+            {:error, :empty_answer}
+        end
+      end
+    end
+  end
+
+  defp to_draft(r, presets, today) do
     date =
       case r["date"] && Date.from_iso8601(r["date"]) do
         {:ok, d} -> if Date.compare(d, today) == :gt, do: today, else: d
@@ -169,7 +225,7 @@ defmodule RanchPhx.Animals.RecordsAI do
           {d, false}
 
         _ ->
-          d = CareSchedule.suggested_due(animal.kind, r["record_type"], r["title"], date)
+          d = CareSchedule.suggested_due(presets, r["record_type"], r["title"], date)
           {d, d != nil}
       end
 

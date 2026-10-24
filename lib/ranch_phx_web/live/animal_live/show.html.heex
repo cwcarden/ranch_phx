@@ -248,6 +248,62 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .rx-doc { border-left: 4px solid var(--c); }
 .rx-doc-badge { color: var(--c); background: color-mix(in srgb, var(--c) 14%, transparent); font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 20px; }
 
+.rx-chip.on { background: var(--c); border-color: var(--c); color: #fff; }
+.rx-chip.on .rx-dot { background: #fff; }
+.rx-chip.on::after { content: "✓"; font-weight: 800; margin-left: 2px; }
+.rx-bar { position: fixed; left: 12px; right: 12px; bottom: calc(78px + env(safe-area-inset-bottom)); z-index: 150; display: flex; align-items: center; gap: 12px; padding: 10px 10px 10px 16px; border-radius: 16px; background: var(--surface); border: 1px solid var(--border); box-shadow: 0 10px 30px rgba(0,0,0,.18); max-width: 560px; margin: 0 auto; }
+.rx-bar span { flex: 1; font-size: 15px; }
+.rx-bar .btn { min-height: 44px; padding: 0 18px; font-size: 16px; border-radius: 12px; }
+@media (min-width: 900px) { .rx-bar { bottom: 24px; } }
+
+.rx-preset { display: grid; gap: 8px; padding: 12px 0; border-top: 1px solid var(--border); }
+.rx-preset input, .rx-preset select { width: 100%; min-height: 42px; padding: 8px 10px; border: 1.5px solid var(--border); border-radius: 10px; background: var(--surface2); color: var(--text); font-size: 16px; }
+.rx-preset-row { display: flex; gap: 8px; align-items: center; }
+.rx-preset-row > * { flex: 1; min-width: 0; }
+.rx-preset-row .rx-num { flex: 0 0 64px; }
+.rx-preset-row .rx-every { flex: none; font-size: 14px; color: var(--text3); }
+.rx-preset-row select:last-child { flex: 0 0 104px; }
+
+.rx-sheet { max-width: 560px; padding: 0; display: flex; flex-direction: column; }
+.rx-sheet form { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+.rx-sheet .dlg-body { overflow-y: auto; }
+.rx-sheet input, .rx-sheet textarea, .rx-sheet select { font-size: 16px; }
+.rx-visit-shared { display: grid; gap: 10px; margin-bottom: 14px; }
+.rx-visit-shared label, .rx-vfield { display: grid; gap: 4px; }
+.rx-visit-shared span, .rx-vfield > span { font-size: 13px; font-weight: 600; color: var(--text2); }
+.rx-visit-shared input, .rx-vfield input, .rx-vfield textarea { width: 100%; min-height: 44px; padding: 9px 12px; border: 1.5px solid var(--border); border-radius: 10px; background: var(--surface2); color: var(--text); font-family: inherit; }
+.rx-vitem { border: 1px solid var(--border); border-left: 4px solid var(--c); border-radius: 12px; padding: 12px; margin-bottom: 12px; display: grid; gap: 10px; background: var(--surface); }
+.rx-vitem-head { display: flex; align-items: center; gap: 8px; }
+.rx-vitem-title { flex: 1; min-width: 0; font-size: 16px !important; font-weight: 700; border: none !important; background: none !important; padding: 4px 0 !important; color: var(--text); border-bottom: 1.5px dashed var(--border) !important; border-radius: 0 !important; }
+.rx-x { flex: none; width: 34px; height: 34px; border-radius: 50%; border: 1.5px solid var(--border); background: var(--surface); color: var(--text3); cursor: pointer; }
+.rx-choices { display: flex; flex-wrap: wrap; gap: 6px; margin-top: -4px; }
+.rx-choice { min-height: 34px; padding: 0 12px; border-radius: 17px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text2); font-size: 14px; font-weight: 600; cursor: pointer; }
+.rx-choice.on { background: var(--c); border-color: var(--c); color: #fff; }
+.rx-vrow { display: grid; grid-template-columns: 1fr 112px; gap: 10px; }
+.rx-vmore summary { font-size: 13px; color: var(--text3); cursor: pointer; min-height: 30px; }
+.rx-attach { position: relative; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; border-radius: 10px; border: 1.5px dashed var(--border); color: var(--text2); font-size: 15px; font-weight: 600; cursor: pointer; }
+.rx-attach [class^="hero-"] { width: 18px; height: 18px; }
+.rx-file { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.rx-sheet-foot { padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); border-top: 1px solid var(--border); background: var(--surface); }
+.rx-save { width: 100%; min-height: 50px; justify-content: center; font-size: 17px; border-radius: 12px; }
+.rx-sheet .dlg-body { overflow-x: hidden; }
+.rx-vitem > *, .rx-vrow > *, .rx-vitem-head > input { min-width: 0; }
+@media (max-width: 600px) {
+  .dlg-wrap.rx-sheet-wrap { padding: 0; align-items: stretch; }
+  .dlg.rx-sheet { max-height: none; height: 100%; width: 100%; border-radius: 0; }
+}
+.rx-scan { margin-top: 12px; display: grid; gap: 6px; }
+.rx-scan-btn { position: relative; display: grid; grid-template-columns: auto 1fr; align-items: center; column-gap: 10px; padding: 12px 14px; border-radius: 12px; border: 1.5px dashed color-mix(in srgb, #dc2626 45%, var(--border)); background: color-mix(in srgb, #dc2626 5%, var(--surface)); color: var(--text); font-size: 16px; font-weight: 700; cursor: pointer; }
+.rx-scan-btn [class^="hero-"] { width: 24px; height: 24px; color: #dc2626; grid-row: span 2; }
+.rx-scan-btn small { grid-column: 2; font-size: 13px; font-weight: 500; color: var(--text2); }
+.rx-scan-btn.busy { display: flex; gap: 10px; color: var(--text2); }
+.rx-scan-btn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+.rx-hidden-input { display: none; }
+.rx-planned { margin: 0 0 6px; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, #0d9488 9%, var(--surface)); }
+.rx-plan-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
+.rx-plan-when { text-align: right; font-size: 14px; font-weight: 700; color: #0d9488; white-space: nowrap; }
+.rx-plan-when small { display: block; font-size: 12px; font-weight: 500; color: var(--text3); }
+.rx-due-main small { display: block; font-size: 13px; color: var(--text3); }
 .tr-prose { font-size: 16px; line-height: 1.6; color: var(--text); }
 .tr-prose p { margin: 0 0 10px; }
 .tr-prose ul, .tr-prose ol { margin: 0 0 10px; padding-left: 20px; display: grid; gap: 5px; }
@@ -772,21 +828,56 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   <!-- ── RECORDS ──────────────────────────────────────────────────────────── -->
   <%= if @tab == "records" do %>
     <% today = Date.utc_today() %>
-    <% due = CareSchedule.due(@animal.records, today) %>
+    <% care = CareSchedule.status(@animal.records, today) %>
+    <% planned = CareSchedule.planned(@animal.records, today) %>
+    <% attention = Enum.count(care, &(&1.days <= 30)) %>
 
-    <%!-- Coming due: the latest of each kind of record that's due soon or overdue --%>
-    <div :if={due != []} class="rx-card" id="records-due">
+    <%!-- Last done & next due, for each kind of care --%>
+    <div :if={care != [] or planned != []} class="rx-card" id="records-due">
       <div class="rx-head">
-        <span class="rx-ico" style="--c:#d97706"><.icon name="hero-bell-alert" /></span>
-        <h3>Coming due</h3>
-        <span class="rx-pill" style="--c:#d97706">{length(due)}</span>
+        <span class="rx-ico" style="--c:#d97706"><.icon name="hero-calendar-days" /></span>
+        <h3>Last done &amp; next due</h3>
+        <span :if={attention > 0} class="rx-pill" style="--c:#d97706">{attention} soon</span>
       </div>
-      <div :for={d <- due} class="rx-due-row" style={"--c:#{cat_color(@categories, d.record.category)}"}>
+      <div :if={planned != []} class="rx-planned" id="records-planned">
+        <div class="rx-label">Coming up</div>
+        <div
+          :for={r <- planned}
+          class="rx-plan-row"
+          style={"--c:#{cat_color(@categories, r.category)}"}
+        >
+          <span class="rx-dot"></span>
+          <div class="rx-due-main">
+            <b>{r.title}</b>
+            <small :if={r.description not in [nil, ""]}>{r.description}</small>
+          </div>
+          <span class="rx-plan-when">
+            {Calendar.strftime(r.date, "%a %b %-d")}<small>{due_relative(Date.diff(r.date, today))}</small>
+          </span>
+        </div>
+      </div>
+      <div
+        :for={d <- care}
+        class="rx-due-row"
+        style={"--c:#{cat_color(@categories, d.record.category)}"}
+      >
         <span class="rx-dot"></span>
         <div class="rx-due-main">
           <b>{d.record.title}</b>
-          <small class={["rx-due-when", d.days < 0 && "over", d.days >= 0 and d.days <= 14 && "soon"]}>
-            {due_text(d.days)} · {Calendar.strftime(d.record.next_due_date, "%b %-d")}
+          <small :if={d.covers != [] and length(d.covers) > 1}>
+            Covers {Enum.join(d.covers, ", ")}
+          </small>
+          <small>
+            Last {Calendar.strftime(d.record.date, "%b %-d, %Y")}<span :if={
+              d.record.description not in [nil, ""]
+            }> · {d.record.description}</span>
+          </small>
+          <small class={[
+            "rx-due-when",
+            d.days < 0 && "over",
+            (d.days >= 0 and d.days <= 30) && "soon"
+          ]}>
+            Next {Calendar.strftime(d.record.next_due_date, "%b %-d, %Y")} · {due_relative(d.days)}
           </small>
         </div>
         <button
@@ -801,28 +892,142 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       </div>
     </div>
 
-    <%!-- Add: one-tap common records, or say what was done --%>
+    <%!-- Add: pick one or more, scan paperwork, or say what was done --%>
     <div :if={@is_superuser} class="rx-card" id="records-add">
       <div class="rx-head">
         <span class="rx-ico" style="--c:var(--brand)"><.icon name="hero-plus-circle" /></span>
-        <h3>Add a record</h3>
-        <button class="rx-link" phx-click="toggle_type_manager">
-          {if @show_type_manager, do: "Done", else: "Categories & types"}
+        <h3>Add records</h3>
+        <button class="rx-link" phx-click="toggle_presets" id="edit-presets">
+          {if @editing_presets, do: "Done", else: "Edit buttons"}
         </button>
       </div>
-      <div class="rx-quick">
-        <button
-          :for={p <- presets_for_page(@animal.kind, @record_types_by_cat)}
-          class="rx-chip"
-          style={"--c:#{cat_color(@categories, type_category(@record_types_by_cat, p.record_type))}"}
-          phx-click="quick_record"
-          phx-value-key={p.key}
-          id={"quick-#{p.key}"}
+
+      <%= if @editing_presets do %>
+        <p class="rx-sub" style="margin-bottom:8px">
+          Rename, reorder by editing, change how often each is due, or add your own (like a combo vaccine or a favorite dewormer).
+        </p>
+        <p :if={@preset_error} class="rx-err" style="margin-bottom:8px">{@preset_error}</p>
+        <form
+          :for={p <- @presets ++ [nil]}
+          class="rx-preset"
+          phx-submit="preset_save"
+          id={"preset-#{(p && p.id) || "new"}"}
         >
-          <span class="rx-dot"></span>{p.label}
-        </button>
-        <button class="rx-chip other" phx-click="open_record" id="add-record">+ Other…</button>
-      </div>
+          <input type="hidden" name="preset[id]" value={p && p.id} />
+          <div class="rx-preset-row">
+            <input
+              name="preset[label]"
+              value={p && p.label}
+              placeholder={if p, do: "Button name", else: "New button name"}
+              maxlength="30"
+              required
+            />
+            <select name="preset[record_type]" aria-label="Record type">
+              <%= for cat <- @categories, types = @record_types_by_cat[cat.id] || [], types != [] do %>
+                <optgroup label={cat.label}>
+                  <option
+                    :for={t <- types}
+                    value={t.slug}
+                    selected={(p && p.record_type) == t.slug}
+                  >
+                    {t.label}
+                  </option>
+                </optgroup>
+              <% end %>
+            </select>
+          </div>
+          <input
+            name="preset[title]"
+            value={p && p.title}
+            placeholder="Record title, e.g. Core EQ Innovator (EWT, West Nile, Rabies)"
+            required
+          />
+          <div class="rx-preset-row">
+            <input name="preset[product]" value={p && p.product} placeholder="Product (optional)" />
+            <span class="rx-every">every</span>
+            <input
+              name="preset[interval_value]"
+              type="number"
+              min="1"
+              max="999"
+              inputmode="numeric"
+              value={p && p.interval_value}
+              placeholder="–"
+              class="rx-num"
+              aria-label="How often"
+            />
+            <select name="preset[interval_unit]" aria-label="Unit">
+              <option value="months" selected={(p && p.interval_unit) in [nil, "months"]}>
+                months
+              </option>
+              <option value="weeks" selected={(p && p.interval_unit) == "weeks"}>weeks</option>
+            </select>
+          </div>
+          <div class="rx-voice-actions">
+            <button type="submit" class="btn btn-primary btn-sm">
+              {if p, do: "Save", else: "+ Add button"}
+            </button>
+            <button
+              :if={p}
+              type="button"
+              class="rx-link"
+              phx-click="preset_delete"
+              phx-value-id={p.id}
+              data-confirm={"Remove the #{p.label} button? Records already added stay."}
+            >
+              Remove
+            </button>
+          </div>
+        </form>
+      <% else %>
+        <p class="rx-sub" style="margin-bottom:8px">
+          Tap everything that was done, then Continue.
+        </p>
+        <div class="rx-quick">
+          <button
+            :for={p <- @presets}
+            class={["rx-chip", p.id in @quick_selected && "on"]}
+            style={"--c:#{cat_color(@categories, type_category(@record_types_by_cat, p.record_type))}"}
+            phx-click="toggle_quick"
+            phx-value-id={p.id}
+            id={"quick-#{p.id}"}
+            aria-pressed={to_string(p.id in @quick_selected)}
+          >
+            <span class="rx-dot"></span>{p.label}
+          </button>
+          <button class="rx-chip other" phx-click="open_record" id="add-record">+ Other…</button>
+        </div>
+      <% end %>
+
+      <form
+        :if={@ai_on}
+        id="scan-form"
+        class="rx-scan"
+        phx-change="scan_validate"
+        phx-submit="scan_validate"
+      >
+        <label class={["rx-scan-btn", @scan_loading && "busy"]} id="scan-pick" phx-hook="ScanPick">
+          <input
+            type="file"
+            accept="image/*,application/pdf"
+            data-scan-input
+            disabled={@scan_loading}
+          />
+          <%= if @scan_loading do %>
+            <span class="tr-dots-anim"><i></i><i></i><i></i></span> Reading the paperwork…
+          <% else %>
+            <.icon name="hero-camera" /> Scan vet paperwork
+            <small>Photo or PDF of the invoice: the AI fills in each line</small>
+          <% end %>
+        </label>
+        <.live_file_input upload={@uploads.scan} class="rx-hidden-input" />
+        <p :if={@scan_error} class="rx-err">{@scan_error}</p>
+        <p :for={err <- upload_errors(@uploads.scan)} class="rx-err">
+          {if err == :too_large,
+            do: "That file is too big (25 MB max).",
+            else: "Use a photo or a PDF."}
+        </p>
+      </form>
 
       <form
         :if={@ai_on}
@@ -851,39 +1056,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
           <span :if={@rec_voice_error} class="rx-err">{@rec_voice_error}</span>
         </div>
       </form>
-
-      <div :if={@rec_drafts != []} class="rx-drafts" id="rec-drafts">
-        <div class="rx-label">Check these, then add them</div>
-        <div
-          :for={{d, i} <- Enum.with_index(@rec_drafts)}
-          class={["rx-draft", !d["keep"] && "off"]}
-          style={"--c:#{cat_color(@categories, type_category(@record_types_by_cat, d["record_type"]))}"}
-        >
-          <input
-            type="checkbox"
-            checked={d["keep"]}
-            phx-click="toggle_draft"
-            phx-value-i={i}
-            aria-label={"Include #{d["title"]}"}
-          />
-          <div>
-            <b>{d["title"]}</b>
-            <small>
-              {@type_label_map[d["record_type"]] || d["record_type"]} · {fmt_iso(d["date"])}<span :if={d["person"]}> · {d["person"]}</span><span :if={d["cost"]}> · ${d["cost"]}</span>
-            </small>
-            <small :if={d["next_due_date"]}>
-              Next due {fmt_iso(d["next_due_date"])}{if d["due_suggested"], do: " (usual interval, change if your vet says otherwise)"}
-            </small>
-            <small :if={d["description"]}>{d["description"]}</small>
-          </div>
-        </div>
-        <div class="rx-voice-actions">
-          <button class="btn btn-primary" phx-click="save_drafts" id="save-drafts">
-            Add {Enum.count(@rec_drafts, & &1["keep"])} {if Enum.count(@rec_drafts, & &1["keep"]) == 1, do: "record", else: "records"}
-          </button>
-          <button class="btn btn-ghost" phx-click="discard_drafts">Discard</button>
-        </div>
-      </div>
     </div>
 
     <%= if @is_superuser && @show_type_manager do %>
@@ -1111,6 +1283,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       </div>
     <% end %>
   <% end %>
+
+  <div :if={@tab == "records" and @quick_selected != []} class="rx-bar" id="quick-bar">
+    <span><b>{length(@quick_selected)}</b> selected</span>
+    <button class="rx-link" phx-click="clear_quick">Clear</button>
+    <button class="btn btn-primary" phx-click="start_visit" id="start-visit">Continue →</button>
+  </div>
 
   <!-- ── PEDIGREE ──────────────────────────────────────────────────────────── -->
   <%= if @tab == "pedigree" do %>
@@ -1958,6 +2136,193 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 <% end %>
 
 <!-- ── Record Modal ───────────────────────────────────────────────────────── -->
+<%= if @visit do %>
+  <div class="dlg-wrap rx-sheet-wrap">
+    <div class="dlg-backdrop" phx-click="close_visit"></div>
+    <div class="dlg rx-sheet" id="visit-sheet">
+      <div class="dlg-header">
+        <h2>
+          Add {length(@visit["items"])} {if length(@visit["items"]) == 1,
+            do: "record",
+            else: "records"}
+        </h2>
+        <button class="btn-icon" phx-click="close_visit" aria-label="Close">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            width="16"
+            height="16"
+          >
+            <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </div>
+      <form id="visit-form" phx-change="visit_change" phx-submit="save_visit">
+        <div class="dlg-body">
+          <div class="rx-visit-shared">
+            <label>
+              <span>Date</span>
+              <input type="date" name="visit[date]" value={@visit["date"]} required />
+            </label>
+            <label>
+              <span>Vet / who did it</span>
+              <input
+                type="text"
+                name="visit[person]"
+                value={@visit["person"]}
+                placeholder="Dr. Hall"
+              />
+            </label>
+            <label>
+              <span>Where</span>
+              <input
+                type="text"
+                name="visit[location]"
+                value={@visit["location"]}
+                placeholder="Clinic or at the barn"
+              />
+            </label>
+          </div>
+
+          <div
+            :for={{item, i} <- Enum.with_index(@visit["items"])}
+            class="rx-vitem"
+            id={"visit-item-#{i}"}
+            style={"--c:#{cat_color(@categories, type_category(@record_types_by_cat, item["record_type"]))}"}
+          >
+            <div class="rx-vitem-head">
+              <span class="rx-dot"></span>
+              <input
+                type="text"
+                name={"visit[items][#{i}][title]"}
+                value={item["title"]}
+                class="rx-vitem-title"
+                aria-label="Title"
+                required
+              />
+              <button
+                type="button"
+                class="rx-x"
+                phx-click="remove_visit_item"
+                phx-value-i={i}
+                aria-label={"Remove #{item["title"]}"}
+              >
+                ✕
+              </button>
+            </div>
+            <label class="rx-vfield">
+              <span>
+                {if item["record_type"] == "deworming", do: "Dewormer", else: "Product / details"}
+              </span>
+              <input
+                type="text"
+                name={"visit[items][#{i}][product]"}
+                value={item["product"]}
+                placeholder={
+                  if item["record_type"] == "deworming", do: "e.g. Ivermectin", else: "Optional"
+                }
+              />
+            </label>
+            <div :if={item["choices"] != []} class="rx-choices">
+              <button
+                :for={c <- item["choices"]}
+                type="button"
+                class={[
+                  "rx-choice",
+                  String.downcase(c) == String.downcase(item["product"] || "") && "on"
+                ]}
+                phx-click="pick_product"
+                phx-value-i={i}
+                phx-value-product={c}
+              >
+                {c}
+              </button>
+            </div>
+            <div class="rx-vrow">
+              <label class="rx-vfield">
+                <span>Next due</span>
+                <input type="date" name={"visit[items][#{i}][next_due]"} value={item["next_due"]} />
+              </label>
+              <label class="rx-vfield rx-cost">
+                <span>Cost $</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  inputmode="decimal"
+                  name={"visit[items][#{i}][cost]"}
+                  value={item["cost"]}
+                  placeholder="0.00"
+                />
+              </label>
+            </div>
+            <details
+              class="rx-vmore"
+              open={item["date"] not in [nil, ""] or item["days"] not in [nil, ""]}
+            >
+              <summary>Starts later or runs several days?</summary>
+              <div class="rx-vrow">
+                <label class="rx-vfield">
+                  <span>Starts / given on</span>
+                  <input type="date" name={"visit[items][#{i}][date]"} value={item["date"]} />
+                </label>
+                <label class="rx-vfield rx-cost">
+                  <span>Daily for</span>
+                  <input
+                    type="number"
+                    min="1"
+                    max="60"
+                    inputmode="numeric"
+                    name={"visit[items][#{i}][days]"}
+                    value={item["days"]}
+                    placeholder="days"
+                  />
+                </label>
+              </div>
+            </details>
+          </div>
+
+          <label class="rx-vfield">
+            <span>Notes for the visit</span>
+            <textarea name="visit[notes]" rows="2" placeholder="Anything the vet said">{@visit["notes"]}</textarea>
+          </label>
+
+          <p :if={@visit["attach"]} class="rx-sub" style="margin-bottom:8px">
+            <.icon name="hero-paper-clip" class="rx-btn-ico" />
+            The scanned paperwork will be saved to Documents.
+          </p>
+          <div :if={is_nil(@visit["attach"])} class="rx-vfield">
+            <span>Paperwork (optional)</span>
+            <label class="rx-attach">
+              <.live_file_input upload={@uploads.visit_doc} class="rx-file" />
+              <.icon name="hero-paper-clip" /> Attach invoice or health certificate
+            </label>
+            <div :for={entry <- @uploads.visit_doc.entries} class="rx-sub">
+              {entry.client_name}
+            </div>
+          </div>
+
+          <p :if={@visit["error"]} class="rx-err">{@visit["error"]}</p>
+        </div>
+        <div class="rx-sheet-foot">
+          <button
+            type="submit"
+            class="btn btn-primary rx-save"
+            id="save-visit"
+            phx-disable-with="Saving…"
+          >
+            Save {length(@visit["items"])} {if length(@visit["items"]) == 1,
+              do: "record",
+              else: "records"}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+<% end %>
+
 <%= if @record_modal do %>
   <% editing = @record_editing %>
   <% draft = @record_editing || @record_draft %>

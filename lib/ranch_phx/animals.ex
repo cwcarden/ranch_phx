@@ -1,7 +1,7 @@
 defmodule RanchPhx.Animals do
   import Ecto.Query
   alias RanchPhx.Repo
-  alias RanchPhx.Animals.{Animal, TimelineEvent, Record, Genetics, Document, DocType, Photo, RecordType, RecordCategory, PedigreeEntry}
+  alias RanchPhx.Animals.{Animal, TimelineEvent, Record, Genetics, Document, DocType, Photo, RecordType, RecordCategory, PedigreeEntry, CarePreset}
 
   # ── Animals ────────────────────────────────────────────────────────────────
 
@@ -216,6 +216,49 @@ defmodule RanchPhx.Animals do
   def delete_pedigree_entry(%PedigreeEntry{} = pe), do: Repo.delete(pe)
 
   # ── Record Types ───────────────────────────────────────────────────────────
+
+  # ── Care presets (quick-add buttons) ──
+
+  @doc "Quick-add buttons for a kind of animal (horse, dog, or anything else)."
+  def list_care_presets(kind) do
+    kind = CarePreset.kind_for(kind)
+
+    from(p in CarePreset, where: p.kind == ^kind, order_by: [asc: p.position, asc: p.id])
+    |> Repo.all()
+  end
+
+  def get_care_preset!(id), do: Repo.get!(CarePreset, id)
+  def change_care_preset(%CarePreset{} = p, attrs \\ %{}), do: CarePreset.changeset(p, attrs)
+
+  def create_care_preset(kind, attrs) do
+    kind = CarePreset.kind_for(kind)
+    next = Repo.aggregate(from(p in CarePreset, where: p.kind == ^kind), :count)
+
+    %CarePreset{kind: kind, position: next}
+    |> CarePreset.changeset(attrs)
+    |> Repo.insert()
+  end
+
+  def update_care_preset(%CarePreset{} = p, attrs),
+    do: p |> CarePreset.changeset(attrs) |> Repo.update()
+
+  def delete_care_preset(%CarePreset{} = p), do: Repo.delete(p)
+
+  @doc "Products used before for a record type on any animal, most recent first."
+  def recent_products(record_type, limit \\ 6) do
+    from(r in Record,
+      where: r.record_type == ^record_type and not is_nil(r.description) and r.description != "",
+      group_by: r.description,
+      order_by: [desc: max(r.date)],
+      limit: ^(limit * 3),
+      select: r.description
+    )
+    |> Repo.all()
+    # "Panacur PowerPac · daily for 5 days, …" is the product Panacur PowerPac.
+    |> Enum.map(&(&1 |> String.split(" · ") |> hd() |> String.trim()))
+    |> Enum.uniq_by(&String.downcase/1)
+    |> Enum.take(limit)
+  end
 
   def list_record_types do
     from(rt in RecordType, order_by: [asc: rt.position, asc: rt.label])
