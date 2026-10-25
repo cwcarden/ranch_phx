@@ -7,8 +7,12 @@ defmodule RanchPhxWeb.AnimalLive.Index do
 
   @impl true
   def mount(_params, _session, socket) do
+    superuser? = Scope.superuser?(socket.assigns[:current_scope])
+    if connected?(socket) and superuser?, do: RanchPhx.VoiceNotes.subscribe()
+
     {:ok,
      socket
+     |> assign(:voice_count, if(superuser?, do: RanchPhx.VoiceNotes.count_pending(), else: 0))
      |> assign(:filter_kind, "")
      |> assign(:filter_status, "")
      |> assign(:search, "")
@@ -22,6 +26,10 @@ defmodule RanchPhxWeb.AnimalLive.Index do
   def handle_params(_params, _uri, socket) do
     {:noreply, socket}
   end
+
+  @impl true
+  def handle_info(:voice_notes_changed, socket),
+    do: {:noreply, assign(socket, :voice_count, RanchPhx.VoiceNotes.count_pending())}
 
   @impl true
   def handle_event("filter", params, socket) do

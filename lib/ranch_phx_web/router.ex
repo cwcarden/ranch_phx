@@ -28,9 +28,17 @@ defmodule RanchPhxWeb.Router do
       live "/training",            TrainingLive.Index, :index
       live "/training/lists",      TrainingLive.Lists, :index
       live "/training/:id",        TrainingLive.Book,  :show
+      live "/voice",               VoiceLive.Index,    :index
     end
 
     get "/animals/:id/report", AnimalReportController, :show
+  end
+
+  # The Siri Shortcut posts here with its own key (no browser login).
+  scope "/api", RanchPhxWeb do
+    pipe_through :api
+
+    post "/voice-log", VoiceLogController, :create
   end
 
   # Admin routes — superuser only
