@@ -2,6 +2,7 @@ defmodule RanchPhxWeb.AnimalLive.Show do
   use RanchPhxWeb, :live_view
   alias RanchPhx.Animals
   alias RanchPhx.Animals.{Animal, TimelineEvent, Record, CareSchedule, CarePreset, RecordsAI, Insights}
+  alias RanchPhx.VoiceNotes
   alias RanchPhx.Training.Coach
   import RanchPhxWeb.TrainingComponents, only: [coach_answer: 1]
   alias RanchPhx.Accounts.Scope
@@ -34,6 +35,7 @@ defmodule RanchPhxWeb.AnimalLive.Show do
      |> assign(:rec_voice_text, "")
      |> assign(:rec_voice_loading, false)
      |> assign(:rec_voice_error, nil)
+     |> assign(:voice_note, nil)
      |> assign(:doc_filter_type, "")
      |> assign(:presets, Animals.list_care_presets(animal.kind))
      |> assign(:quick_selected, [])
@@ -100,7 +102,31 @@ defmodule RanchPhxWeb.AnimalLive.Show do
         true -> nil
       end
 
-    {:noreply, if(metric, do: open_data(socket, metric), else: socket)}
+    socket = if(metric, do: open_data(socket, metric), else: socket)
+
+    # From the Siri voice log: draft records from what was said, to check and save.
+    socket =
+      if params["voice"] && connected?(socket), do: open_voice_note(socket, params["voice"]), else: socket
+
+    {:noreply, socket}
+  end
+
+  defp open_voice_note(socket, id) do
+    %{animal: animal, is_superuser: su?, voice_note: current} = socket.assigns
+
+    case su? && VoiceNotes.get(id) do
+      %{status: "pending", animal_id: animal_id} = note when animal_id == animal.id ->
+        if current && current.id == note.id do
+          socket
+        else
+          socket
+          |> assign(tab: "records", rec_voice_open: true, voice_note: note)
+          |> start_voice_draft(note.text)
+        end
+
+      _ ->
+        socket
+    end
   end
 
   @impl true
@@ -503,12 +529,18 @@ defmodule RanchPhxWeb.AnimalLive.Show do
           save_visit_docs(socket, animal, visit)
           attach_scan(animal, visit)
           n = length(results)
+          voice = socket.assigns.voice_note
+          if voice, do: VoiceNotes.mark(voice, "done")
 
           {:noreply,
            socket
            |> assign(:animal, Animals.get_animal_with_pedigree!(animal.id))
            |> assign(:visit, nil)
-           |> put_flash(:info, "Added #{n} #{if n == 1, do: "record", else: "records"}.")}
+           |> assign(:voice_note, nil)
+           |> put_flash(
+             :info,
+             "Added #{n} #{if n == 1, do: "record", else: "records"}#{if voice, do: " from your voice note"}."
+           )}
 
         [{:error, cs} | _] ->
           msg =
@@ -725,21 +757,10 @@ defmodule RanchPhxWeb.AnimalLive.Show do
     do: {:noreply, assign(socket, :rec_voice_text, text)}
 
   def handle_event("rec_voice_draft", %{"spoken" => text}, socket) do
-    %{animal: animal, is_superuser: su?, rec_voice_loading: busy?} = socket.assigns
+    %{is_superuser: su?, rec_voice_loading: busy?} = socket.assigns
 
     if su? and not busy? and String.trim(text) != "" do
-      presets = socket.assigns.presets
-
-      types =
-        Animals.list_record_types()
-        |> Enum.map(&%{slug: &1.slug, label: &1.label, category: &1.category})
-
-      {:noreply,
-       socket
-       |> assign(rec_voice_text: text, rec_voice_loading: true, rec_voice_error: nil)
-       |> start_async(:rec_draft, fn ->
-         RecordsAI.draft(animal, text, Date.utc_today(), types, presets)
-       end)}
+      {:noreply, start_voice_draft(socket, text)}
     else
       {:noreply, assign(socket, :rec_voice_text, text)}
     end
@@ -1328,6 +1349,21 @@ defmodule RanchPhxWeb.AnimalLive.Show do
   def due_relative(days) when days < 0, do: due_text(days)
   def due_relative(days) when days > 75, do: "in #{round(days / 30.4)} months"
   def due_relative(days), do: due_text(days) |> String.replace("In ", "in ")
+
+  # Asks Claude for record drafts from spoken words; they open in the visit form.
+  defp start_voice_draft(socket, text) do
+    %{animal: animal, presets: presets} = socket.assigns
+
+    types =
+      Animals.list_record_types()
+      |> Enum.map(&%{slug: &1.slug, label: &1.label, category: &1.category})
+
+    socket
+    |> assign(rec_voice_text: text, rec_voice_loading: true, rec_voice_error: nil)
+    |> start_async(:rec_draft, fn ->
+      RecordsAI.draft(animal, text, Date.utc_today(), types, presets)
+    end)
+  end
 
   # Turns AI drafts (spoken or scanned) into the visit form, to check and edit.
   defp visit_from_drafts(drafts, presets, attach) do

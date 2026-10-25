@@ -399,6 +399,18 @@ window.addEventListener("phx:page-loading-stop", _info => topbar.hide())
 liveSocket.connect()
 
 // Light/dark switch in the top bar.
+// Copy a field's text (Siri setup page): JS.dispatch("ranch:copy", detail: {from: "#id"}).
+window.addEventListener("ranch:copy", e => {
+  const src = document.querySelector(e.detail.from)
+  const btn = e.target
+  if (!src) return
+  const text = src.value || src.textContent.trim()
+  const done = () => { const t = btn.textContent; btn.textContent = "Copied"; setTimeout(() => btn.textContent = t, 1500) }
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(done, () => { src.select && src.select(); document.execCommand("copy"); done() })
+  } else { src.select && src.select(); document.execCommand("copy"); done() }
+})
+
 window.addEventListener("ranch:toggle-theme", () => {
   const next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark"
   document.documentElement.setAttribute("data-theme", next)

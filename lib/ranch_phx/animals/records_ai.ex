@@ -94,6 +94,7 @@ defmodule RanchPhx.Animals.RecordsAI do
   into ranch records, one record per thing done.
 
   - One record per vaccine, treatment or service: "West Nile and EWT" is two records.
+  - Only what was done to the named animal; skip anything said about other animals.
   - record_type must be one of the given type slugs; pick the closest.
   - title: short and specific, like "West Nile vaccine" or "Deworming – Quest Plus".
   - date: YYYY-MM-DD if they said a day other than today ("yesterday"), else null.

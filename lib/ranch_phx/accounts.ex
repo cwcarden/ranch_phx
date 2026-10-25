@@ -320,4 +320,50 @@ defmodule RanchPhx.Accounts do
       end
     end)
   end
+
+  ## Shortcut keys (Siri "Ranch log")
+
+  @doc """
+  Makes a new key for the Siri Shortcut, replacing any old one. Only a hash is kept,
+  so the key is shown once; returns it as text.
+  """
+  def create_api_token(%User{} = user) do
+    delete_api_token(user)
+    raw = :crypto.strong_rand_bytes(32)
+    Repo.insert!(%UserToken{token: :crypto.hash(:sha256, raw), context: "api", user_id: user.id})
+    "rk_" <> Base.url_encode64(raw, padding: false)
+  end
+
+  @doc "The user a Shortcut key belongs to, or nil."
+  def get_user_by_api_token("rk_" <> encoded) do
+    with {:ok, raw} <- Base.url_decode64(encoded, padding: false) do
+      hashed = :crypto.hash(:sha256, raw)
+
+      Repo.one(
+        from t in UserToken,
+          join: u in assoc(t, :user),
+          where: t.token == ^hashed and t.context == "api",
+          select: u
+      )
+    else
+      _ -> nil
+    end
+  end
+
+  def get_user_by_api_token(_), do: nil
+
+  @doc "When the user's Shortcut key was made, or nil if there isn't one."
+  def api_token_created_at(%User{} = user) do
+    Repo.one(
+      from t in UserToken,
+        where: t.user_id == ^user.id and t.context == "api",
+        select: t.inserted_at,
+        limit: 1
+    )
+  end
+
+  def delete_api_token(%User{} = user) do
+    Repo.delete_all(from t in UserToken, where: t.user_id == ^user.id and t.context == "api")
+    :ok
+  end
 end

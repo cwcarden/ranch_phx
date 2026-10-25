@@ -1,0 +1,217 @@
+<.styles />
+<.app_nav active={:animals} />
+<.topbar back={~p"/"} back_label="Animals" title="Siri voice log" />
+
+<style>
+  .vl-note { display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 14px; border: 1px solid var(--border); border-left: 4px solid #7c3aed; background: var(--surface); }
+  .vl-note + .vl-note { margin-top: 10px; }
+  .vl-when { font-size: 13px; color: var(--text3); font-weight: 600; display: flex; align-items: center; gap: 6px; }
+  .vl-when [class^="hero-"] { width: 15px; height: 15px; color: #7c3aed; }
+  .vl-text { font-size: 17px; line-height: 1.4; }
+  .vl-animal { font-weight: 800; color: var(--text); }
+  .vl-pick { display: flex; flex-wrap: wrap; gap: 8px; }
+  .vl-pick button { min-height: 40px; padding: 0 14px; border-radius: 20px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text); font-size: 15px; font-weight: 600; cursor: pointer; }
+  .vl-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .vl-actions .tr-btn-primary { background: #7c3aed; border-color: #7c3aed; flex: 1; }
+  .vl-empty { text-align: center; padding: 22px 8px; }
+  .vl-empty [class^="hero-"] { width: 34px; height: 34px; color: #7c3aed; }
+  .vl-steps { list-style: decimal; margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 12px; font-size: 15px; line-height: 1.45; }
+  .vl-steps li::marker { font-weight: 800; color: #7c3aed; }
+  .vl-steps b { font-weight: 700; }
+  .vl-steps ul { list-style: disc; margin: 6px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+  .vl-copy { display: flex; gap: 8px; margin-top: 6px; }
+  .vl-copy input { flex: 1; min-width: 0; min-height: 44px; padding: 0 10px; border-radius: 10px; border: 1.5px solid var(--border); background: var(--surface2); color: var(--text); font: 600 14px ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .vl-key-new { padding: 12px; border-radius: 12px; background: color-mix(in srgb, #7c3aed 10%, var(--surface)); border: 1.5px solid color-mix(in srgb, #7c3aed 40%, var(--border)); }
+  .vl-sub { font-size: 13px; color: var(--text2); margin-top: 6px; }
+  .vl-h { font-size: 18px; font-weight: 800; margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
+  .vl-h [class^="hero-"] { width: 20px; height: 20px; color: #7c3aed; }
+  code.vl-code { font: 600 13px ui-monospace, SFMono-Regular, Menlo, monospace; padding: 1px 5px; border-radius: 5px; background: var(--surface2); border: 1px solid var(--border); }
+</style>
+
+<div class="tr-wrap">
+  <div class="tr-card" id="voice-inbox">
+    <h2 class="vl-h"><.icon name="hero-microphone" /> To check</h2>
+    <p class="tr-muted" style="margin-bottom:12px">
+      What you told Siri. Nothing is saved as a record until you check it.
+    </p>
+
+    <div :if={@notes == []} class="vl-empty" id="voice-empty">
+      <.icon name="hero-microphone" />
+      <p class="tr-muted" style="margin-top:6px">
+        Nothing waiting. Say <b>"Hey Siri, Ranch log"</b> and tell it what you did.
+      </p>
+    </div>
+
+    <div :for={note <- @notes} class="vl-note" id={"note-#{note.id}"}>
+      <div class="vl-when">
+        <.icon name="hero-microphone" /> {said_at(note.inserted_at)}
+        <span :if={note.animal}>· <span class="vl-animal">{note.animal.name}</span></span>
+      </div>
+      <div class="vl-text">"{note.text}"</div>
+
+      <%= if note.animal do %>
+        <div :if={@is_superuser} class="vl-actions">
+          <a
+            class="tr-btn tr-btn-primary"
+            href={~p"/animals/#{note.animal_id}?voice=#{note.id}"}
+            id={"review-#{note.id}"}
+          >
+            <.icon name="hero-check-circle" /> Check &amp; save
+          </a>
+          <button
+            class="tr-btn"
+            phx-click="dismiss"
+            phx-value-note={note.id}
+            data-confirm="Dismiss this note without saving?"
+          >
+            Dismiss
+          </button>
+        </div>
+      <% else %>
+        <div :if={@is_superuser}>
+          <div class="vl-sub" style="margin:0 0 6px">Which animal was this?</div>
+          <div class="vl-pick">
+            <button
+              :for={a <- @animals}
+              type="button"
+              phx-click="set_animal"
+              phx-value-note={note.id}
+              phx-value-animal={a.id}
+            >
+              {a.name}
+            </button>
+          </div>
+          <div class="vl-actions" style="margin-top:10px">
+            <button
+              class="tr-btn tr-btn-small"
+              phx-click="dismiss"
+              phx-value-note={note.id}
+              data-confirm="Dismiss this note without saving?"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      <% end %>
+    </div>
+  </div>
+
+  <div :if={@is_superuser} class="tr-card" id="voice-setup" style="margin-top:14px">
+    <h2 class="vl-h"><.icon name="hero-cog-6-tooth" /> Set up "Hey Siri, Ranch log"</h2>
+    <p class="tr-muted" style="margin-bottom:14px">
+      One time, on your iPhone. After that, say <b>"Hey Siri, Ranch log"</b>, then something like
+      <i>"Dewormed Asher with Panacur, day 1 of 5."</i>
+      Siri saves it here for you to check later.
+    </p>
+
+    <ol class="vl-steps">
+      <li>
+        <b>Let the Shortcut past Cloudflare.</b>
+        In the Cloudflare dashboard, go to Zero Trust:
+        <ul>
+          <li>
+            <b>Access → Service credentials → Service Tokens → Create</b>. Name it <i>Ranch Siri</i>. Copy the
+            <b>Client ID</b>
+            and <b>Client Secret</b>. The secret is shown only once.
+          </li>
+          <li>
+            <b>Access → Applications</b>, open the ranch app, then <b>Policies → Add a policy</b>. Set Action to
+            <b>Service Auth</b>
+            and Include to <b>Service Token: Ranch Siri</b>. Save.
+          </li>
+        </ul>
+      </li>
+      <li>
+        <b>Make the app key.</b>
+        <%= cond do %>
+          <% @new_key -> %>
+            <div class="vl-key-new" style="margin-top:8px" id="new-key">
+              <div style="font-weight:700">Your key. Copy it now; it won't be shown again.</div>
+              <div class="vl-copy">
+                <input id="key-value" type="text" readonly value={"Bearer #{@new_key}"} />
+                <button
+                  class="tr-btn tr-btn-small"
+                  id="copy-key"
+                  phx-click={JS.dispatch("ranch:copy", detail: %{from: "#key-value"})}
+                >
+                  Copy
+                </button>
+              </div>
+            </div>
+          <% @key_made -> %>
+            <div class="vl-sub">
+              Key made {local_day(@key_made)}.
+              Making a new one turns the old one off.
+            </div>
+            <div class="vl-actions" style="margin-top:8px">
+              <button
+                class="tr-btn tr-btn-small"
+                phx-click="make_key"
+                id="make-key"
+                data-confirm="Make a new key? The Shortcut will need the new one."
+              >
+                Make a new key
+              </button>
+              <button
+                class="tr-btn tr-btn-small"
+                phx-click="turn_off_key"
+                data-confirm="Turn off the key? The Shortcut stops working until you make a new one."
+              >
+                Turn off
+              </button>
+            </div>
+          <% true -> %>
+            <div class="vl-actions" style="margin-top:8px">
+              <button class="tr-btn tr-btn-primary" phx-click="make_key" id="make-key">
+                Make a key
+              </button>
+            </div>
+        <% end %>
+      </li>
+      <li>
+        <b>Build the Shortcut.</b>
+        Open the <b>Shortcuts</b>
+        app, tap <b>+</b>, and name it <b>Ranch log</b>. Then add these actions in order:
+        <ul>
+          <li><b>Dictate Text</b>. Set Stop Listening to <i>After Pause</i>.</li>
+          <li>
+            <b>Get Contents of URL</b>, with this URL:
+            <div class="vl-copy">
+              <input id="api-url" type="text" readonly value={url(~p"/api/voice-log")} />
+              <button
+                class="tr-btn tr-btn-small"
+                phx-click={JS.dispatch("ranch:copy", detail: %{from: "#api-url"})}
+              >
+                Copy
+              </button>
+            </div>
+            Tap the arrow to show more and set Method to <b>POST</b>. Add three <b>Headers</b>:
+            <ul>
+              <li>
+                <code class="vl-code">Authorization</code>: your key from step 2 (it starts with <i>Bearer rk_</i>)
+              </li>
+              <li><code class="vl-code">CF-Access-Client-Id</code>: the Client ID from step 1</li>
+              <li>
+                <code class="vl-code">CF-Access-Client-Secret</code>: the Client Secret from step 1
+              </li>
+            </ul>
+            Set Request Body to <b>JSON</b>
+            and add a <b>Text</b>
+            field: key <code class="vl-code">text</code>, value the <i>Dictated Text</i>
+            variable.
+          </li>
+          <li>
+            <b>Get Dictionary Value</b>: get the value for <code class="vl-code">message</code>
+            in <i>Contents of URL</i>.
+          </li>
+          <li>
+            <b>Speak Text</b>: the <i>Dictionary Value</i>. This way Siri tells you it was saved.
+          </li>
+        </ul>
+      </li>
+      <li>
+        <b>Try it:</b> say "Hey Siri, Ranch log." The note shows up at the top of this page.
+      </li>
+    </ol>
+  </div>
+</div>
