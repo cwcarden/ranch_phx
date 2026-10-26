@@ -378,6 +378,35 @@ defmodule RanchPhx.Training do
     %{sessions: count, minutes: minutes}
   end
 
+  @doc """
+  Every day with a logged session in this book, oldest first:
+  `%{date: Date, slugs: MapSet of activity slugs, minutes: total minutes}`.
+  Several sessions on one day count as one day.
+  """
+  def logged_days(book_id) do
+    from(s in Session,
+      left_join: sa in SessionActivity,
+      on: sa.session_id == s.id,
+      left_join: a in Activity,
+      on: a.id == sa.activity_id,
+      where: s.book_id == ^book_id,
+      select: {s.id, s.date, s.minutes, a.slug}
+    )
+    |> Repo.all()
+    |> Enum.group_by(fn {_id, date, _min, _slug} -> date end)
+    |> Enum.map(fn {date, rows} ->
+      minutes =
+        rows
+        |> Enum.uniq_by(fn {id, _, _, _} -> id end)
+        |> Enum.map(fn {_, _, min, _} -> min || 0 end)
+        |> Enum.sum()
+
+      slugs = for {_, _, _, slug} <- rows, slug != nil, into: MapSet.new(), do: slug
+      %{date: date, slugs: slugs, minutes: minutes}
+    end)
+    |> Enum.sort_by(&Date.to_gregorian_days(&1.date))
+  end
+
   @doc "Most recent session date per book, for the overview cards."
   def last_session_dates(book_ids) do
     Repo.all(

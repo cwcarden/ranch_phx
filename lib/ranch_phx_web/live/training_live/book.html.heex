@@ -18,7 +18,8 @@
       {"today", "Today", "hero-sun", "today"},
       {"goals", "Goals", "hero-flag", "goals"},
       {"working-on", "Working on", "hero-wrench-screwdriver", "working"},
-      {"now", "Stage", "hero-map", "stage"}
+      {"now", "Stage", "hero-map", "stage"},
+      {"timeline", "Timeline", "hero-chart-bar", "timeline"}
     ] ++
       if(@is_superuser,
         do: [
@@ -515,6 +516,9 @@
       <button class="tr-mini" phx-click="set_stage">Follow his age again</button>
     </div>
   </div>
+
+  <%!-- The program on the calendar, and what's been logged --%>
+  <.timeline_card tl={@timeline} today={@today} show_weeks={@show_weeks} />
 
   <%!-- Ask the TrAIner --%>
   <div :if={@is_superuser} class="tr-card tr-sec sec-trainer" id="coach">
