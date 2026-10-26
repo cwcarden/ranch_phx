@@ -518,7 +518,12 @@
   </div>
 
   <%!-- The program on the calendar, and what's been logged --%>
-  <.timeline_card tl={@timeline} today={@today} show_weeks={@show_weeks} />
+  <.timeline_card
+    tl={@timeline}
+    today={@today}
+    show_weeks={@show_weeks}
+    selected_id={@tl_stage_id}
+  />
 
   <%!-- Ask the TrAIner --%>
   <div :if={@is_superuser} class="tr-card tr-sec sec-trainer" id="coach">

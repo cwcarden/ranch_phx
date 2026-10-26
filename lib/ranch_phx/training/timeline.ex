@@ -36,9 +36,9 @@ defmodule RanchPhx.Training.Timeline do
   """
   def build(book, days, current, %Date{} = today) do
     foaled = book.horse.foaled_on
-    spans = spans(book.program.stages, foaled)
-    current_span = current && Enum.find(spans, &(&1.stage.id == current.id))
     past = Enum.filter(days, &(Date.compare(&1.date, today) != :gt))
+    spans = book.program.stages |> spans(foaled) |> Enum.map(&put_logged(&1, past))
+    current_span = current && Enum.find(spans, &(&1.stage.id == current.id))
 
     %{
       foaled_on: foaled,
@@ -75,6 +75,16 @@ defmodule RanchPhx.Training.Timeline do
         stop: stop
       }
     end)
+  end
+
+  # Days logged while the horse was in this stage's age window.
+  defp put_logged(span, days) do
+    count =
+      Enum.count(days, fn d ->
+        Date.compare(d.date, span.start) != :lt and Date.compare(d.date, span.stop) == :lt
+      end)
+
+    Map.put(span, :logged, count)
   end
 
   defp range([], _foaled), do: nil
