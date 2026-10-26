@@ -64,6 +64,8 @@ defmodule RanchPhx.Repo.Migrations.UpdateColtStartTimeline do
   end
 
   # {title, target_date, notes}
+  # (The goal insert casts its parameters: each is used twice, and Postgres
+  # won't guess one type for a value compared to a varchar and inserted.)
   defp goals do
     [
       {"World Show trip (OKC): saddled, round pen, standing tied", ~D[2026-11-12],
@@ -193,8 +195,10 @@ defmodule RanchPhx.Repo.Migrations.UpdateColtStartTimeline do
       repo().query!(
         "INSERT INTO training_goals
            (book_id, title, target_date, notes, status, position, inserted_at, updated_at)
-         SELECT $1, $2, $3, $4, 'active', $5, $6, $6
-         WHERE NOT EXISTS (SELECT 1 FROM training_goals WHERE book_id = $1 AND title = $2)",
+         SELECT $1::bigint, $2::varchar, $3::date, $4::text, 'active', $5::integer,
+                $6::timestamp, $6::timestamp
+         WHERE NOT EXISTS
+           (SELECT 1 FROM training_goals WHERE book_id = $1::bigint AND title = $2::varchar)",
         [book_id, title, date, notes, pos, now]
       )
     end)
