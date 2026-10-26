@@ -31,6 +31,7 @@ defmodule RanchPhxWeb.TrainingLive.Book do
      |> assign(:editing_goal, nil)
      |> assign(:show_done_goals, false)
      |> assign(:show_weeks, false)
+     |> assign(:tl_stage_id, nil)
      |> assign(:issue_form, nil)
      |> assign(:editing_issue, nil)
      |> assign(:issue_history, nil)
@@ -446,6 +447,21 @@ defmodule RanchPhxWeb.TrainingLive.Book do
   def handle_event("toggle_weeks", _params, socket) do
     {:noreply, update(socket, :show_weeks, &(!&1))}
   end
+
+  # Tapping a stage on the timeline opens it; tapping the open one again closes it.
+  def handle_event("tl_stage", %{"id" => id}, socket) do
+    id =
+      case Integer.parse(to_string(id)) do
+        {n, ""} -> n
+        _ -> nil
+      end
+
+    {:noreply, update(socket, :tl_stage_id, fn open -> if(open == id, do: nil, else: id) end)}
+  end
+
+  def handle_event("tl_stage", _params, socket), do: {:noreply, socket}
+
+  def handle_event("tl_close", _params, socket), do: {:noreply, assign(socket, :tl_stage_id, nil)}
 
   # ── Profile ─────────────────────────────────────────────────────────────────
 

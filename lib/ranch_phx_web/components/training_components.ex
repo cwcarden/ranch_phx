@@ -546,13 +546,21 @@ defmodule RanchPhxWeb.TrainingComponents do
       .tl-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; font-size: 13px; color: var(--text2); }
       .tl-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
       .tl-legend i.tl-legend-goal { background: #d97706; transform: rotate(45deg) scale(.85); border-radius: 2px; }
-      .tl-up { display: grid; gap: 4px; margin-top: 12px; }
-      .tl-up-row { display: flex; align-items: baseline; gap: 10px; font-size: 15px; min-width: 0; }
-      .tl-up-date { flex: none; width: 52px; font-weight: 700; color: var(--text2); font-size: 14px; }
-      .tl-up-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .tl-up-when { flex: none; color: var(--text3); font-size: 13px; }
-      .tl-hours { margin-top: 10px; font-size: 14px; }
       .tl-toggle { margin-top: 12px; }
+      .tl-hit { fill: transparent; cursor: pointer; }
+      .tl-hit-band { cursor: pointer; }
+      .tl-stats { grid-template-columns: repeat(4, 1fr); gap: 8px; }
+      .tl-stats .tr-stat { padding: 8px 4px; }
+      .tl-stats .tr-stat b { font-size: 20px; }
+      .tl-detail { margin-top: 12px; padding: 12px 14px 14px; border-radius: 12px; background: var(--surface2); border: 1px solid var(--border); border-top: 4px solid var(--stage); }
+      .tl-detail-head { display: flex; align-items: center; gap: 8px; }
+      .tl-detail-title { flex: 1; min-width: 0; }
+      .tl-detail-title b { display: block; font-size: 18px; line-height: 1.25; }
+      .tl-status { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text2); }
+      .tl-status i { width: 8px; height: 8px; border-radius: 50%; background: var(--stage); }
+      .tl-nav { flex: none; width: 40px; height: 40px; border-radius: 50%; border: 1.5px solid var(--border); background: var(--surface); color: var(--text2); font-size: 22px; line-height: 1; cursor: pointer; }
+      .tl-nav:disabled { opacity: .3; cursor: default; }
+      .tl-meta { margin-top: 8px; font-size: 14px; color: var(--text2); }
 
       /* ── Sections: each one has its own color and icon so it's easy to spot ── */
       .sec-goals    { --sec: #d97706; --sec-soft: #fef3c7; }

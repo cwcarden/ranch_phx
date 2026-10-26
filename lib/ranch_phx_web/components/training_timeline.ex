@@ -5,7 +5,7 @@ defmodule RanchPhxWeb.TrainingTimeline do
   and an optional weekly activity chart. Drawn as inline SVG, no chart library.
   """
   use Phoenix.Component
-  import RanchPhxWeb.TrainingComponents, only: [section_head: 1, countdown: 1]
+  import RanchPhxWeb.TrainingComponents, only: [section_head: 1]
   alias RanchPhx.Training.Timeline
 
   # SVG coordinate width; everything scales to the card width.
@@ -14,14 +14,19 @@ defmodule RanchPhxWeb.TrainingTimeline do
   attr :tl, :map, required: true
   attr :today, Date, required: true
   attr :show_weeks, :boolean, default: false
+  attr :selected_id, :integer, default: nil, doc: "stage opened by tapping it, if any"
 
   def timeline_card(assigns) do
+    %{tl: tl, today: today} = assigns
+    sel = assigns.selected_id && Enum.find(tl.spans, &(&1.stage.id == assigns.selected_id))
+
     assigns =
       assigns
-      |> assign(:overview, overview(assigns.tl, assigns.today))
-      |> assign(:zoom, zoom(assigns.tl, assigns.today))
-      |> assign(:upcoming, upcoming(assigns.tl, assigns.today))
-      |> assign(:chart, week_chart(assigns.tl))
+      |> assign(:sel, sel)
+      |> assign(:sel_info, sel && stage_info(sel, tl, today))
+      |> assign(:overview, overview(tl, today, sel))
+      |> assign(:zoom, zoom(tl, today, sel))
+      |> assign(:chart, week_chart(tl))
       |> assign(:w, @w)
 
     ~H"""
@@ -40,12 +45,11 @@ defmodule RanchPhxWeb.TrainingTimeline do
       </p>
 
       <%= if @overview do %>
-        <div class="tr-label">Whole program</div>
         <svg
           class="tl-svg"
           viewBox={"0 0 #{@w} 58"}
           role="img"
-          aria-label={"Program timeline from foaling to #{fmt(elem(@tl.range, 1))}, today marked"}
+          aria-label={"Program timeline from foaling to #{fmt(elem(@tl.range, 1))}, today marked. Tap a stage to open it."}
         >
           <defs>
             <clipPath id="tl-bar-clip">
@@ -61,26 +65,24 @@ defmodule RanchPhxWeb.TrainingTimeline do
               height="16"
               fill={s.color}
               opacity={s.opacity}
-            >
-              <title>{s.name}: {fmt(s.start)} – {fmt(s.stop)}</title>
-            </rect>
+            />
           </g>
           <rect
-            :if={@overview.current}
-            x={@overview.current.x}
+            :if={@overview.outline}
+            x={@overview.outline.x}
             y="18"
-            width={@overview.current.w}
+            width={@overview.outline.w}
             height="20"
             rx="4"
             fill="none"
             class="tl-current"
             stroke-width="2"
           />
-          <g :for={g <- @overview.goals}>
-            <path d={"M#{g.x} 6 l4 5 l-4 5 l-4 -5 z"} class={["tl-goal", g.done && "done"]}>
-              <title>{g.title} · {fmt(g.date)}</title>
-            </path>
-          </g>
+          <path
+            :for={g <- @overview.goals}
+            d={"M#{g.x} 6 l4 5 l-4 5 l-4 -5 z"}
+            class={["tl-goal", g.done && "done"]}
+          />
           <line
             :if={@overview.today}
             x1={@overview.today}
@@ -95,16 +97,72 @@ defmodule RanchPhxWeb.TrainingTimeline do
             <line x1={t.x} x2={t.x} y1="38" y2="42" class="tl-tick" />
             <text x={t.x} y="54" text-anchor={t.anchor} class="tl-axis">{t.label}</text>
           </g>
+          <%!-- Tall invisible targets on top so short stages are still easy to tap --%>
+          <rect
+            :for={s <- @overview.segments}
+            x={s.x}
+            y="2"
+            width={s.w}
+            height="42"
+            class="tl-hit"
+            phx-click="tl_stage"
+            phx-value-id={s.id}
+          >
+            <title>{s.name}: {fmt(s.start)} – {fmt(s.stop)}</title>
+          </rect>
         </svg>
       <% end %>
 
-      <%= if @zoom do %>
+      <div :if={@sel} id="tl-stage" class="tl-detail" style={"--stage: #{@sel.color}"}>
+        <div class="tl-detail-head">
+          <button
+            class="tl-nav"
+            phx-click="tl_stage"
+            phx-value-id={@sel_info.prev && @sel_info.prev.stage.id}
+            disabled={is_nil(@sel_info.prev)}
+            aria-label="Previous stage"
+          >
+            ‹
+          </button>
+          <div class="tl-detail-title">
+            <span class="tl-status"><i></i>{@sel_info.status} · Stage {@sel.index + 1}</span>
+            <b>{@sel.stage.name}</b>
+          </div>
+          <button
+            class="tl-nav"
+            phx-click="tl_stage"
+            phx-value-id={@sel_info.next && @sel_info.next.stage.id}
+            disabled={is_nil(@sel_info.next)}
+            aria-label="Next stage"
+          >
+            ›
+          </button>
+          <button class="tl-nav" phx-click="tl_close" aria-label="Close stage">×</button>
+        </div>
+        <p class="tl-meta">
+          {fmt_short(@sel.start)} – {fmt(@sel.stop)} · {@sel_info.ages}<span :if={@sel.logged > 0}> · {@sel.logged} {if @sel.logged == 1, do: "day", else: "days"} logged</span>
+        </p>
+        <p :if={@sel.stage.summary} class="tr-muted" style="margin-top:6px">{@sel.stage.summary}</p>
+        <ul :if={@sel.stage.focus != []} class="tr-list">
+          <li :for={f <- @sel.stage.focus}>{f}</li>
+        </ul>
+        <div :if={@sel.stage.guardrail} class="tr-guard">
+          <b>Keep it light:</b> {@sel.stage.guardrail}
+          <span :if={@sel.stage.max_session_minutes}>
+            Up to {@sel.stage.max_session_minutes} min a session<span :if={
+              @sel.stage.max_sessions_per_week
+            }>, {@sel.stage.max_sessions_per_week} sessions a week</span>.
+          </span>
+        </div>
+      </div>
+
+      <%= if @zoom.bands != [] or @zoom.days != [] do %>
         <div class="tr-label tl-sub">Around today</div>
         <svg
           class="tl-svg"
           viewBox={"0 0 #{@w} 104"}
           role="img"
-          aria-label="Stages, logged days and goals from six weeks ago to seven months ahead"
+          aria-label="Stages, logged days and goals from six weeks ago to seven months ahead. Tap a stage to open it."
         >
           <rect
             :for={b <- @zoom.bands}
@@ -114,7 +172,10 @@ defmodule RanchPhxWeb.TrainingTimeline do
             height="30"
             rx="6"
             fill={b.color}
-            opacity={if b.current, do: "0.32", else: "0.16"}
+            opacity={if b.strong, do: "0.34", else: "0.16"}
+            class="tl-hit-band"
+            phx-click="tl_stage"
+            phx-value-id={b.id}
           />
           <text
             :for={b <- @zoom.bands}
@@ -175,39 +236,22 @@ defmodule RanchPhxWeb.TrainingTimeline do
           </span>
           <span><i class="tl-legend-goal"></i>Goal</span>
         </div>
-
-        <div :if={@upcoming != []} class="tl-up">
-          <div :for={g <- @upcoming} class="tl-up-row">
-            <span class="tl-up-date">{fmt_short(g.target_date)}</span>
-            <span class="tl-up-title">{g.title}</span>
-            <span class="tl-up-when">{countdown(Date.diff(g.target_date, @today))}</span>
-          </div>
-        </div>
       <% end %>
 
-      <div class="tr-stats">
+      <div class="tr-stats tl-stats">
         <div class="tr-stat">
-          <b>{@tl.stats.days_in_stage || "–"}</b><span>days in this stage</span>
+          <b>{@tl.stats.days_in_stage || "–"}</b><span>in stage</span>
         </div>
         <div class="tr-stat">
-          <b>{@tl.stats.tracked_in_stage || "–"}</b><span>days logged in stage</span>
+          <b style={"color:#{Timeline.category_color(:saddled)}"}>{@tl.stats.saddled}</b><span>saddled</span>
         </div>
         <div class="tr-stat">
-          <b>{@tl.stats.total_days}</b><span>days logged total</span>
+          <b style={"color:#{Timeline.category_color(:driving)}"}>{@tl.stats.driving}</b><span>driven</span>
         </div>
         <div class="tr-stat">
-          <b style={"color:#{Timeline.category_color(:saddled)}"}>{@tl.stats.saddled}</b><span>days saddled</span>
-        </div>
-        <div class="tr-stat">
-          <b style={"color:#{Timeline.category_color(:driving)}"}>{@tl.stats.driving}</b><span>days ground driven</span>
-        </div>
-        <div class="tr-stat">
-          <b style={"color:#{Timeline.category_color(:riding)}"}>{@tl.stats.riding}</b><span>days ridden</span>
+          <b style={"color:#{Timeline.category_color(:riding)}"}>{@tl.stats.riding}</b><span>ridden</span>
         </div>
       </div>
-      <p :if={@tl.stats.total_minutes > 0} class="tr-muted tl-hours">
-        {hours(@tl.stats.total_minutes)} of logged work in all.
-      </p>
 
       <button
         class="tr-mini tl-toggle"
@@ -215,7 +259,7 @@ defmodule RanchPhxWeb.TrainingTimeline do
         aria-expanded={to_string(@show_weeks)}
         aria-controls="tl-weeks"
       >
-        {if @show_weeks, do: "Hide weekly activity", else: "Show weekly activity"}
+        {if @show_weeks, do: "Hide weekly activity", else: "Weekly activity"}
       </button>
 
       <div :if={@show_weeks} id="tl-weeks" class="tl-sub">
@@ -258,11 +302,37 @@ defmodule RanchPhxWeb.TrainingTimeline do
     """
   end
 
+  # ── The opened stage ────────────────────────────────────────────────────────
+
+  defp stage_info(sel, tl, today) do
+    next = Enum.at(tl.spans, sel.index + 1)
+    prev = if sel.index > 0, do: Enum.at(tl.spans, sel.index - 1)
+    from = sel.stage.from_age_months
+    to = if next, do: next.stage.from_age_months, else: from + 6
+
+    status =
+      cond do
+        tl.current && sel.stage.id == tl.current.stage.id -> "Now"
+        Date.compare(sel.stop, today) != :gt -> "Done"
+        tl.current && sel.index == tl.current.index + 1 -> "Up next"
+        true -> "Later"
+      end
+
+    %{status: status, prev: prev, next: next, ages: age_range(from, to)}
+  end
+
+  defp age_range(from, to) when to <= 24, do: "#{from}–#{to} months"
+  defp age_range(from, to), do: "#{age_words(from)} – #{age_words(to)}"
+
+  defp age_words(m) when m < 24, do: "#{m} months"
+  defp age_words(m) when rem(m, 12) == 0, do: "#{div(m, 12)} years"
+  defp age_words(m), do: "#{div(m, 12)} yrs #{rem(m, 12)} mo"
+
   # ── Whole-program bar ───────────────────────────────────────────────────────
 
-  defp overview(%{range: nil}, _today), do: nil
+  defp overview(%{range: nil}, _today, _sel), do: nil
 
-  defp overview(%{range: {from, to}} = tl, today) do
+  defp overview(%{range: {from, to}} = tl, today, sel) do
     x = scale(from, to, 0, @w)
     current_id = tl.current && tl.current.stage.id
 
@@ -276,6 +346,7 @@ defmodule RanchPhxWeb.TrainingTimeline do
           end
 
         %{
+          id: s.stage.id,
           x: x.(s.start),
           w: max(x.(s.stop) - x.(s.start), 0),
           color: s.color,
@@ -286,9 +357,9 @@ defmodule RanchPhxWeb.TrainingTimeline do
         }
       end)
 
-    current =
-      tl.current &&
-        %{x: x.(tl.current.start), w: max(x.(tl.current.stop) - x.(tl.current.start), 0)}
+    # Outline the opened stage, or the current one when none is open.
+    marked = sel || tl.current
+    outline = marked && %{x: x.(marked.start), w: max(x.(marked.stop) - x.(marked.start), 0)}
 
     goals =
       for g <- tl.goals, in_range?(g.target_date, from, to) do
@@ -314,7 +385,7 @@ defmodule RanchPhxWeb.TrainingTimeline do
 
     %{
       segments: segments,
-      current: current,
+      outline: outline,
       goals: goals,
       ticks: ticks,
       today: if(in_range?(today, from, to), do: x.(today))
@@ -323,9 +394,9 @@ defmodule RanchPhxWeb.TrainingTimeline do
 
   # ── Around today ────────────────────────────────────────────────────────────
 
-  defp zoom(%{window: {from, to}} = tl, today) do
+  defp zoom(%{window: {from, to}} = tl, today, sel) do
     x = scale(from, to, 0, @w)
-    current_id = tl.current && tl.current.stage.id
+    strong_id = (sel || tl.current) && (sel || tl.current).stage.id
 
     bands =
       for s <- tl.spans,
@@ -335,10 +406,11 @@ defmodule RanchPhxWeb.TrainingTimeline do
         w = Float.round(max(x2 - x1 - 2, 0.0), 1)
 
         %{
+          id: s.stage.id,
           x: x1 + 1,
           w: w,
           color: s.color,
-          current: s.stage.id == current_id,
+          strong: s.stage.id == strong_id,
           lines: fit_lines(s.stage.name, w - 12)
         }
       end
@@ -367,15 +439,6 @@ defmodule RanchPhxWeb.TrainingTimeline do
     end)
     # Keep the last label from running off the edge.
     |> Enum.filter(&(&1.x < @w - 22))
-  end
-
-  defp upcoming(%{window: {_from, to}, goals: goals}, today) do
-    goals
-    |> Enum.filter(
-      &(&1.status == "active" and Date.compare(&1.target_date, today) != :lt and
-          Date.compare(&1.target_date, to) != :gt)
-    )
-    |> Enum.take(4)
   end
 
   # ── Weekly chart ────────────────────────────────────────────────────────────
@@ -477,12 +540,4 @@ defmodule RanchPhxWeb.TrainingTimeline do
 
   defp fmt(%Date{} = d), do: Calendar.strftime(d, "%b %-d, %Y")
   defp fmt_short(%Date{} = d), do: Calendar.strftime(d, "%b %-d")
-
-  defp hours(minutes) when minutes < 60, do: "#{minutes} minutes"
-
-  defp hours(minutes) do
-    h = Float.round(minutes / 60, 1)
-    h = if h == trunc(h), do: trunc(h), else: h
-    "#{h} #{if h == 1, do: "hour", else: "hours"}"
-  end
 end
