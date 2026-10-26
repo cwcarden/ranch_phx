@@ -581,6 +581,8 @@ defmodule RanchPhxWeb.TrainingComponents do
 
       .tr-jump { position: sticky; top: calc(108px + env(safe-area-inset-top)); z-index: 40; display: flex; gap: 8px; overflow-x: auto; padding: 10px 16px; margin: 0 -16px; background: var(--surface2); scrollbar-width: none; -webkit-overflow-scrolling: touch; }
       .tr-jump::-webkit-scrollbar { display: none; }
+      /* Wider screens have no swipe, so let the shortcuts wrap instead of hiding off the edge. */
+      @media (min-width: 640px) { .tr-jump { flex-wrap: wrap; overflow-x: visible; } }
       .tr-jump a { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 0 14px 0 10px; border-radius: 19px; background: var(--surface); border: 1.5px solid var(--border); color: var(--text); font-size: 15px; font-weight: 600; text-decoration: none; }
       .tr-jump a [class^="hero-"] { width: 18px; height: 18px; color: var(--sec); }
       .tr-jump a:active { background: var(--sec-soft); border-color: var(--sec); }
