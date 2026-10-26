@@ -530,6 +530,30 @@ defmodule RanchPhxWeb.TrainingComponents do
       .tr-res.res-mixed { color: #d97706; }
       .tr-res.res-trouble { color: #dc2626; }
 
+      /* ── Timeline card ── */
+      .tl-svg { display: block; width: 100%; height: auto; overflow: visible; }
+      .tl-sub { margin-top: 18px; }
+      .tl-axis { fill: var(--text3); font-size: 11px; }
+      .tl-tick, .tl-grid { stroke: var(--border); stroke-width: 1; }
+      .tl-band-label { fill: var(--text); font-size: 11px; font-weight: 600; }
+      .tl-lane { fill: var(--surface2); stroke: var(--border); stroke-width: 1; }
+      .tl-today { stroke: var(--text); }
+      .tl-today-label { fill: var(--text); font-size: 11px; font-weight: 700; }
+      .tl-current { stroke: var(--text); }
+      .tl-goal { fill: #d97706; }
+      .tl-goal.done { fill: #16a34a; }
+      .tl-goal-line { stroke: #d97706; stroke-width: 1; stroke-dasharray: 2 3; opacity: .7; }
+      .tl-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; font-size: 13px; color: var(--text2); }
+      .tl-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+      .tl-legend i.tl-legend-goal { background: #d97706; transform: rotate(45deg) scale(.85); border-radius: 2px; }
+      .tl-up { display: grid; gap: 4px; margin-top: 12px; }
+      .tl-up-row { display: flex; align-items: baseline; gap: 10px; font-size: 15px; min-width: 0; }
+      .tl-up-date { flex: none; width: 52px; font-weight: 700; color: var(--text2); font-size: 14px; }
+      .tl-up-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .tl-up-when { flex: none; color: var(--text3); font-size: 13px; }
+      .tl-hours { margin-top: 10px; font-size: 14px; }
+      .tl-toggle { margin-top: 12px; }
+
       /* ── Sections: each one has its own color and icon so it's easy to spot ── */
       .sec-goals    { --sec: #d97706; --sec-soft: #fef3c7; }
       .sec-working  { --sec: #e11d48; --sec-soft: #ffe4e6; }
@@ -538,6 +562,8 @@ defmodule RanchPhxWeb.TrainingComponents do
       .sec-log      { --sec: #16a34a; --sec-soft: #dcfce7; }
       .sec-sessions { --sec: #2563eb; --sec-soft: #dbeafe; }
       .sec-today    { --sec: #0d9488; --sec-soft: #ccfbf1; }
+      .sec-timeline { --sec: #0891b2; --sec-soft: #cffafe; }
+      [data-theme="dark"] .sec-timeline { --sec: #22d3ee; --sec-soft: #083344; }
       [data-theme="dark"] .sec-today { --sec: #2dd4bf; --sec-soft: #042f2e; }
       [data-theme="dark"] .sec-goals    { --sec: #fbbf24; --sec-soft: #3a2705; }
       [data-theme="dark"] .sec-working  { --sec: #fb7185; --sec-soft: #3f0d1a; }

@@ -1,8 +1,10 @@
 defmodule RanchPhxWeb.TrainingLive.Book do
   use RanchPhxWeb, :live_view
   import RanchPhxWeb.TrainingComponents
+  import RanchPhxWeb.TrainingTimeline
   alias RanchPhx.Training
   alias RanchPhx.Training.Coach
+  alias RanchPhx.Training.Timeline
   alias RanchPhx.Training.{Goal, Issue, SessionActivity, SessionIssue}
   alias RanchPhx.Accounts.Scope
   alias RanchPhxWeb.Uploads
@@ -28,6 +30,7 @@ defmodule RanchPhxWeb.TrainingLive.Book do
      |> assign(:goal_form, nil)
      |> assign(:editing_goal, nil)
      |> assign(:show_done_goals, false)
+     |> assign(:show_weeks, false)
      |> assign(:issue_form, nil)
      |> assign(:editing_issue, nil)
      |> assign(:issue_history, nil)
@@ -440,6 +443,10 @@ defmodule RanchPhxWeb.TrainingLive.Book do
     {:noreply, update(socket, :show_done_goals, &(!&1))}
   end
 
+  def handle_event("toggle_weeks", _params, socket) do
+    {:noreply, update(socket, :show_weeks, &(!&1))}
+  end
+
   # ── Profile ─────────────────────────────────────────────────────────────────
 
   def handle_event("edit_profile", _params, socket) do
@@ -837,6 +844,10 @@ defmodule RanchPhxWeb.TrainingLive.Book do
     |> assign(:sessions, sessions)
     |> assign(:routines, Training.list_routines(book.horse_id))
     |> assign(:issues, Training.list_issues(book.horse_id))
+    |> then(fn socket ->
+      days = Training.logged_days(book.id)
+      assign(socket, :timeline, Timeline.build(book, days, socket.assigns.progress.stage, today))
+    end)
     |> then(fn socket ->
       %{progress: progress, issues: issues, gated: gated} = socket.assigns
       assign(socket, :plan, Training.today_plan(progress.stage, sessions, issues, gated, today))
