@@ -4,7 +4,7 @@
   <div class="rpt-header">
     <div>
       <div class="rpt-title"><%= @animal.name %></div>
-      <div class="rpt-subtitle">Gimel Ranch <%= String.capitalize(@animal.kind || "Animal") %> Report</div>
+      <div class="rpt-subtitle">Gimel Ranch <%= if @kind == "farrier", do: "Farrier Report", else: "#{String.capitalize(@animal.kind || "Animal")} Report" %></div>
     </div>
     <div class="rpt-meta">
       Generated <%= Calendar.strftime(@generated_at, "%B %d, %Y") %><br/>
@@ -93,6 +93,78 @@
       </div>
     </div>
   <% end %>
+
+  <%!-- ── Hooves ──────────────────────────────────────────────────────────── --%>
+  <div :if={@sections.hooves and @hooves.history != []} class="rpt-section rpt-hooves" id="rpt-hooves">
+    <div class="rpt-section-title">Hooves</div>
+    <p class="hf-lead">
+      Newest measurements for each foot, with the photos and the lines drawn on them in the ranch app. Side view: toe angle to the ground and the
+      hoof-pastern axis. Bottom view: balance of the sole from the toe, heels, widest part and frog.
+    </p>
+    <div :if={@hooves.pairs != []} class="hf-pairs">
+      <span :for={{label, d, status} <- @hooves.pairs} class={"hf-tag #{status}"}>
+        {label} differ {RanchPhx.Animals.Hooves.fmt(d)}°{if status == :ok, do: " (good match)", else: " (worth a look)"}
+      </span>
+    </div>
+
+    <div :for={f <- @hooves.feet} class="hf-foot">
+      <div class="hf-foot-name">{f.name}</div>
+      <div class="hf-views">
+        <div :if={f.side} class="hf-view">
+          <img :if={f.side.photo} src={f.side.photo} alt={"#{f.name} side"} />
+          <div class="hf-nums">
+            Side · {Calendar.strftime(f.side.date, "%b %-d, %Y")}<br />
+            <b>Toe {RanchPhx.Animals.Hooves.fmt(f.side.toe)}°</b><span :if={f.side.pastern}> · Pastern {RanchPhx.Animals.Hooves.fmt(f.side.pastern)}°</span>
+          </div>
+          <ul class="hf-sum">
+            <li :for={{st, text} <- f.side_summary} class={to_string(st)}>{text}</li>
+          </ul>
+          <p :if={f.side.note} class="hf-note">Note: {f.side.note}</p>
+        </div>
+        <div :if={f.sole} class="hf-view">
+          <img :if={f.sole.photo} src={f.sole.photo} alt={"#{f.name} sole"} />
+          <div class="hf-nums">
+            Bottom · {Calendar.strftime(f.sole.date, "%b %-d, %Y")}<br />
+            <b>{RanchPhx.Animals.Hooves.sole_short(f.sole)}</b>
+          </div>
+          <ul class="hf-sum">
+            <li :for={{st, text} <- f.sole_summary} class={to_string(st)}>{text}</li>
+          </ul>
+          <p :if={f.sole.note} class="hf-note">Note: {f.sole.note}</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="hf-sub">All measurements</div>
+    <table class="rpt-table">
+      <thead><tr><th>Photo</th><th>Date</th><th>Foot</th><th>View</th><th>Measurement</th><th>Note</th></tr></thead>
+      <tbody>
+        <tr :for={m <- @hooves.history}>
+          <td class="hf-thumb"><img :if={m.photo} src={m.photo} alt="" /></td>
+          <td>{Calendar.strftime(m.date, "%b %-d, %Y")}</td>
+          <td>{RanchPhx.Animals.Hooves.foot_name(m.foot)}</td>
+          <%= if Map.get(m, :view) == :sole do %>
+            <td>Bottom</td>
+            <td>{RanchPhx.Animals.Hooves.sole_short(m)}</td>
+          <% else %>
+            <td>Side</td>
+            <td>
+              Toe {RanchPhx.Animals.Hooves.fmt(m.toe)}°<span :if={m.pastern}>, pastern {RanchPhx.Animals.Hooves.fmt(m.pastern)}° ({RanchPhx.Animals.Hooves.axis_text(m.axis)})</span>
+            </td>
+          <% end %>
+          <td>{m.note}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="hf-sub">Guide</div>
+    <ul class="hf-guide">
+      <li :for={{term, text} <- RanchPhx.Animals.Hooves.side_correct() ++ RanchPhx.Animals.Hooves.sole_correct()}><b>{term}:</b> {text}</li>
+    </ul>
+    <p class="hf-fine">
+      Measured from photos, so only as accurate as how square the camera was. Meant for tracking changes and talking things over; the farrier and vet have the final say.
+    </p>
+  </div>
 
   <%!-- ── Pedigree ─────────────────────────────────────────────────────────── --%>
 
@@ -459,7 +531,7 @@
 
   <%!-- ── Footer ─────────────────────────────────────────────────────────── --%>
   <div style="margin-top:24pt;padding-top:8pt;border-top:1pt solid #ccc;font-size:8pt;color:#aaa;display:flex;justify-content:space-between">
-    <span>Gimel Ranch <%= String.capitalize(@animal.kind || "Animal") %> Report — <%= @animal.name %></span>
+    <span>Gimel Ranch <%= if @kind == "farrier", do: "Farrier", else: String.capitalize(@animal.kind || "Animal") %> Report — <%= @animal.name %></span>
     <span>Generated <%= Calendar.strftime(@generated_at, "%B %d, %Y at %H:%M UTC") %></span>
   </div>
 

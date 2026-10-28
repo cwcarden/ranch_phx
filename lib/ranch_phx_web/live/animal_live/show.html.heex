@@ -2356,6 +2356,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
               <input type="checkbox" name="weight" value="1" checked/>
               <span>Growth: weight &amp; height charts</span>
             </label>
+            <label :if={@animal.kind == "horse"} class="rpt-check">
+              <input type="checkbox" name="hooves" value="1" id="rpt-hooves-check"/>
+              <span>Hooves: angles, sole balance, photos</span>
+            </label>
             <label class="rpt-check">
               <input type="checkbox" name="timeline" value="1"/>
               <span>Timeline Events</span>
