@@ -1,0 +1,28 @@
+name: One-time Plug update
+on:
+  push:
+    branches: [plug-update]
+permissions:
+  contents: write
+jobs:
+  update:
+    if: "!contains(github.event.head_commit.message, 'mix.lock')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: "27"
+          elixir-version: "1.18"
+      - run: mix local.hex --force && mix local.rebar --force
+      - run: mix deps.get
+      - run: mix deps.update plug
+      - run: mix hex.audit || true
+      - run: git diff --stat mix.lock && git diff mix.lock | grep '"plug"'
+      - name: Commit mix.lock
+        run: |
+          git config user.name "Charles"
+          git config user.email "charles@charlescarden.com"
+          git add mix.lock
+          git commit -m "Update plug in mix.lock (1.20.1 was retired)" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>" -m "Claude-Session: https://claude.ai/code/session_01QhXG4EeWjoDMyfQAwVvHj1"
+          git push
