@@ -636,10 +636,25 @@ defmodule RanchPhxWeb.TrainingComponents do
       .tr-item .tr-trend { margin-top: 8px; }
       .tr-item .tr-mark { width: 24px; height: 24px; font-size: 14px; border-radius: 6px; }
       .tr-more { margin-top: 6px; }
-      .tr-more > summary { list-style: none; cursor: pointer; color: var(--text3); font-size: 14px; font-weight: 600; min-height: 40px; display: inline-flex; align-items: center; }
+      .tr-more > summary { gap: 6px; list-style: none; cursor: pointer; color: var(--text3); font-size: 14px; font-weight: 600; min-height: 40px; display: inline-flex; align-items: center; }
       .tr-more > summary::-webkit-details-marker { display: none; }
       .tr-more > summary::after { content: "▾"; margin-left: 6px; font-size: 12px; }
       .tr-more[open] > summary::after { content: "▴"; }
+      .tr-review { margin: 4px 0 14px; padding: 14px 16px; border-radius: 14px; background: var(--surface2); border: 1px solid var(--border); font-size: 16px; line-height: 1.45; }
+      .tr-review-head { display: flex; gap: 10px; align-items: baseline; color: var(--text2); margin-bottom: 6px; }
+      .tr-rv-list { list-style: none; margin: 6px 0 0; padding: 0; }
+      .tr-rv-list li { padding: 6px 0; border-top: 1px solid var(--border); }
+      .tr-rv-list li:first-child { border-top: none; }
+      .tr-rv-res { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 10px; font-size: 13px; font-weight: 700; background: var(--brand-soft); color: var(--brand); }
+      .tr-rv-res.res-trouble { background: var(--warn-soft); color: var(--warn); }
+      .tr-rv-note { color: var(--text2); font-size: 15px; }
+      .tr-rv-milestone { font-weight: 700; color: var(--brand); display: flex; align-items: center; justify-content: space-between; }
+      .tr-rv-new { margin-top: 10px; }
+      .tr-rv-chip { display: flex; align-items: center; gap: 6px; padding: 2px 0; }
+      .tr-rv-chip .hero-wrench-screwdriver { width: 16px; height: 16px; color: var(--text3); }
+      .tr-rv-chip .tr-link-btn { margin-left: auto; }
+      .tr-rv-tags { margin-top: 8px; }
+      .tr-rv-notes { margin-top: 10px; white-space: pre-line; color: var(--text1, inherit); }
 
       /* Stage */
       .tr-next { margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--border); }

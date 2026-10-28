@@ -583,15 +583,27 @@ defmodule RanchPhx.Training.Coach do
   @reader_system """
   You fill in a horse training log from what the trainer said about a session, usually
   dictated on a phone at the barn, so expect run-on sentences and dictation mistakes.
+  The trainer would rather talk than tap, so capture everything they said.
 
   - Only record what they actually said. Leave anything they didn't mention as null or empty.
-  - Activities: pick from the given names only, matching their words to the closest one
-    ("picked up his feet" is Feet). One entry per activity.
+  - Activities: use one of the given names when it fits, matching their words to the
+    closest one ("picked up his feet" is Feet). If they did something none of the names
+    cover, give it a short new name of one to three words in Title Case (e.g. "Ponying",
+    "Bridling", "Water crossing"). One entry per activity.
   - Result for an activity: good, mixed or trouble, judged from how they described it.
     Side: left, right or both, only if they said.
-  - Working on: only the listed items, by id, and only if they said how it went:
-    better, same or worse.
-  - Tags: only from the given list, only when clearly described (e.g. "distracted").
+  - Working on: the listed items, by id, only if they said how it went: better, same or worse.
+  - New to work on: a problem or habit they want to keep working on that isn't already
+    listed (e.g. "sticky picking up his left hind", "pushy at the gate"). Short title in
+    their words, side if they said. Don't repeat listed items.
+  - Milestone: a first time or a big step worth remembering ("first time saddled",
+    "stood tied for an hour"), else null.
+  - Gear: tack and tools they mentioned using (hackamore, saddle, flag, rope halter).
+  - How he was: a few words on his attitude or behavior if they said (e.g. "calm",
+    "distracted by the wind", "pushy"), else null. Tags: only from the given list, only
+    when clearly described.
+  - Health: anything about soundness, soreness, injuries or how he's eating or moving
+    that's worth checking, else null.
   - Minutes: the length if they said it. Date: only if they named a day other than today.
   - Note: what's left worth keeping, in their own words, lightly cleaned up. Don't add
     advice or anything they didn't say. Null if nothing is left.
@@ -683,7 +695,11 @@ defmodule RanchPhx.Training.Coach do
           items: %{
             type: "object",
             properties: %{
-              activity: %{type: "string", enum: Enum.map(activities, & &1.name)},
+              activity: %{
+                type: "string",
+                description:
+                  "One of: #{Enum.map_join(activities, ", ", & &1.name)}. Or a short new name if none fits."
+              },
               result: one_of(["good", "mixed", "trouble"]),
               side: one_of(["left", "right", "both"]),
               note: nullable("string", "Short note on this activity, or null.")
@@ -692,7 +708,25 @@ defmodule RanchPhx.Training.Coach do
             additionalProperties: false
           }
         },
-        note: nullable("string", "The rest worth keeping, in their words, or null.")
+        note: nullable("string", "The rest worth keeping, in their words, or null."),
+        new_working_on: %{
+          type: "array",
+          items: %{
+            type: "object",
+            properties: %{
+              title: %{type: "string", description: "Short, in their words."},
+              side: one_of(["left", "right", "both"]),
+              note: nullable("string", "What happened today, or null.")
+            },
+            required: ["title", "side", "note"],
+            additionalProperties: false
+          }
+        },
+        milestone: nullable("string", "A first time or big step, or null."),
+        gear: %{type: "array", items: %{type: "string"}},
+        behavior: nullable("string", "His attitude or behavior in a few words, or null."),
+        health:
+          nullable("string", "Soundness, soreness, injury or eating worth checking, or null.")
       }
       |> Map.merge(working_on)
       |> Map.merge(tag_prop)

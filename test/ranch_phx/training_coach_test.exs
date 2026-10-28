@@ -331,6 +331,107 @@ defmodule RanchPhx.TrainingCoachTest do
       refute Enum.any?(Map.values(item), &(is_list(&1["type"]) and Map.has_key?(&1, "enum")))
     end
 
+    test "keeps everything said: new activities, new things to work on, milestone, gear, health",
+         %{conn: conn, book: book, issue: issue, calls: calls} do
+      stub_claude(calls, [
+        fill_reply(%{
+          "date" => nil,
+          "minutes" => 30,
+          "activities" => [
+            %{"activity" => "Feet", "result" => "good", "side" => nil, "note" => nil},
+            %{
+              "activity" => "Stirrup sacking",
+              "result" => "good",
+              "side" => "both",
+              "note" => "Let them bang"
+            }
+          ],
+          "working_on" => [],
+          "new_working_on" => [
+            %{"title" => "Pushy at the gate", "side" => nil, "note" => "Crowded me twice"},
+            %{"title" => "left hind", "side" => "left", "note" => nil}
+          ],
+          "milestone" => "First time the stirrups banged",
+          "gear" => ["hackamore"],
+          "behavior" => "Quiet, a little lazy",
+          "health" => "A touch off on the right front",
+          "tags" => [],
+          "note" => "Round pen."
+        })
+      ])
+
+      {:ok, view, _html} = live(conn, ~p"/training/#{book.id}")
+      view |> form("#voice-form", spoken: "thirty minutes ...") |> render_submit()
+      html = render_async(view)
+
+      # A new activity is added to the list; the open "Left hind" isn't added twice.
+      assert Enum.any?(Training.list_activities(), &(&1.name == "Stirrup sacking"))
+      assert has_element?(view, "#session-review", "Stirrup sacking")
+      assert has_element?(view, "#new-issue-0", "Pushy at the gate")
+      refute has_element?(view, "#new-issue-1")
+      assert has_element?(view, "#review-milestone", "First time the stirrups banged")
+      assert html =~ "Gear: hackamore"
+      assert html =~ "A touch off on the right front"
+
+      view |> form("#session-form") |> render_submit()
+      session = Training.last_session(book.id)
+      assert session.minutes == 30
+      assert length(session.activities) == 2
+      assert session.note =~ "★ First time the stirrups banged"
+      assert session.note =~ "How he was: Quiet, a little lazy"
+      assert session.note =~ "Health: A touch off on the right front"
+      assert session.note =~ "Round pen."
+
+      titles = Training.list_issues(book.horse_id) |> Enum.map(& &1.title)
+      assert "Pushy at the gate" in titles
+      assert Enum.count(titles, &(String.downcase(&1) == "left hind")) == 1
+      assert issue.title in titles
+
+      assert Enum.any?(
+               RanchPhx.Animals.list_timeline(book.horse.animal_id),
+               &(&1.event_type == "training" and &1.title == "First time the stirrups banged")
+             )
+
+      # Activity is free text now, so a new name can come back.
+      [req] = Agent.get(calls, & &1)
+      [tool] = req["tools"]
+      act = tool["input_schema"]["properties"]["activities"]["items"]["properties"]["activity"]
+      refute Map.has_key?(act, "enum")
+      assert "new_working_on" in tool["input_schema"]["required"]
+    end
+
+    test "dropping a new working-on item or the milestone before saving",
+         %{conn: conn, book: book, calls: calls} do
+      stub_claude(calls, [
+        fill_reply(%{
+          "date" => nil,
+          "minutes" => 10,
+          "activities" => [],
+          "working_on" => [],
+          "new_working_on" => [%{"title" => "Spooky at the tarp", "side" => nil, "note" => nil}],
+          "milestone" => "First ride",
+          "gear" => [],
+          "behavior" => nil,
+          "health" => nil,
+          "tags" => [],
+          "note" => nil
+        })
+      ])
+
+      {:ok, view, _html} = live(conn, ~p"/training/#{book.id}")
+      view |> form("#voice-form", spoken: "ten minutes") |> render_submit()
+      render_async(view)
+
+      view |> element("#new-issue-0 button") |> render_click()
+      view |> element("#review-milestone button") |> render_click()
+      refute has_element?(view, "#new-issue-0")
+      refute has_element?(view, "#review-milestone")
+
+      view |> form("#session-form") |> render_submit()
+      refute Enum.any?(Training.list_issues(book.horse_id), &(&1.title == "Spooky at the tarp"))
+      refute (Training.last_session(book.id).note || "") =~ "First ride"
+    end
+
     test "says so when nothing could be picked out", %{conn: conn, book: book, calls: calls} do
       stub_claude(calls, [
         fill_reply(%{

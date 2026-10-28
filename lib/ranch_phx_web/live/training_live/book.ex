@@ -86,6 +86,7 @@ defmodule RanchPhxWeb.TrainingLive.Book do
          {:ok, session} <-
            Training.save_session(to_attrs(params, socket.assigns.book.id, socket.assigns.issues)) do
       save_session_photos(socket, session)
+      save_spoken_extras(socket, params)
 
       {:noreply,
        socket
@@ -155,6 +156,15 @@ defmodule RanchPhxWeb.TrainingLive.Book do
          end)}
     end
   end
+
+  def handle_event("drop_new_issue", %{"i" => i}, socket) do
+    params = socket.assigns.params
+    list = List.delete_at(params["new_issues"] || [], String.to_integer(i))
+    {:noreply, assign(socket, :params, Map.put(params, "new_issues", list))}
+  end
+
+  def handle_event("drop_milestone", _params, socket),
+    do: {:noreply, assign(socket, :params, Map.put(socket.assigns.params, "milestone", ""))}
 
   def handle_event("voice_clear", _params, socket),
     do: {:noreply, assign(socket, voice_text: "", voice_note: nil)}
@@ -540,6 +550,17 @@ defmodule RanchPhxWeb.TrainingLive.Book do
   end
 
   def handle_async(:voice, {:ok, {:ok, filled}}, socket) do
+    # Anything he did that isn't on the list yet becomes a new activity.
+    socket =
+      case new_activity_names(filled, socket.assigns.activities) do
+        [] ->
+          socket
+
+        names ->
+          Enum.each(names, &Training.create_activity/1)
+          assign(socket, :activities, Training.list_activities())
+      end
+
     {params, summary} = merge_spoken(socket.assigns.params, filled, socket.assigns)
 
     {:noreply,
@@ -632,6 +653,9 @@ defmodule RanchPhxWeb.TrainingLive.Book do
       |> Map.update("activity_ids", [], &clean_list/1)
       |> Map.put_new("details", %{})
       |> Map.put_new("issues", %{})
+      # From the TrAIner only (not form fields): kept until saved or removed.
+      |> Map.put("new_issues", previous["new_issues"] || [])
+      |> Map.put_new("milestone", previous["milestone"] || "")
 
     params =
       case target do
@@ -673,8 +697,15 @@ defmodule RanchPhxWeb.TrainingLive.Book do
         }
       end
 
+    note =
+      case String.trim(params["milestone"] || "") do
+        "" -> params["note"]
+        m -> String.trim("★ #{m}\n#{params["note"]}")
+      end
+
     params
-    |> Map.take(["client_id", "date", "minutes", "tags", "note"])
+    |> Map.take(["client_id", "date", "minutes", "tags"])
+    |> Map.put("note", note)
     |> Map.put("book_id", book_id)
     |> Map.put("activities", activities)
     |> Map.put("issues", marks)
@@ -698,7 +729,9 @@ defmodule RanchPhxWeb.TrainingLive.Book do
       "minutes" => nil,
       "tags" => [],
       "note" => "",
-      "issues" => %{}
+      "issues" => %{},
+      "new_issues" => [],
+      "milestone" => ""
     }
   end
 
@@ -773,11 +806,41 @@ defmodule RanchPhxWeb.TrainingLive.Book do
 
     tags = Enum.filter(filled["tags"] || [], &MapSet.member?(known_tags, &1))
 
+    extra =
+      [
+        filled["behavior"] not in [nil, ""] && "How he was: #{filled["behavior"]}",
+        (filled["gear"] || []) != [] && "Gear: #{Enum.join(filled["gear"], ", ")}",
+        filled["health"] not in [nil, ""] && "Health: #{filled["health"]}",
+        filled["note"] not in [nil, ""] && filled["note"]
+      ]
+      |> Enum.filter(&is_binary/1)
+      |> Enum.join("\n")
+
     note =
-      case {String.trim(params["note"] || ""), filled["note"]} do
-        {_, n} when n in [nil, ""] -> params["note"]
+      case {String.trim(params["note"] || ""), extra} do
+        {_, ""} -> params["note"]
         {"", n} -> n
         {old, n} -> old <> "\n" <> n
+      end
+
+    open_titles = MapSet.new(assigns.issues, &String.downcase(&1.title))
+
+    new_issues =
+      (params["new_issues"] || []) ++
+        for(
+          i <- filled["new_working_on"] || [],
+          t = String.trim(i["title"] || ""),
+          t != "",
+          not MapSet.member?(open_titles, String.downcase(t)),
+          do: %{"title" => t, "side" => i["side"], "note" => i["note"]}
+        )
+
+    new_issues = Enum.uniq_by(new_issues, &String.downcase(&1["title"]))
+
+    milestone =
+      case filled["milestone"] do
+        m when m in [nil, ""] -> params["milestone"] || ""
+        m -> m
       end
 
     params =
@@ -790,6 +853,8 @@ defmodule RanchPhxWeb.TrainingLive.Book do
       |> Map.put("issues", marks)
       |> Map.put("tags", Enum.uniq(params["tags"] ++ tags))
       |> Map.put("note", note)
+      |> Map.put("new_issues", new_issues)
+      |> Map.put("milestone", milestone)
       |> put_minutes(filled["minutes"])
       |> put_spoken_date(filled["date"], today)
 
@@ -800,11 +865,57 @@ defmodule RanchPhxWeb.TrainingLive.Book do
         filled["minutes"] && "#{filled["minutes"]} min",
         (filled["working_on"] || []) != [] && "Working on",
         tags != [] && "how he was",
-        filled["note"] not in [nil, ""] && "a note"
+        (filled["new_working_on"] || []) != [] && "new things to work on",
+        filled["milestone"] not in [nil, ""] && "a milestone",
+        extra != "" && "notes"
       ]
       |> Enum.filter(&is_binary/1)
 
     {params, summary}
+  end
+
+  # What only the TrAIner fills in: new Working on items, and a milestone on the
+  # horse's ranch timeline.
+  defp save_spoken_extras(socket, params) do
+    %{book: book, today: today} = socket.assigns
+
+    for i <- params["new_issues"] || [], String.trim(i["title"] || "") != "" do
+      Training.create_issue(
+        book.horse_id,
+        %{
+          "title" => i["title"],
+          "side" => blank_to_nil(i["side"]),
+          "notes" => blank_to_nil(i["note"])
+        },
+        today
+      )
+    end
+
+    with m when m not in [nil, ""] <- String.trim(params["milestone"] || ""),
+         animal_id when not is_nil(animal_id) <- book.horse.animal_id,
+         {:ok, date} <- Date.from_iso8601(params["date"] || "") do
+      RanchPhx.Animals.create_event(%{
+        "animal_id" => animal_id,
+        "event_type" => "training",
+        "title" => m,
+        "event_date" => date
+      })
+    end
+
+    :ok
+  end
+
+  @doc """
+  New activity names the TrAIner came up with (not in the list yet), so they can be
+  added before the rest is filled in.
+  """
+  def new_activity_names(filled, activities) do
+    known = MapSet.new(activities, &String.downcase(&1.name))
+
+    (filled["activities"] || [])
+    |> Enum.map(&String.trim(&1["activity"] || ""))
+    |> Enum.reject(&(&1 == "" or MapSet.member?(known, String.downcase(&1))))
+    |> Enum.uniq_by(&String.downcase/1)
   end
 
   defp put_if(map, _key, v) when v in [nil, ""], do: map

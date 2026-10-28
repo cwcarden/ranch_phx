@@ -681,44 +681,6 @@
       </:actions>
     </.section_head>
 
-    <%!-- Quick start --%>
-    <div :if={!@editing and (@sessions != [] or @routines != [])} class="tr-quickstart">
-      <span class="tr-label">Quick start</span>
-      <button :if={@sessions != []} type="button" class="tr-mini" phx-click="repeat_last">
-        ↻ Repeat last
-      </button>
-      <span :for={r <- @routines} class="tr-routine">
-        <button
-          type="button"
-          class="tr-mini"
-          phx-click="apply_routine"
-          phx-value-id={r.id}
-          title={activity_summary(r, @activities)}
-        >
-          {r.name}
-        </button>
-        <button
-          :if={@managing_routines}
-          type="button"
-          class="tr-link-btn"
-          phx-click="delete_routine"
-          phx-value-id={r.id}
-          data-confirm={"Delete the routine “#{r.name}”?"}
-          aria-label={"Delete #{r.name}"}
-        >
-          ✕
-        </button>
-      </span>
-      <button
-        :if={@routines != []}
-        type="button"
-        class="tr-link-btn"
-        phx-click="toggle_manage_routines"
-      >
-        {if @managing_routines, do: "Done", else: "Edit"}
-      </button>
-    </div>
-
     <%!-- Talk-to-log --%>
     <form
       :if={@coach_on and !@editing}
@@ -729,12 +691,12 @@
     >
       <div class="tr-voice-head">
         <.icon name="hero-microphone" />
-        <span>Tell the Tr<span class="tr-ai">AI</span>ner what you did</span>
+        <span>What did you do with him today?</span>
       </div>
       <textarea
         name="spoken"
-        rows="3"
-        placeholder="Tap the mic on your keyboard and talk: “20 minutes, groundwork and feet. Left hind was better, held it for five. Sticky going right.”"
+        rows="4"
+        placeholder="Tap the mic on the keyboard and just talk: “30 minutes. Saddled him in the round pen with the hackamore, first time I let the stirrups bang. Left hind was better. He's pushy at the gate, need to work on that. A little off on the right front.”"
         disabled={@voice_loading}
       >{@voice_text}</textarea>
       <div class="tr-voice-actions">
@@ -742,7 +704,7 @@
           <%= if @voice_loading do %>
             <span class="tr-dots-anim"><i></i><i></i><i></i></span> Filling in…
           <% else %>
-            <.icon name="hero-sparkles" /> Fill in the form
+            <.icon name="hero-sparkles" /> Fill it in for me
           <% end %>
         </button>
         <button
@@ -761,7 +723,7 @@
           </p>
         <% {:ok, parts} -> %>
           <p class="tr-voice-note ok" id="voice-filled">
-            ✓ Filled in {Enum.join(parts, ", ")}. Check it over below, then Save.
+            ✓ Got {Enum.join(parts, ", ")}. Check it below, then Save.
           </p>
         <% {:error, msg} -> %>
           <p class="tr-voice-note err">{msg}</p>
@@ -770,6 +732,98 @@
     </form>
 
     <.form for={%{}} as={:session} id="session-form" phx-change="change" phx-submit="save">
+      <%!-- What will be saved, in plain words --%>
+      <% picked_acts = Enum.filter(@activities, &("#{&1.id}" in @params["activity_ids"])) %>
+      <% marked = for i <- @issues, (m = mark(@params, i.id, "progress")) not in [nil, ""], do: {i, m} %>
+      <div
+        :if={picked_acts != [] or marked != [] or @params["new_issues"] != [] or @params["milestone"] != "" or String.trim(@params["note"] || "") != ""}
+        class="tr-review"
+        id="session-review"
+      >
+        <div class="tr-review-head">
+          <b>{fmt_date(@params["date"], @today)}</b>
+          <span :if={@params["minutes"] not in [nil, ""]}>{@params["minutes"]} min</span>
+        </div>
+        <div :if={@params["milestone"] != ""} class="tr-rv-milestone" id="review-milestone">
+          ★ {@params["milestone"]}
+          <button type="button" class="tr-link-btn" phx-click="drop_milestone" aria-label="Remove milestone">✕</button>
+        </div>
+        <ul :if={picked_acts != []} class="tr-rv-list">
+          <li :for={a <- picked_acts}>
+            <b>{a.name}</b>
+            <span :if={detail(@params, a.id, "result")} class={"tr-rv-res res-#{detail(@params, a.id, "result")}"}>
+              {Enum.find_value(results(), fn {v, l} -> v == detail(@params, a.id, "result") && l end)}
+            </span>
+            <span :if={detail(@params, a.id, "side")} class="tr-muted">· {side_label(detail(@params, a.id, "side"))}</span>
+            <div :if={detail(@params, a.id, "note") not in [nil, ""]} class="tr-rv-note">{detail(@params, a.id, "note")}</div>
+          </li>
+        </ul>
+        <ul :if={marked != []} class="tr-rv-list">
+          <li :for={{i, m} <- marked}>
+            {progress_icon(m)} <b>{i.title}</b> <span class="tr-muted">{m}</span>
+            <div :if={mark(@params, i.id, "note") not in [nil, ""]} class="tr-rv-note">{mark(@params, i.id, "note")}</div>
+          </li>
+        </ul>
+        <div :if={@params["new_issues"] != []} class="tr-rv-new">
+          <div class="tr-label">New to work on</div>
+          <div :for={{ni, idx} <- Enum.with_index(@params["new_issues"])} class="tr-rv-chip" id={"new-issue-#{idx}"}>
+            <.icon name="hero-wrench-screwdriver" /> {ni["title"]}<span :if={ni["side"]} class="tr-muted"> · {side_label(ni["side"])}</span>
+            <button type="button" class="tr-link-btn" phx-click="drop_new_issue" phx-value-i={idx} aria-label="Don't add">✕</button>
+          </div>
+        </div>
+        <div :if={@params["tags"] != []} class="tr-rv-tags">
+          <span :for={t <- @params["tags"]} class="tr-tag">{tag_name(@tags, t)}</span>
+        </div>
+        <div :if={String.trim(@params["note"] || "") != ""} class="tr-rv-notes">{@params["note"]}</div>
+      </div>
+
+      <details
+        id={"log-details-#{@editing || "new"}"}
+        class="tr-more"
+        open={@editing != nil or not @coach_on}
+        phx-mounted={JS.ignore_attributes(["open"])}
+      >
+        <summary>
+          <.icon name="hero-adjustments-horizontal" /> {if @editing, do: "Details", else: "Edit details, or fill it in by hand"}
+        </summary>
+    <%!-- Quick start --%>
+        <div :if={!@editing and (@sessions != [] or @routines != [])} class="tr-quickstart">
+          <span class="tr-label">Quick start</span>
+          <button :if={@sessions != []} type="button" class="tr-mini" phx-click="repeat_last">
+            ↻ Repeat last
+          </button>
+          <span :for={r <- @routines} class="tr-routine">
+            <button
+              type="button"
+              class="tr-mini"
+              phx-click="apply_routine"
+              phx-value-id={r.id}
+              title={activity_summary(r, @activities)}
+            >
+              {r.name}
+            </button>
+            <button
+              :if={@managing_routines}
+              type="button"
+              class="tr-link-btn"
+              phx-click="delete_routine"
+              phx-value-id={r.id}
+              data-confirm={"Delete the routine “#{r.name}”?"}
+              aria-label={"Delete #{r.name}"}
+            >
+              ✕
+            </button>
+          </span>
+          <button
+            :if={@routines != []}
+            type="button"
+            class="tr-link-btn"
+            phx-click="toggle_manage_routines"
+          >
+            {if @managing_routines, do: "Done", else: "Edit"}
+          </button>
+        </div>
+
       <div class="tr-step">
         <div class="tr-step-head"><span class="tr-step-n">1</span> When</div>
         <div class="tr-inline">
@@ -992,6 +1046,8 @@
           cancel_event="cancel_session_photo"
         />
       </div>
+
+      </details>
 
       <div :for={w <- @warnings} class="tr-warn" style="margin-bottom:10px">{w}</div>
       <div :for={e <- @errors} class="tr-error" style="margin-bottom:10px">{e}</div>
