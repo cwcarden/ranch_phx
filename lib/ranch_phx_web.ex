@@ -19,7 +19,7 @@ defmodule RanchPhxWeb do
 
   def static_paths,
     do:
-      ~w(assets fonts images icons uploads favicon.ico robots.txt manifest.json sw.js offline.html pdfjs vendor)
+      ~w(assets fonts images icons uploads favicon.ico robots.txt manifest.json sw.js offline.html barn.html barn.js pdfjs vendor)
 
   def router do
     quote do

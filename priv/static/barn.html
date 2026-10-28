@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Barn mode — Gimel Ranch</title>
+<link rel="manifest" href="/manifest.json" />
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=2" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="theme-color" content="#8b5cf6" />
+<style>
+  :root {
+    --brand: #8b5cf6; --brand-soft: #ede9fe; --surface: #ffffff; --surface2: #f6f7f9;
+    --border: #e5e7eb; --text: #111827; --text2: #6b7280; --text3: #9ca3af;
+    --ok: #16a34a; --warn: #b45309; --go: #0f766e; --radius: 14px;
+  }
+  [data-theme="dark"] {
+    --brand: #a78bfa; --brand-soft: #2e1065; --surface: #1e1e2e; --surface2: #16161e;
+    --border: #2d2d3d; --text: #e2e8f0; --text2: #94a3b8; --text3: #64748b;
+    --ok: #4ade80; --warn: #fbbf24; --go: #2dd4bf;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; background: var(--surface2); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; -webkit-text-size-adjust: 100%; }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  .bar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; background: var(--surface); border-bottom: 1px solid var(--border); }
+  .bar h1 { margin: 0; font-size: 18px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+  .pill { font-size: 12px; font-weight: 800; padding: 3px 10px; border-radius: 12px; }
+  .pill.off { background: color-mix(in srgb, var(--warn) 18%, var(--surface)); color: var(--warn); }
+  .pill.on { background: color-mix(in srgb, var(--ok) 15%, var(--surface)); color: var(--ok); }
+  .bar .sp { flex: 1; }
+  .meta { font-size: 13px; color: var(--text2); }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 0 14px; border-radius: 12px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text); font-weight: 700; cursor: pointer; text-decoration: none; font-size: 15px; }
+  .btn.go { background: var(--go); border-color: var(--go); color: #fff; }
+  [data-theme="dark"] .btn.go { color: #042f2e; }
+  .btn:disabled { opacity: .45; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 14px 14px calc(110px + env(safe-area-inset-bottom)); }
+  .banner { padding: 12px 14px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border); margin-bottom: 12px; font-size: 15px; line-height: 1.45; }
+  .banner.warn { border-color: color-mix(in srgb, var(--warn) 40%, var(--border)); }
+  .animals { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 12px; scrollbar-width: none; }
+  .animals::-webkit-scrollbar { display: none; }
+  .achip { flex: none; display: flex; align-items: center; gap: 8px; min-height: 52px; padding: 4px 14px 4px 4px; border-radius: 26px; border: 1.5px solid var(--border); background: var(--surface); cursor: pointer; font-weight: 700; }
+  .achip img, .achip .ph { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; background: var(--brand-soft); display: flex; align-items: center; justify-content: center; color: var(--brand); font-weight: 800; }
+  .achip.on { border-color: var(--brand); background: var(--brand-soft); }
+  .hero { display: flex; gap: 14px; align-items: center; margin-bottom: 12px; }
+  .hero img { width: 92px; height: 92px; border-radius: 16px; object-fit: cover; background: var(--surface); }
+  .hero h2 { margin: 0; font-size: 22px; }
+  .hero .sub { color: var(--text2); font-size: 14px; margin-top: 2px; }
+  .tabs { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 12px; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { flex: none; min-height: 42px; padding: 0 16px; border-radius: 21px; border: 1.5px solid var(--border); background: var(--surface); font-weight: 700; cursor: pointer; }
+  .tab.on { background: var(--brand); border-color: var(--brand); color: #fff; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 12px; }
+  .card h3 { margin: 0 0 8px; font-size: 16px; }
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px 16px; }
+  .kv span { display: block; font-size: 12px; color: var(--text2); }
+  .kv b { font-size: 15px; }
+  .row { padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .row:last-child { border-bottom: none; }
+  .row b { font-size: 15px; }
+  .row .when { font-size: 13px; color: var(--text2); }
+  .row p { margin: 4px 0 0; font-size: 14px; color: var(--text2); white-space: pre-line; }
+  .wait { display: inline-block; font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 10px; background: color-mix(in srgb, var(--brand) 15%, var(--surface)); color: var(--brand); margin-left: 6px; vertical-align: 1px; }
+  .err { color: #dc2626; font-size: 13px; }
+  .cat { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--text3); margin: 12px 0 2px; }
+  .due { display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 15px; }
+  .due:last-child { border-bottom: none; }
+  .due .late { color: #dc2626; font-weight: 700; }
+  .doses { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .dose { min-width: 52px; min-height: 44px; border-radius: 10px; border: 1.5px solid var(--border); background: var(--surface2); font-weight: 700; cursor: pointer; font-size: 13px; }
+  .dose.done { background: var(--ok); border-color: var(--ok); color: #fff; }
+  .dose.today { border-color: var(--brand); }
+  .dose:disabled { opacity: .5; cursor: default; }
+  .photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+  .photos figure { margin: 0; }
+  .photos img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 10px; background: var(--border); display: block; }
+  .photos figcaption { font-size: 12px; color: var(--text2); margin-top: 3px; }
+  .feet { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .foot { padding: 8px; border-radius: 10px; background: var(--surface2); border: 1px solid var(--border); text-align: center; }
+  .foot span { font-size: 12px; color: var(--text2); display: block; }
+  .foot b { font-size: 18px; }
+  .addbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; display: flex; gap: 8px; justify-content: center; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); background: var(--surface); border-top: 1px solid var(--border); }
+  .addbar .btn { flex: 1; max-width: 220px; min-height: 52px; font-size: 16px; }
+  .sheet-bg { position: fixed; inset: 0; z-index: 40; background: rgba(0,0,0,.45); display: none; }
+  .sheet { position: fixed; left: 50%; bottom: 0; transform: translateX(-50%); z-index: 41; width: min(640px, 100%); max-height: 92vh; overflow-y: auto; background: var(--surface); border-radius: 18px 18px 0 0; padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); display: none; }
+  .sheet.open, .sheet-bg.open { display: block; }
+  .sheet h2 { margin: 0 0 12px; font-size: 20px; }
+  .f { margin-bottom: 12px; }
+  .f label { display: block; font-size: 13px; font-weight: 700; color: var(--text2); margin-bottom: 4px; }
+  .f input, .f select, .f textarea { width: 100%; min-height: 48px; border-radius: 12px; border: 1.5px solid var(--border); background: var(--surface2); padding: 10px 12px; font-size: 16px; }
+  .f textarea { min-height: 110px; resize: vertical; line-height: 1.4; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { min-height: 42px; padding: 0 14px; border-radius: 21px; border: 1.5px solid var(--border); background: var(--surface2); cursor: pointer; font-weight: 600; }
+  .chip.on { background: var(--go); border-color: var(--go); color: #fff; }
+  [data-theme="dark"] .chip.on { color: #042f2e; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 6px; }
+  .check { display: flex; align-items: center; gap: 10px; font-size: 15px; }
+  .check input { width: 22px; height: 22px; min-height: 0; }
+  .empty { text-align: center; color: var(--text2); padding: 30px 10px; }
+  .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(86px + env(safe-area-inset-bottom)); z-index: 50; background: #166534; color: #fff; padding: 12px 18px; border-radius: 12px; font-weight: 700; display: none; max-width: 90vw; }
+  .toast.show { display: block; }
+</style>
+</head>
+<body>
+  <div class="bar">
+    <h1>Barn mode <span id="net" class="pill off">Offline</span></h1>
+    <span class="sp"></span>
+    <span class="meta" id="meta"></span>
+    <button class="btn" id="sync-btn" hidden>Send now</button>
+    <a class="btn" href="/offline.html" id="papers-link">Papers</a>
+    <a class="btn go" href="/" id="app-link" hidden>Open the app</a>
+  </div>
+
+  <div class="wrap">
+    <div id="banner"></div>
+    <div class="animals" id="animals"></div>
+    <div id="view"></div>
+  </div>
+
+  <div class="addbar" id="addbar" hidden>
+    <button class="btn go" data-add="record">+ Record</button>
+    <button class="btn" data-add="note">+ Note</button>
+    <button class="btn" data-add="training" id="add-training">+ Training</button>
+    <button class="btn" data-add="photo">📷 Photo</button>
+  </div>
+
+  <div class="sheet-bg" id="sheet-bg"></div>
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true"></div>
+  <div class="toast" id="toast"></div>
+
+  <script src="/barn.js"></script>
+  <script>
+    document.documentElement.setAttribute("data-theme", localStorage.getItem("phx:theme") || "light")
+    const B = window.RanchBarn
+    const $ = (id) => document.getElementById(id)
+    const esc = (s) => { const d = document.createElement("div"); d.textContent = s == null ? "" : String(s); return d.innerHTML }
+    const today = () => { const t = new Date(); return new Date(t.getTime() - t.getTimezoneOffset() * 60000).toISOString().slice(0, 10) }
+    const fmt = (iso) => iso ? new Date(iso + "T12:00:00").toLocaleDateString(undefined, {month: "short", day: "numeric", year: "numeric"}) : ""
+    const ago = (ms) => { const m = Math.round((Date.now() - ms) / 60000); return m < 1 ? "just now" : m < 60 ? m + " min ago" : m < 1440 ? Math.round(m / 60) + " hr ago" : Math.round(m / 1440) + " days ago" }
+
+    let snap = null, meta = null, queue = [], current = null, tab = "overview"
+    try { current = +localStorage.getItem("barn:animal") || null; tab = localStorage.getItem("barn:tab") || "overview" } catch (e) {}
+
+    function toast(text) { const t = $("toast"); t.textContent = text; t.classList.add("show"); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 2600) }
+
+    async function load() {
+      snap = await B.snapshot(); meta = await B.meta(); queue = await B.outbox()
+      render()
+    }
+
+    function animal() { return snap && snap.animals.find((a) => a.id === current) }
+    function waiting(kind, a) { return queue.filter((q) => (!kind || q.kind === kind) && (!a || String(q.animal_id) === String(a.id))) }
+
+    function render() {
+      const online = navigator.onLine
+      $("net").textContent = online ? "Online" : "Offline"
+      $("net").className = "pill " + (online ? "on" : "off")
+      $("app-link").hidden = !online
+      $("sync-btn").hidden = !(online && queue.length)
+      $("meta").textContent = (queue.length ? `${queue.length} waiting to send · ` : "") + (meta ? `Copy from ${ago(meta.refreshed)}` : "")
+
+      const banner = []
+      if (!snap) banner.push(`<div class="banner warn"><b>Nothing saved on this iPad yet.</b><br>Open the app once with a connection; it keeps a copy here for the barn. Then Barn mode works with no signal.</div>`)
+      else if (!online) banner.push(`<div class="banner">No connection. You can read everything and add records, notes, training, doses and photos. They're sent as soon as you're back online. Changing existing records, drawing lines and the AI wait until then.</div>`)
+      else if (queue.length) banner.push(`<div class="banner">Back online. Sending what you added…</div>`)
+      const errs = queue.filter((q) => q.error)
+      if (errs.length) banner.push(`<div class="banner warn">${errs.length} couldn't be sent: ${esc(errs[0].error)} <button class="btn" onclick="RanchBarn.sync().then(load)">Try again</button></div>`)
+      $("banner").innerHTML = banner.join("")
+      if (!snap) { $("animals").innerHTML = ""; $("view").innerHTML = ""; $("addbar").hidden = true; return }
+
+      if (!animal()) current = snap.animals[0] && snap.animals[0].id
+      $("animals").innerHTML = snap.animals.map((a) => `<button class="achip ${a.id === current ? "on" : ""}" onclick="pickAnimal(${a.id})">
+        ${a.cover ? `<img src="${esc(a.cover)}" alt="">` : `<span class="ph">${esc(a.name[0])}</span>`}${esc(a.name)}</button>`).join("")
+      $("addbar").hidden = !(meta && meta.can_edit)
+      const a = animal()
+      $("add-training").hidden = !(a && a.training)
+      $("view").innerHTML = a ? animalView(a) : `<div class="empty">No animals.</div>`
+    }
+
+    window.pickAnimal = (id) => { current = id; try { localStorage.setItem("barn:animal", id) } catch (e) {}; render(); scrollTo(0, 0) }
+    window.pickTab = (t) => { tab = t; try { localStorage.setItem("barn:tab", t) } catch (e) {}; render() }
+
+    function animalView(a) {
+      const age = a.birth_date ? (() => { const m = Math.floor((Date.now() - new Date(a.birth_date + "T12:00:00")) / (30.44 * 86400000)); return m < 24 ? m + " months" : Math.floor(m / 12) + " years" })() : ""
+      const tabs = [["overview", "Overview"], ["records", "Records"], ["notes", a.training ? "Notes & training" : "Notes"], ["photos", "Photos"], ["papers", "Papers"]]
+      const body = {overview, records, notes, photos, papers}[tab] || overview
+      return `<div class="hero">${a.cover ? `<img src="${esc(a.cover)}" alt="">` : ""}<div><h2>${esc(a.name)}</h2>
+        <div class="sub">${esc([a.breed, a.color, a.sex, age].filter(Boolean).join(" · "))}</div></div></div>
+        <div class="tabs">${tabs.map(([k, l]) => `<button class="tab ${tab === k ? "on" : ""}" onclick="pickTab('${k}')">${l}</button>`).join("")}</div>
+        ${body(a)}`
+    }
+
+    function overview(a) {
+      const out = []
+      const kv = [["Registration", a.registration_number], ["Born", fmt(a.birth_date)], ["Breed", a.breed], ["Color", a.color], ["Markings", a.markings]].filter(([, v]) => v)
+      if (kv.length) out.push(`<div class="card"><div class="grid2">${kv.map(([k, v]) => `<div class="kv"><span>${k}</span><b>${esc(v)}</b></div>`).join("")}</div></div>`)
+      // Treatments: tick today's (or a missed) dose.
+      for (const c of a.courses) {
+        const given = new Set([...c.done, ...waiting("dose").filter((q) => q.record_id === c.record_id).map((q) => q.date)])
+        out.push(`<div class="card"><h3>💊 ${esc(c.title)} <span class="when">· ${given.size} of ${c.total}</span></h3><div class="doses">${c.dates.map((d, i) => {
+          const done = given.has(d), future = d > today()
+          return `<button class="dose ${done ? "done" : ""} ${d === today() ? "today" : ""}" ${done || future || !(meta && meta.can_edit) ? "disabled" : ""}
+            onclick="giveDose(${c.record_id}, '${d}')">Day ${i + 1}<br><small>${new Date(d + "T12:00:00").toLocaleDateString(undefined, {month: "numeric", day: "numeric"})}</small></button>`
+        }).join("")}</div></div>`)
+      }
+      if (a.care_due.length) out.push(`<div class="card"><h3>Care due</h3>${a.care_due.map((d) => `<div class="due"><span>${esc(d.title)}${d.covers && d.covers.length ? ` <span class="when">(${esc(d.covers.join(", "))})</span>` : ""}</span>
+        <span class="${d.days < 0 ? "late" : ""}">${d.days < 0 ? -d.days + " days overdue" : d.days === 0 ? "today" : "in " + d.days + " days"}</span></div>`).join("")}</div>`)
+      const feet = Object.keys(a.hooves || {})
+      if (feet.length) out.push(`<div class="card"><h3>Hoof angles</h3><div class="feet">${["LF", "RF", "LH", "RH"].map((f) => { const h = a.hooves[f]; return `<div class="foot"><span>${f}</span><b>${h ? h.toe + "°" : "–"}</b>${h && h.axis ? `<span>${esc(h.axis)}</span>` : ""}</div>` }).join("")}</div></div>`)
+      const w = waiting(null, a)
+      if (w.length) out.push(`<div class="card"><h3>Waiting to send</h3>${w.map(waitRow).join("")}</div>`)
+      if (a.notes) out.push(`<div class="card"><h3>Notes</h3><p style="margin:0;white-space:pre-line">${esc(a.notes)}</p></div>`)
+      return out.join("") || `<div class="empty">Nothing due. Use the buttons below to add.</div>`
+    }
+
+    function waitRow(q) {
+      const what = {record: `Record: ${esc(q.title)}`, note: `Note: ${esc((q.text || "").slice(0, 80))}`, training: `Training: ${q.minutes || "?"} min`, dose: `Dose given ${fmt(q.date)}`, photo: `Photo${q.foot ? ` (${q.foot} ${q.view === "sole" ? "bottom" : "side"})` : ""}`}[q.kind] || q.kind
+      return `<div class="row"><b>${what}</b><span class="wait">waiting</span>${q.error ? `<div class="err">${esc(q.error)}</div>` : ""}
+        <button class="btn" style="min-height:34px;font-size:13px;float:right" onclick="RanchBarn.remove('${q.client_id}').then(load)">Remove</button></div>`
+    }
+
+    function records(a) {
+      const q = waiting("record", a).map((r) => `<div class="row"><b>${esc(r.title)}</b><span class="wait">waiting</span><div class="when">${fmt(r.date)}</div>${r.notes ? `<p>${esc(r.notes)}</p>` : ""}</div>`).join("")
+      if (!a.records.length && !q) return `<div class="empty">No records yet.</div>`
+      const by = {}
+      for (const r of a.records) (by[r.category_label] ||= []).push(r)
+      return `<div class="card">${q}${Object.entries(by).map(([cat, rs]) => `<div class="cat">${esc(cat)}</div>${rs.map((r) => `<div class="row">
+        <b>${esc(r.title)}</b> <span class="when">· ${esc(r.type_label || "")}</span><div class="when">${fmt(r.date)}${r.person ? " · " + esc(r.person) : ""}${r.cost ? " · $" + esc(r.cost) : ""}${r.next_due_date ? " · next due " + fmt(r.next_due_date) : ""}</div>
+        ${r.description || r.notes ? `<p>${esc([r.description, r.notes].filter(Boolean).join("\n"))}</p>` : ""}</div>`).join("")}`).join("")}</div>`
+    }
+
+    function notes(a) {
+      const q = [...waiting("note", a), ...waiting("training", a)].map(waitRow).join("")
+      const log = a.notes_log.map((n) => `<div class="row"><b>${esc(n.title)}</b><div class="when">${fmt(n.date)}</div>${n.text && n.text !== n.title ? `<p>${esc(n.text)}</p>` : ""}</div>`).join("")
+      const tr = a.training ? a.training.sessions.map((s) => `<div class="row"><b>${esc(s.activities.filter(Boolean).join(", ") || "Session")}</b> <span class="when">· ${s.minutes ? s.minutes + " min" : ""}</span><div class="when">${fmt(s.date)}</div>${s.note ? `<p>${esc(s.note)}</p>` : ""}</div>`).join("") : ""
+      return (q ? `<div class="card"><h3>Waiting to send</h3>${q}</div>` : "") +
+        (tr ? `<div class="card"><h3>Training</h3>${tr}</div>` : "") +
+        `<div class="card"><h3>Notes</h3>${log || `<div class="when">No notes yet.</div>`}</div>`
+    }
+
+    function photos(a) {
+      const q = waiting("photo", a).map((p) => `<figure><img src="${URL.createObjectURL(p.blob)}" alt=""><figcaption>${p.foot ? esc(p.foot + " " + (p.view === "sole" ? "bottom" : "side")) : esc(p.caption || "")} <span class="wait">waiting</span></figcaption></figure>`).join("")
+      const h = Object.entries(a.hooves || {}).filter(([, v]) => v.photo).map(([f, v]) => `<figure><img src="${esc(v.photo)}" alt="" loading="lazy"><figcaption>${f} · ${v.toe}° · ${fmt(v.date)}</figcaption></figure>`).join("")
+      const p = a.photos.map((p) => `<figure><img src="${esc(p.url)}" alt="" loading="lazy"><figcaption>${esc(p.caption || fmt(p.date))}</figcaption></figure>`).join("")
+      if (!q && !h && !p) return `<div class="empty">No photos yet.</div>`
+      return `<div class="photos">${q}${h}${p}</div>`
+    }
+
+    function papers(a) {
+      if (!a.documents.length) return `<div class="empty">No papers.</div>`
+      return `<div class="card">${a.documents.map((d) => `<div class="row"><b>${esc(d.title)}</b> <span class="when">· ${esc(d.type || "")} ${fmt(d.date)}</span></div>`).join("")}
+        <p class="when" style="margin-top:10px">Papers you've saved for offline open in <a href="/offline.html?animal=${a.id}">Papers</a>.</p></div>`
+    }
+
+    // ── Adding ──
+    window.giveDose = async (record_id, date) => {
+      await B.add({kind: "dose", animal_id: current, record_id, date})
+      toast(navigator.onLine ? "Dose checked." : "Dose checked. It'll be sent when you're back online.")
+      load()
+    }
+
+    function openSheet(html) { $("sheet").innerHTML = html; $("sheet").classList.add("open"); $("sheet-bg").classList.add("open") }
+    function closeSheet() { $("sheet").classList.remove("open"); $("sheet-bg").classList.remove("open") }
+    $("sheet-bg").onclick = closeSheet
+    window.closeSheet = closeSheet
+
+    const header = (t) => `<h2>${t}: ${esc(animal().name)}</h2>`
+    const actions = `<div class="actions"><button type="button" class="btn" onclick="closeSheet()">Cancel</button><button class="btn go" type="submit">Save</button></div>`
+
+    document.querySelectorAll("[data-add]").forEach((b) => b.onclick = () => ({record: recordForm, note: noteForm, training: trainingForm, photo: photoForm})[b.dataset.add]())
+
+    function recordForm() {
+      const cats = snap.categories
+      openSheet(`${header("New record")}<form id="f">
+        <div class="two"><div class="f"><label>Category</label><select name="category" id="cat">${cats.map((c) => `<option value="${esc(c.id)}">${esc(c.label)}</option>`).join("")}</select></div>
+        <div class="f"><label>Type</label><select name="type" id="type"></select></div></div>
+        <div class="f"><label>What</label><input name="title" required placeholder="e.g. Dewormed with Panacur"></div>
+        <div class="two"><div class="f"><label>Date</label><input type="date" name="date" value="${today()}" max="${today()}"></div>
+        <div class="f"><label>Next due (optional)</label><input type="date" name="next_due_date"></div></div>
+        <div class="two"><div class="f"><label>Who (vet, farrier…)</label><input name="person"></div>
+        <div class="f"><label>Cost</label><input name="cost" inputmode="decimal" placeholder="0.00"></div></div>
+        <div class="f"><label>Notes</label><textarea name="notes" placeholder="Tap the mic on the keyboard to talk"></textarea></div>
+        ${actions}</form>`)
+      const fill = () => { const ts = snap.record_types[$("cat").value] || []; $("type").innerHTML = ts.map((t) => `<option value="${esc(t.slug)}">${esc(t.label)}</option>`).join("") }
+      $("cat").onchange = fill; fill()
+      $("f").onsubmit = (e) => save(e, "record")
+    }
+
+    function noteForm() {
+      openSheet(`${header("New note")}<form id="f">
+        <div class="f"><label>Note</label><textarea name="text" required placeholder="Type, or tap the mic on the keyboard and talk"></textarea></div>
+        <div class="f"><label>Date</label><input type="date" name="date" value="${today()}" max="${today()}"></div>
+        <label class="check f"><input type="checkbox" name="review"> Let the TrAIner sort it into records when I'm back online</label>
+        ${actions}</form>`)
+      $("f").onsubmit = (e) => save(e, "note")
+    }
+
+    function trainingForm() {
+      openSheet(`${header("Training session")}<form id="f">
+        <div class="f"><label>What did you work on?</label><div class="chips" id="acts">${snap.activities.map((x) => `<button type="button" class="chip" data-id="${x.id}">${esc(x.name)}</button>`).join("")}</div></div>
+        <div class="f"><label>How long (minutes)</label><div class="chips" id="mins">${[10, 15, 20, 30, 45, 60].map((m) => `<button type="button" class="chip" data-m="${m}">${m}</button>`).join("")}</div></div>
+        <div class="f"><label>How did it go?</label><div class="chips" id="res">${[["good", "Good"], ["mixed", "Mixed"], ["trouble", "Trouble"]].map(([v, l]) => `<button type="button" class="chip ${v === "good" ? "on" : ""}" data-r="${v}">${l}</button>`).join("")}</div></div>
+        <div class="f"><label>Date</label><input type="date" name="date" value="${today()}" max="${today()}"></div>
+        <div class="f"><label>Note</label><textarea name="note" placeholder="Tap the mic on the keyboard and talk"></textarea></div>
+        ${actions}</form>`)
+      $("acts").onclick = (e) => { if (e.target.dataset.id) e.target.classList.toggle("on") }
+      for (const id of ["mins", "res"]) $(id).onclick = (e) => { const b = e.target.closest(".chip"); if (!b) return; $(id).querySelectorAll(".chip").forEach((c) => c.classList.toggle("on", c === b)) }
+      $("f").onsubmit = (e) => {
+        e.preventDefault()
+        const ids = [...$("acts").querySelectorAll(".on")].map((b) => +b.dataset.id)
+        if (!ids.length) { toast("Pick at least one thing you worked on."); return }
+        const m = $("mins").querySelector(".on"), r = $("res").querySelector(".on")
+        const f = new FormData(e.target)
+        finish({kind: "training", animal_id: current, activity_ids: ids, minutes: m ? +m.dataset.m : null, result: r ? r.dataset.r : "good", date: f.get("date"), note: f.get("note")})
+      }
+    }
+
+    function photoForm() {
+      const horse = animal().kind === "horse"
+      openSheet(`${header("Photos")}<form id="f">
+        <div class="f"><label>Where it goes</label><select name="where" id="where">
+          <option value="photo">Photos</option>
+          ${horse ? snap.feet.map((ft) => `<option value="${ft.code}:side">Hoof to measure · ${esc(ft.name)} side</option><option value="${ft.code}:sole">Hoof to measure · ${esc(ft.name)} bottom</option>`).join("") : ""}
+        </select></div>
+        <div class="f"><label>Caption (optional)</label><input name="caption" placeholder="e.g. Scrape on left hock"></div>
+        <div class="two"><label class="btn go" style="min-height:56px">📷 Take photo<input type="file" accept="image/*" capture="environment" hidden id="cam"></label>
+        <label class="btn" style="min-height:56px">Choose<input type="file" accept="image/*" multiple hidden id="pick"></label></div>
+        <p class="when" style="margin-top:10px">Hoof photos land in To measure on the Hooves page; draw the lines when you're back online.</p>
+        <div class="actions"><button type="button" class="btn" onclick="closeSheet()">Done</button></div></form>`)
+      const take = async (files) => {
+        const f = new FormData($("f"))
+        const [foot, view] = (f.get("where") || "photo").split(":")
+        for (const file of files) {
+          const blob = await shrink(file)
+          await B.add({kind: "photo", animal_id: current, foot: view ? foot : null, view: view || null, caption: f.get("caption") || null, date: today(), blob})
+        }
+        toast(files.length + (files.length === 1 ? " photo" : " photos") + (navigator.onLine ? " saved." : " saved. They'll be sent when you're back online."))
+        load()
+      }
+      $("cam").onchange = (e) => take([...e.target.files])
+      $("pick").onchange = (e) => take([...e.target.files])
+    }
+
+    // At most 2000 px across, as JPEG: plenty for the record, light on the iPad.
+    function shrink(file) {
+      return new Promise((resolve) => {
+        const img = new Image(), url = URL.createObjectURL(file)
+        img.onload = () => {
+          const k = Math.min(1, 2000 / Math.max(img.naturalWidth, img.naturalHeight))
+          const cv = document.createElement("canvas")
+          cv.width = Math.round(img.naturalWidth * k); cv.height = Math.round(img.naturalHeight * k)
+          cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height)
+          URL.revokeObjectURL(url)
+          cv.toBlob((b) => resolve(b || file), "image/jpeg", 0.88)
+        }
+        img.onerror = () => { URL.revokeObjectURL(url); resolve(file) }
+        img.src = url
+      })
+    }
+
+    function save(e, kind) {
+      e.preventDefault()
+      const f = Object.fromEntries(new FormData(e.target))
+      if (kind === "note") f.review = !!f.review
+      finish({kind, animal_id: current, ...f})
+    }
+
+    async function finish(op) {
+      await B.add(op)
+      closeSheet()
+      toast(navigator.onLine ? "Saved." : "Saved on the iPad. It'll be sent when you're back online.")
+      load()
+    }
+
+    // ── Staying current ──
+    $("sync-btn").onclick = async () => {
+      try { const r = await B.sync(); toast(r.sent ? `Sent ${r.sent}.` : "Nothing sent.") } catch (e) { signin(e) }
+      load()
+    }
+
+    function signin(e) {
+      if (e && e.message === "signin") $("banner").insertAdjacentHTML("afterbegin", `<div class="banner warn"><b>Sign in to send.</b> Open the app, sign in, then come back here (or just keep using the app; it sends what's waiting).</div>`)
+    }
+
+    B.onChange(load)
+    window.addEventListener("online", () => { render(); B.sync().catch(signin) })
+    window.addEventListener("offline", render)
+    load().then(() => { if (navigator.onLine) B.sync().catch(signin).finally(() => B.refresh().catch(signin)) })
+  </script>
+</body>
+</html>

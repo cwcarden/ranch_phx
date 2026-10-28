@@ -192,21 +192,7 @@ defmodule RanchPhxWeb.HoofLive.Index do
       url =
         consume_uploaded_entry(socket, entry, &{:ok, store(animal, &1.path, entry.client_name)})
 
-      {:ok, _} =
-        Animals.create_event(%{
-          "animal_id" => animal.id,
-          "event_type" => "hoof",
-          "title" =>
-            "#{Hooves.foot_name(foot)} #{if view == "sole", do: "sole", else: "side"} photo, to measure",
-          "event_date" => RanchPhx.LocalTime.today(),
-          "photo_urls" => [url],
-          "metadata" => %{
-            "status" => "pending",
-            "foot" => foot,
-            "view" => view,
-            "original" => url
-          }
-        })
+      {:ok, _} = Hooves.create_pending(animal, foot, view, url, RanchPhx.LocalTime.today())
 
       {:noreply,
        socket

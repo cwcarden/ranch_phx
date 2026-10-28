@@ -33,6 +33,29 @@ const DOCS_CACHE = "ranch-docs-v1"
 // Documents open in our own viewer (see doc_viewer.js): never the bare file.
 installDocViewer()
 
+// Barn mode (/barn.html, /barn.js): while the app is open and online, keep the copy for
+// the barn fresh and send anything added offline. If the connection drops, offer it.
+{
+  const s = document.createElement("script")
+  s.src = "/barn.js"
+  s.onload = () => setTimeout(() => window.RanchBarn && window.RanchBarn.background(), 4000)
+  document.head.appendChild(s)
+
+  const offer = () => {
+    if (navigator.onLine || document.getElementById("barn-offer")) return
+    const a = document.createElement("a")
+    a.id = "barn-offer"
+    a.href = "/barn.html"
+    a.textContent = "No connection · Open Barn mode"
+    a.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom));z-index:500;background:#b45309;color:#fff;padding:14px 20px;border-radius:14px;font:800 16px -apple-system,system-ui,sans-serif;text-decoration:none;box-shadow:0 6px 20px rgba(0,0,0,.3)"
+    document.body.appendChild(a)
+  }
+  window.addEventListener("offline", offer)
+  window.addEventListener("online", () => { const a = document.getElementById("barn-offer"); if (a) a.remove() })
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", offer)
+  else offer()
+}
+
 // Swap a broken hero photo (cover_photo_url points at a missing/corrupt
 // file) for the placeholder icon. Only touches the DOM when loading
 // actually fails, rather than always rendering a hidden placeholder next
