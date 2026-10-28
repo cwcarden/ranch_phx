@@ -55,4 +55,29 @@ defmodule RanchPhxWeb.HoofLiveTest do
     render_hook(view, "hoof_measured", %{"foot" => "LF", "toe" => 0})
     assert render(view) =~ "didn&#39;t make an angle"
   end
+
+  test "saves with only the toe line (no pastern drawn)", %{conn: conn, animal: animal} do
+    {:ok, view, _} = live(conn, ~p"/animals/#{animal.id}/hooves")
+
+    render_hook(view, "hoof_measured", %{
+      "foot" => "LF",
+      "toe" => 53.5,
+      "pastern" => nil,
+      "date" => Date.to_iso8601(Date.utc_today()),
+      "note" => "",
+      "points" => %{"ground" => [], "wall" => [], "pastern" => []}
+    })
+
+    photo =
+      file_input(view, "#hoof-upload-form", :hoof, [
+        %{name: "hoof-LF.jpg", content: <<0xFF, 0xD8, 0xFF, 0xD9>>, type: "image/jpeg"}
+      ])
+
+    render_upload(photo, "hoof-LF.jpg")
+    assert has_element?(view, "#foot-LF", "53.5°")
+
+    [event] = Animals.get_animal_with_pedigree!(animal.id).timeline_events
+    assert event.metadata["pastern"] == nil
+    File.rm(Path.join(Application.app_dir(:ranch_phx, "priv/static"), hd(event.photo_urls)))
+  end
 end

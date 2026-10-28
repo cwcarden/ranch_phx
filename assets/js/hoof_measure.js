@@ -62,10 +62,12 @@ export const HoofMeasure = {
       })
     )
     this.handleEvent("hoof-saved", () => this.close())
+    this.handleEvent("hoof-failed", ({message}) => this.saveFailed(message))
     this.onResize = () => this.layout()
   },
 
   destroyed() {
+    clearTimeout(this.saveTimer)
     this.close()
   },
 
@@ -128,6 +130,7 @@ export const HoofMeasure = {
   },
 
   close() {
+    clearTimeout(this.saveTimer)
     if (!this.ed) return
     window.removeEventListener("resize", this.onResize)
     this.ed.remove()
@@ -343,12 +346,24 @@ export const HoofMeasure = {
   },
 
   // ── Saving ──
+  // Puts the Save button back and says why, so it never sits on "Saving…".
+  saveFailed(message) {
+    clearTimeout(this.saveTimer)
+    if (!this.ed) return
+    const btn = this.ed.querySelector("[data-save]")
+    btn.disabled = false
+    btn.textContent = "Save"
+    this.say(message || "Couldn't save that. Tap Save to try again.")
+  },
+
   save() {
     const {toe, pastern} = this.angles()
     if (toe == null) return
     const btn = this.ed.querySelector("[data-save]")
     btn.disabled = true
     btn.textContent = "Saving…"
+    clearTimeout(this.saveTimer)
+    this.saveTimer = setTimeout(() => this.saveFailed("That's taking too long. Check the connection and tap Save again."), 30000)
 
     // The photo with the lines on it, at most 1600 px across.
     const scale = Math.min(1, 1600 / Math.max(this.img.naturalWidth, this.img.naturalHeight))
@@ -379,9 +394,7 @@ export const HoofMeasure = {
         if (reply && reply.ok) {
           this.upload("hoof", [file])
         } else {
-          btn.disabled = false
-          btn.textContent = "Save"
-          this.say("Couldn't save that. Check the lines and try again.")
+          this.saveFailed("Couldn't save that. Check the lines and try again.")
         }
       })
     }, "image/jpeg", 0.86)
