@@ -110,6 +110,20 @@ defmodule RanchPhx.Animals.Hooves do
     end
   end
 
+  @doc "Saves a photo to draw the lines on later (from the phone, or from Barn mode)."
+  def create_pending(animal, foot, view, url, %Date{} = date) do
+    view = if view == "sole", do: "sole", else: "side"
+
+    RanchPhx.Animals.create_event(%{
+      "animal_id" => animal.id,
+      "event_type" => "hoof",
+      "title" => "#{foot_name(foot)} #{if view == "sole", do: "sole", else: "side"} photo, to measure",
+      "event_date" => date,
+      "photo_urls" => [url],
+      "metadata" => %{"status" => "pending", "foot" => foot, "view" => view, "original" => url}
+    })
+  end
+
   @doc "Photos saved to draw the lines on later (oldest first)."
   def to_measure(events) do
     events

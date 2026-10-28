@@ -17,6 +17,23 @@ defmodule RanchPhxWeb.Router do
     plug :accepts, ["json"]
   end
 
+  # Barn mode (/barn.html): the app's own session, JSON in and out. It's a plain page
+  # with no form token, so these check the request came from the app's own origin.
+  pipeline :barn do
+    plug :accepts, ["json"]
+    plug :fetch_session
+    plug :fetch_flash
+    plug :fetch_current_scope_for_user
+  end
+
+  scope "/api/barn", RanchPhxWeb do
+    pipe_through [:barn, :require_authenticated_user]
+
+    get "/snapshot", BarnController, :snapshot
+    post "/sync", BarnController, :sync
+    post "/photo", BarnController, :photo
+  end
+
   # Protected animal routes — require login
   scope "/", RanchPhxWeb do
     pipe_through [:browser, :require_authenticated_user]

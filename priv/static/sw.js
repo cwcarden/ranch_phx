@@ -1,7 +1,12 @@
-const SHELL_CACHE = "ranch-shell-v10";
+const SHELL_CACHE = "ranch-shell-v11";
 const DOCS_CACHE = "ranch-docs-v1";
+// Photos kept for Barn mode (see barn.js); refreshed while online.
+const BARN_MEDIA = "ranch-barn-media-v1";
 const SHELL_ASSETS = [
   "/offline.html",
+  "/barn.html",
+  "/barn.js",
+  "/icons/icon-192.png",
   "/assets/css/app.css",
   "/assets/js/app.js",
   "/manifest.json",
@@ -17,7 +22,7 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== SHELL_CACHE && k !== DOCS_CACHE).map((k) => caches.delete(k)))
+      Promise.all(keys.filter((k) => k !== SHELL_CACHE && k !== DOCS_CACHE && k !== BARN_MEDIA).map((k) => caches.delete(k)))
     )
   );
   self.clients.claim();
@@ -33,11 +38,26 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Page navigations: network-first, falling back to the offline shell when
-  // there's no connection (LiveView pages need a live socket, so they can't
-  // render usefully offline anyway).
+  // Other uploaded photos (file names never change): whatever's kept on the device
+  // first, so Barn mode shows them with no signal; otherwise the network.
+  if (url.pathname.startsWith("/uploads/") && event.request.method === "GET") {
+    event.respondWith(caches.match(event.request).then((cached) => cached || fetch(event.request)));
+    return;
+  }
+
+  // Page navigations: network-first. With no connection, Barn mode (or Papers, or
+  // Barn mode itself) from the device; LiveView pages need a live connection.
+  // Barn Wi-Fi with no internet looks "online" but never answers: after 8 seconds,
+  // Barn mode instead of a page that spins forever.
   if (event.request.mode === "navigate") {
-    event.respondWith(fetch(event.request).catch(() => caches.match("/offline.html")));
+    const offline = () =>
+      caches.match(event.request, {ignoreSearch: true}).then((hit) => hit || caches.match("/barn.html"))
+    const slow = new Promise((resolve) => setTimeout(() => resolve("slow"), 8000))
+    event.respondWith(
+      Promise.race([fetch(event.request), slow])
+        .then((res) => (res === "slow" ? offline() : res))
+        .catch(offline)
+    );
     return;
   }
 
