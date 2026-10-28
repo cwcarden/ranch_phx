@@ -45,15 +45,36 @@
   .hf-notes-actions { display: flex; gap: 10px; margin-top: 8px; }
   .hf-notes-actions .tr-btn-primary, .hf-ask { background: #0f766e; border-color: #0f766e; }
   .hf-ask { width: 100%; }
+  .hf-sole { font-size: 12px; font-weight: 700; margin-top: 4px; }
+  .hf-sole.ok { color: #16a34a; } .hf-sole.check { color: #d97706; }
+  .hf-views { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 4px 0 10px; }
+  .hf-vbtn { min-height: 52px; border-radius: 12px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text); font: inherit; font-size: 16px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+  .hf-vbtn small { font-weight: 600; color: var(--text2); }
+  .hf-vbtn.on { background: #0f766e; border-color: #0f766e; color: #fff; }
+  .hf-vbtn.on small { color: rgba(255,255,255,.85); }
+  [data-theme="dark"] .hf-vbtn.on { background: #2dd4bf; border-color: #2dd4bf; color: #042f2e; }
+  .hf-sum { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; text-align: left; }
+  .hf-sum li { display: grid; grid-template-columns: 20px 1fr; gap: 8px; font-size: 15px; line-height: 1.4; }
+  .hf-sum li::before { content: "•"; font-weight: 800; text-align: center; color: var(--text3); }
+  .hf-sum li.ok::before { content: "✓"; color: #16a34a; }
+  .hf-sum li.check::before { content: "!"; color: #d97706; }
+  .hf-view .hf-sum li { color: #e5e7eb; }
+  .hf-view .hf-sum li.ok::before { color: #4ade80; } .hf-view .hf-sum li.check::before { color: #fbbf24; }
+  .hf-view-nums b { display: block; font-size: 18px; margin-bottom: 8px; }
+  .hf-view-nums { max-width: 720px; margin: 0 auto; }
+  .hf-def { display: grid; gap: 10px; margin: 8px 0 0; }
+  .hf-def dt { font-weight: 800; }
+  .hf-def dd { margin: 2px 0 0; color: var(--text2); font-size: 15px; line-height: 1.45; }
+  .hf-def-h { margin: 14px 0 0; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--text3); }
 </style>
 
 <div class="tr-wrap">
   <% colors = %{"LF" => "#2563eb", "RF" => "#16a34a", "LH" => "#d97706", "RH" => "#9333ea"} %>
 
   <div class="tr-card" id="hoof-latest">
-    <h2 style="margin:0 0 4px">Latest angles</h2>
+    <h2 style="margin:0 0 4px">Latest</h2>
     <p class="tr-muted" style="margin-bottom:12px">
-      Toe angle to the ground, and whether the pastern lines up with the hoof.
+      Toe angle to the ground, whether the pastern lines up with the hoof, and the sole's balance.
     </p>
     <div class="hf-feet">
       <%= for {code, name} <- RanchPhx.Animals.Hooves.feet() do %>
@@ -82,6 +103,16 @@
           <% else %>
             <div class="hf-when" style="margin-top:8px">Not measured yet</div>
           <% end %>
+          <% sole = @latest_sole[code] %>
+          <div
+            :if={sole}
+            class={[
+              "hf-sole",
+              if(RanchPhx.Animals.Hooves.sole_ok?(sole), do: "ok", else: "check")
+            ]}
+          >
+            Sole: {if RanchPhx.Animals.Hooves.sole_ok?(sole), do: "balanced", else: "worth a look"}
+          </div>
         </button>
       <% end %>
     </div>
@@ -140,7 +171,27 @@
 
   <div :if={@is_superuser} class="tr-card" id="hoof-measure" style="margin-top:14px">
     <h2 style="margin:0 0 4px">Measure a hoof</h2>
-    <div class="hf-picker" id="foot-picker" data-foot={@foot}>
+    <div class="hf-views" role="group" aria-label="Which photo">
+      <button
+        type="button"
+        id="view-side"
+        class={["hf-vbtn", @view == "side" && "on"]}
+        phx-click="select_view"
+        phx-value-view="side"
+      >
+        Side <small>angles</small>
+      </button>
+      <button
+        type="button"
+        id="view-sole"
+        class={["hf-vbtn", @view == "sole" && "on"]}
+        phx-click="select_view"
+        phx-value-view="sole"
+      >
+        Bottom <small>sole balance</small>
+      </button>
+    </div>
+    <div class="hf-picker" id="foot-picker" data-foot={@foot} data-view={@view}>
       <button
         :for={{code, name} <- RanchPhx.Animals.Hooves.feet()}
         type="button"
@@ -153,13 +204,24 @@
         {code}<small>{name}</small>
       </button>
     </div>
-    <ul class="hf-tips">
+    <ul :if={@view == "side"} class="hf-tips" id="tips-side">
       <li>Stand him square on flat, firm ground, with the hoof wall brushed clean.</li>
       <li>
         Set the camera on the ground, level, square to the side of the hoof, so the whole hoof and pastern show.
       </li>
       <li>
-        Then tap along the ground, the toe wall and the pastern. Pencil or finger both work.
+        Then tap along the ground, the toe wall and the pastern. Pencil or finger both work. Tap
+        <b>?</b>
+        any time for what each line is.
+      </li>
+    </ul>
+    <ul :if={@view == "sole"} class="hf-tips" id="tips-sole">
+      <li>Pick the foot up and clean out the sole and frog so the edges show.</li>
+      <li>Shoot straight down at the sole, square to it, so the whole foot fills the photo.</li>
+      <li>
+        Then tap the toe, both heels, the two sides at the widest part, and the frog tip. Tap
+        <b>?</b>
+        any time for what each line is.
       </li>
     </ul>
 
@@ -182,13 +244,38 @@
     </form>
   </div>
 
+  <details class="tr-card" id="hoof-correct" style="margin-top:14px">
+    <summary style="cursor:pointer;font-size:18px;font-weight:700">What's correct?</summary>
+    <div class="hf-def-h">Side view</div>
+    <dl class="hf-def">
+      <%= for {term, text} <- RanchPhx.Animals.Hooves.side_correct() do %>
+        <div>
+          <dt>{term}</dt>
+          <dd>{text}</dd>
+        </div>
+      <% end %>
+    </dl>
+    <div class="hf-def-h">Bottom of the foot</div>
+    <dl class="hf-def">
+      <%= for {term, text} <- RanchPhx.Animals.Hooves.sole_correct() do %>
+        <div>
+          <dt>{term}</dt>
+          <dd>{text}</dd>
+        </div>
+      <% end %>
+    </dl>
+    <p class="hf-fine">
+      A guide for watching changes and talking with your farrier. Every horse is a little different, and your farrier or vet has the final say.
+    </p>
+  </details>
+
   <div class="tr-card" id="hoof-history" style="margin-top:14px">
     <h2 style="margin:0 0 6px">History</h2>
-    <p :if={@measurements == []} class="tr-muted">
-      No measurements yet. Measure each foot now and again after trims, and you'll see how the angles change.
+    <p :if={@history == []} class="tr-muted">
+      No measurements yet. Measure each foot now and again after trims, and you'll see how things change.
     </p>
     <button
-      :for={m <- @measurements}
+      :for={m <- @history}
       type="button"
       class="hf-row"
       style={"--fc:#{colors[m.foot]}"}
@@ -198,16 +285,29 @@
     >
       <img :if={m.photo} src={m.photo} alt="" loading="lazy" />
       <div class="hf-main">
-        <div>
-          <span class="hf-dot"></span><b>{RanchPhx.Animals.Hooves.foot_name(m.foot)}</b>
-          · toe {RanchPhx.Animals.Hooves.fmt(m.toe)}°<span :if={m.pastern}> · pastern {RanchPhx.Animals.Hooves.fmt(m.pastern)}°</span>
-        </div>
-        <div
-          :if={m.axis}
-          class={["hf-axis", if(elem(m.axis, 0) == :straight, do: "ok", else: "check")]}
-        >
-          {RanchPhx.Animals.Hooves.axis_text(m.axis)}
-        </div>
+        <%= if Map.get(m, :view) == :sole do %>
+          <div>
+            <span class="hf-dot"></span><b>{RanchPhx.Animals.Hooves.foot_name(m.foot)} sole</b>
+            · {RanchPhx.Animals.Hooves.sole_short(m)}
+          </div>
+          <div class={[
+            "hf-axis",
+            if(RanchPhx.Animals.Hooves.sole_ok?(m), do: "ok", else: "check")
+          ]}>
+            {if RanchPhx.Animals.Hooves.sole_ok?(m), do: "Balanced", else: "Worth a look"}
+          </div>
+        <% else %>
+          <div>
+            <span class="hf-dot"></span><b>{RanchPhx.Animals.Hooves.foot_name(m.foot)}</b>
+            · toe {RanchPhx.Animals.Hooves.fmt(m.toe)}°<span :if={m.pastern}> · pastern {RanchPhx.Animals.Hooves.fmt(m.pastern)}°</span>
+          </div>
+          <div
+            :if={m.axis}
+            class={["hf-axis", if(elem(m.axis, 0) == :straight, do: "ok", else: "check")]}
+          >
+            {RanchPhx.Animals.Hooves.axis_text(m.axis)}
+          </div>
+        <% end %>
         <div class="hf-when">
           {Calendar.strftime(m.date, "%b %-d, %Y")}<span :if={m.note}> · {m.note}</span>
         </div>
@@ -223,10 +323,8 @@
 <div :if={@viewing} class="hf-view" id="hoof-view">
   <div class="hf-view-bar">
     <b>
-      {RanchPhx.Animals.Hooves.foot_name(@viewing.foot)} · {Calendar.strftime(
-        @viewing.date,
-        "%b %-d, %Y"
-      )}
+      {RanchPhx.Animals.Hooves.foot_name(@viewing.foot)}{if Map.get(@viewing, :view) == :sole,
+        do: " sole"} · {Calendar.strftime(@viewing.date, "%b %-d, %Y")}
     </b>
     <span class="sp"></span>
     <button
@@ -240,7 +338,34 @@
     <button phx-click="close_view" id="close-view">Done</button>
   </div>
   <img :if={@viewing.photo} src={@viewing.photo} alt="Marked-up hoof photo" />
-  <div class="hf-view-nums">
-    Toe {RanchPhx.Animals.Hooves.fmt(@viewing.toe)}°<span :if={@viewing.pastern}> · Pastern {RanchPhx.Animals.Hooves.fmt(@viewing.pastern)}° · {RanchPhx.Animals.Hooves.axis_text(@viewing.axis)}</span>
+  <div class="hf-view-nums" id="hoof-summary">
+    <%= if Map.get(@viewing, :view) == :sole do %>
+      <b>{RanchPhx.Animals.Hooves.sole_short(@viewing)}</b>
+      <ul class="hf-sum">
+        <li :for={{status, text} <- RanchPhx.Animals.Hooves.sole_summary(@viewing)} class={status}>
+          {text}
+        </li>
+      </ul>
+    <% else %>
+      <b>
+        Toe {RanchPhx.Animals.Hooves.fmt(@viewing.toe)}°<span :if={@viewing.pastern}> · Pastern {RanchPhx.Animals.Hooves.fmt(@viewing.pastern)}°</span>
+      </b>
+      <ul class="hf-sum">
+        <li
+          :for={
+            {status, text} <-
+              RanchPhx.Animals.Hooves.side_summary(
+                @viewing.foot,
+                @viewing.toe,
+                @viewing.pastern,
+                @latest[RanchPhx.Animals.Hooves.opposite(@viewing.foot)]
+              )
+          }
+          class={status}
+        >
+          {text}
+        </li>
+      </ul>
+    <% end %>
   </div>
 </div>
