@@ -343,8 +343,11 @@ Hooks.PushSetup = {
   async report() {
     const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
     const standalone = window.navigator.standalone || window.matchMedia("(display-mode: standalone)").matches
+    // iPhone and iPad: only the Home Screen app can have notifications. In a Safari
+    // tab they always look blocked, so say how to fix that instead.
+    if (ios && !standalone) return this.pushEvent("push_status", {state: "needs_home_screen"})
     if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
-      return this.pushEvent("push_status", {state: ios && !standalone ? "needs_home_screen" : "unsupported"})
+      return this.pushEvent("push_status", {state: "unsupported"})
     }
     if (Notification.permission === "denied") return this.pushEvent("push_status", {state: "denied"})
     const reg = await navigator.serviceWorker.ready
