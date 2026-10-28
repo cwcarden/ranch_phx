@@ -117,7 +117,8 @@ defmodule RanchPhx.BackupTest do
       {:ok, view, _} = live(conn, ~p"/admin/backups")
       assert has_element?(view, "#backup-state", "No backup yet")
       view |> element("#backup-now") |> render_click()
-      render_async(view)
+      # Makes a real copy of the test database, which can take a moment.
+      render_async(view, 10_000)
       assert has_element?(view, "#backup-state", "Backed up")
       assert has_element?(view, "#backup-runs", "3 new file(s)")
     end

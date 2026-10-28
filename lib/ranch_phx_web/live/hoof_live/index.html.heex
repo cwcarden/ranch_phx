@@ -45,6 +45,7 @@
   .hf-notes-actions { display: flex; gap: 10px; margin-top: 8px; }
   .hf-notes-actions .tr-btn-primary, .hf-ask { background: #0f766e; border-color: #0f766e; }
   .hf-ask { width: 100%; }
+  .hf-report { width: 100%; margin-top: 12px; background: #0f766e; border-color: #0f766e; }
   .hf-sole { font-size: 12px; font-weight: 700; margin-top: 4px; }
   .hf-sole.ok { color: #16a34a; } .hf-sole.check { color: #d97706; }
   .hf-views { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 4px 0 10px; }
@@ -116,6 +117,16 @@
         </button>
       <% end %>
     </div>
+    <a
+      :if={@history != []}
+      class="tr-btn tr-btn-primary hf-report"
+      id="farrier-report"
+      href={
+        ~p"/animals/#{@animal.id}/report?#{[kind: "farrier", profile: "1", hooves: "1", records: "1", record_cats: "hoof_care"]}"
+      }
+    >
+      <.icon name="hero-document-text" /> Farrier report (PDF)
+    </a>
     <div :if={@pairs != []} class="hf-pairs">
       <span :for={{label, d, status} <- @pairs} class={["hf-pair", to_string(status)]}>
         {label} differ {RanchPhx.Animals.Hooves.fmt(d)}°{if status == :ok,

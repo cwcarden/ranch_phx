@@ -49,12 +49,36 @@
     .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4pt; font-size: 10pt; }
     .profile-row { padding: 3pt 0; border-bottom: 0.5pt solid #f0f0f0; }
     .profile-label { color: #777; font-size: 9pt; }
+    /* Hooves */
+    .hf-lead { font-size: 9.5pt; color: #555; margin: 4pt 0 8pt; line-height: 1.45; }
+    .hf-pairs { display: flex; flex-wrap: wrap; gap: 6pt; margin: 0 0 8pt; }
+    .hf-tag { font-size: 9pt; font-weight: bold; padding: 2pt 8pt; border-radius: 10pt; border: 1pt solid #d1d5db; }
+    .hf-tag.ok { color: #15803d; border-color: #86efac; } .hf-tag.check { color: #b45309; border-color: #fcd34d; }
+    .hf-foot { break-inside: avoid; page-break-inside: avoid; border-top: 1pt solid #e5e7eb; padding: 8pt 0 6pt; }
+    .hf-foot-name { font-size: 12pt; font-weight: bold; margin-bottom: 6pt; }
+    .hf-views { display: grid; grid-template-columns: 1fr 1fr; gap: 12pt; }
+    .hf-view img { width: 100%; max-height: 210pt; object-fit: contain; background: #f3f4f6; border-radius: 4pt; border: 0.5pt solid #e5e7eb; }
+    .hf-nums { font-size: 9pt; color: #555; margin: 4pt 0 3pt; }
+    .hf-nums b { font-size: 11pt; color: #111; }
+    .hf-sum { list-style: none; margin: 0; padding: 0; font-size: 9pt; line-height: 1.4; }
+    .hf-sum li { padding-left: 12pt; position: relative; margin-bottom: 2pt; }
+    .hf-sum li::before { content: "•"; position: absolute; left: 0; color: #6b7280; font-weight: bold; }
+    .hf-sum li.ok::before { content: "✓"; color: #15803d; }
+    .hf-sum li.check::before { content: "!"; color: #b45309; }
+    .hf-note { font-size: 9pt; color: #555; margin-top: 3pt; font-style: italic; }
+    .hf-sub { font-size: 10pt; font-weight: bold; text-transform: uppercase; letter-spacing: .05em; color: #555; margin: 12pt 0 4pt; }
+    .hf-guide { font-size: 8.5pt; color: #444; line-height: 1.4; padding-left: 14pt; margin: 0; }
+    .hf-guide li { margin-bottom: 2pt; }
+    .hf-thumb { width: 64pt; }
+    .hf-thumb img { width: 60pt; height: 60pt; object-fit: cover; border-radius: 3pt; border: 0.5pt solid #e5e7eb; display: block; }
+    .hf-fine { font-size: 8pt; color: #777; margin-top: 6pt; }
     @page { margin: 0.75in; }
     @media print {
       .no-print { display: none !important; }
       body { font-size: 10pt; }
       .print-page { padding: 0; max-width: 100%; }
       .rpt-section { page-break-inside: avoid; }
+      .rpt-section.rpt-hooves { page-break-inside: auto; }
     }
   </style>
 </head>
