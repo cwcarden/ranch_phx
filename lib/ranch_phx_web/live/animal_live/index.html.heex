@@ -85,6 +85,8 @@ a.ci-row:active { background: var(--surface2); }
 .ci-rate.down { color: #dc2626; }
 .ci-spark { flex: none; color: #16a34a; }
 .ci-row.soon .ci-ico, .ci-row.soon b { color: #d97706; }
+.ci-row.course .ci-ico, .ci-row.course b { color: #2563eb; }
+.ci-row.course.now { background: color-mix(in srgb, #2563eb 8%, transparent); }
 .ci-row.over .ci-ico, .ci-row.over b { color: #dc2626; }
 .ci-row.train .ci-ico { color: #0d9488; }
 .card-stat { display: flex; flex-direction: column; gap: 1px; }
@@ -258,7 +260,7 @@ a.ci-row:active { background: var(--surface2); }
           </a>
               <% ins = @insights[animal.id] %>
               <% spark = ins && ins.weight && Insights.sparkline(ins.weight.points, 72, 22) %>
-              <div :if={ins && (ins.weight || ins.height || ins.care || ins.training)} class="card-insights">
+              <div :if={ins && (ins.weight || ins.height || ins.course || ins.care || ins.training)} class="card-insights">
                 <a :if={ins.weight} class="ci-row" href={"/animals/#{animal.id}?data=weight"} aria-label={"#{animal.name}'s weight history"}>
                   <.icon name="hero-scale" class="ci-ico" />
                   <span class="ci-main">
@@ -283,6 +285,14 @@ a.ci-row:active { background: var(--surface2); }
                   <svg :if={hspark} class="ci-spark" viewBox="0 0 72 22" width="72" height="22" aria-hidden="true">
                     <polyline points={hspark} fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                   </svg>
+                </a>
+                <a :if={ins.course} class={["ci-row course", ins.course.today_i && !ins.course.today_given? && "now"]} href={"/animals/#{animal.id}"} id={"card-course-#{animal.id}"}>
+                  <.icon name="hero-check-badge" class="ci-ico" />
+                  <span class="ci-main">
+                    {ins.course.record.title}
+                    <b :if={ins.course.today_i && !ins.course.today_given?}>day {ins.course.today_i + 1} of {ins.course.total} today</b>
+                    <b :if={!(ins.course.today_i && !ins.course.today_given?)}>{ins.course.given} of {ins.course.total} given</b>
+                  </span>
                 </a>
                 <a :if={ins.care} class={["ci-row", if(ins.care.days < 0, do: "over", else: "soon")]} href={"/animals/#{animal.id}?tab=records"}>
                   <.icon name="hero-bell-alert" class="ci-ico" />

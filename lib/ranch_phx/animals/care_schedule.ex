@@ -143,6 +143,54 @@ defmodule RanchPhx.Animals.CareSchedule do
     |> Enum.sort_by(&Date.to_gregorian_days(&1.date))
   end
 
+  @doc """
+  A multi-day treatment, read from a record's description ("daily for 5 days"),
+  starting on the record's date: `%{record, dates, done, given, total, today_i,
+  today_given?, missed, finished?}`, or nil when the record isn't one.
+  """
+  def course(record, %Date{} = today) do
+    with d when is_binary(d) <- record.description,
+         [_, n] <- Regex.run(~r/daily for (\d+) days/i, d),
+         n when n in 2..60 <- String.to_integer(n) do
+      dates = Enum.map(0..(n - 1), &Date.add(record.date, &1))
+      done = MapSet.new(record.course_done || [])
+      given = Enum.count(dates, &MapSet.member?(done, &1))
+
+      %{
+        record: record,
+        dates: dates,
+        done: done,
+        given: given,
+        total: n,
+        today_i: Enum.find_index(dates, &(&1 == today)),
+        today_given?: MapSet.member?(done, today),
+        missed:
+          Enum.count(dates, &(Date.compare(&1, today) == :lt and not MapSet.member?(done, &1))),
+        finished?: given == n
+      }
+    else
+      _ -> nil
+    end
+  end
+
+  @doc """
+  Treatment courses worth showing now: from 3 days before the first dose until
+  3 days after the last (or a week after, while doses are still unchecked).
+  """
+  def active_courses(records, %Date{} = today) do
+    records
+    |> Enum.map(&course(&1, today))
+    |> Enum.reject(&is_nil/1)
+    |> Enum.filter(fn c ->
+      first = hd(c.dates)
+      last = List.last(c.dates)
+      grace = if c.finished?, do: 3, else: 7
+
+      Date.diff(first, today) <= 3 and Date.diff(today, last) <= grace
+    end)
+    |> Enum.sort_by(&Date.to_gregorian_days(hd(&1.dates)))
+  end
+
   @doc "Only what's overdue or due within `days` days."
   def due(records, %Date{} = today, days \\ 45),
     do: records |> status(today) |> Enum.filter(&(&1.days <= days))
