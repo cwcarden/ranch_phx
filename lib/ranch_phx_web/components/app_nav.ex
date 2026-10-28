@@ -23,6 +23,7 @@ defmodule RanchPhxWeb.AppNav do
       .an-bar { position: sticky; top: 0; z-index: 120; height: 52px; display: flex; align-items: center; gap: 10px; padding: 0 12px; padding-top: env(safe-area-inset-top); box-sizing: content-box; background: var(--surface); border-bottom: 1px solid var(--border); }
       .an-home { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; color: var(--brand); font-size: 17px; font-weight: 800; text-decoration: none; white-space: nowrap; }
       .an-home [class^="hero-"] { width: 24px; height: 24px; }
+      .an-mark { flex: none; width: 28px; height: 28px; background: currentColor; -webkit-mask: url(/images/brand-mark.png) center / contain no-repeat; mask: url(/images/brand-mark.png) center / contain no-repeat; }
       .an-tabs { display: flex; gap: 4px; padding: 3px; margin: 0 auto; border-radius: 12px; background: var(--surface2); border: 1px solid var(--border); }
       .an-tabs a { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 14px; border-radius: 9px; color: var(--text2); font-size: 15px; font-weight: 700; text-decoration: none; white-space: nowrap; }
       .an-tabs a [class^="hero-"] { width: 17px; height: 17px; }
@@ -68,7 +69,7 @@ defmodule RanchPhxWeb.AppNav do
     </div>
     <nav class="an-bar" id="app-nav" aria-label="Main">
       <a href="/" class="an-home" aria-label="Gimel Ranch home">
-        <.icon name="hero-home-modern" /><span class="an-name">Gimel Ranch</span>
+        <span class="an-mark" aria-hidden="true"></span><span class="an-name">Gimel Ranch</span>
       </a>
       <div class="an-tabs">
         <a href="/" class={@active == :animals && "on"} aria-current={@active == :animals && "page"}>
