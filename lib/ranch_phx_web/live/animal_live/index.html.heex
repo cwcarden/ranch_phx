@@ -131,6 +131,15 @@ a.ci-row:active { background: var(--surface2); }
   .mobile-hide { display: none !important; }
 }
 
+/* Phones: no second bar under the main one; a round + button adds an animal */
+.add-fab { display: none; }
+@media (max-width: 600px) {
+  .topbar { display: none; }
+  .add-fab { display: flex; align-items: center; justify-content: center; position: fixed; right: 18px; bottom: calc(22px + env(safe-area-inset-bottom)); z-index: 90; width: 60px; height: 60px; border-radius: 50%; border: none; background: var(--brand); color: #fff; box-shadow: 0 8px 24px rgba(0,0,0,.25); cursor: pointer; }
+  .add-fab [class^="hero-"] { width: 28px; height: 28px; }
+  .page-wrap { padding-bottom: 96px !important; }
+}
+
 @media (max-width: 600px) {
   .filter-pill { width: 100%; overflow-x: auto; }
   .form-row { grid-template-columns: 1fr; }
@@ -146,6 +155,10 @@ a.ci-row:active { background: var(--surface2); }
 </style>
 
 <.app_nav active={:animals} />
+
+<button :if={@is_superuser} class="add-fab" phx-click="open_new" id="add-fab" aria-label="Add animal">
+  <.icon name="hero-plus" />
+</button>
 
 <div class="topbar">
   <h1 class="topbar-title">Animals</h1>
