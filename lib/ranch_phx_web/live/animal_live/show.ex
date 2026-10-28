@@ -45,6 +45,7 @@ defmodule RanchPhxWeb.AnimalLive.Show do
      |> assign(:measure, nil)
      |> assign(:data_metric, nil)
      |> assign(:data_pick, [])
+     |> assign(:data_edit, false)
      |> assign(:scan_error, nil)
      |> assign(:preset_error, nil)
      |> assign(:tl_search, "")
@@ -691,13 +692,21 @@ defmodule RanchPhxWeb.AnimalLive.Show do
           "metadata" => Map.put(meta, "method", method)
         }
 
-        case Animals.create_event(attrs) do
+        result =
+          case m["event_id"] && Enum.find(animal.timeline_events, &(to_string(&1.id) == to_string(m["event_id"]))) do
+            %{} = event -> Animals.update_event(event, attrs)
+            _ -> Animals.create_event(attrs)
+          end
+
+        case result do
           {:ok, _} ->
+            socket = assign(socket, :animal, Animals.get_animal_with_pedigree!(animal.id))
+
             {:noreply,
              socket
-             |> assign(:animal, Animals.get_animal_with_pedigree!(animal.id))
              |> assign(:measure, nil)
-             |> put_flash(:info, "Saved: #{title}.")}
+             |> then(&if(&1.assigns.data_metric, do: open_data(&1, &1.assigns.data_metric), else: &1))
+             |> put_flash(:info, "#{if m["event_id"], do: "Updated", else: "Saved"}: #{title}.")}
 
           {:error, cs} ->
             msg = Enum.map_join(cs.errors, ", ", fn {f, {e, _}} -> "#{Phoenix.Naming.humanize(f)} #{e}" end)
@@ -712,7 +721,56 @@ defmodule RanchPhxWeb.AnimalLive.Show do
     do: {:noreply, open_data(socket, metric)}
 
   def handle_event("close_data", _params, socket),
-    do: {:noreply, assign(socket, data_metric: nil, data_pick: [])}
+    do: {:noreply, assign(socket, data_metric: nil, data_pick: [], data_edit: false)}
+
+  def handle_event("toggle_data_edit", _params, socket),
+    do: {:noreply, assign(socket, :data_edit, !socket.assigns.data_edit)}
+
+  # Fix a past weight or height: opens the log form filled in with that day's entry.
+  def handle_event("edit_entry", %{"date" => date}, socket) do
+    metric = socket.assigns.data_metric
+
+    case socket.assigns.is_superuser && entry_event(socket.assigns.animal, metric, date) do
+      %{} = e ->
+        meta = e.metadata || %{}
+
+        value =
+          if metric == "weight",
+            do: to_string(meta["lbs"] || Insights.parse_weight(e.title) || ""),
+            else: (fn i -> if i, do: Insights.hands(i), else: "" end).(meta["inches"] || Insights.parse_height(e.title))
+
+        {:noreply,
+         assign(socket, :measure, %{
+           "metric" => metric,
+           "event_id" => e.id,
+           "value" => value,
+           "method" => meta["method"],
+           "date" => Date.to_iso8601(e.event_date),
+           "note" => e.description || "",
+           "error" => nil
+         })}
+
+      _ ->
+        {:noreply, put_flash(socket, :error, "That one came from a record. Change it on the Records tab.")}
+    end
+  end
+
+  def handle_event("delete_entry", _params, socket) do
+    %{animal: animal, measure: m, is_superuser: su?} = socket.assigns
+
+    with true <- su?,
+         %{} = e <- Enum.find(animal.timeline_events, &(to_string(&1.id) == to_string(m["event_id"]))),
+         {:ok, _} <- Animals.delete_event(e) do
+      socket = assign(socket, animal: Animals.get_animal_with_pedigree!(animal.id), measure: nil)
+
+      {:noreply,
+       socket
+       |> then(&if(&1.assigns.data_metric, do: open_data(&1, &1.assigns.data_metric), else: &1))
+       |> put_flash(:info, "Deleted that #{m["metric"]}.")}
+    else
+      _ -> {:noreply, socket}
+    end
+  end
 
   # Tap two entries to compare them; a third tap starts a new pair.
   def handle_event("pick_point", %{"i" => i}, socket) do
@@ -1445,6 +1503,18 @@ defmodule RanchPhxWeb.AnimalLive.Show do
     n = length(metric_points(socket.assigns.animal, metric))
     # Start by comparing the first and latest entries.
     assign(socket, data_metric: metric, data_pick: if(n >= 2, do: [0, n - 1], else: []))
+  end
+
+  # The logged entry behind a row in the growth list: the newest weight or height
+  # event on that date (rows from records aren't edited here).
+  defp entry_event(animal, metric, date) do
+    with {:ok, d} <- Date.from_iso8601(date) do
+      animal.timeline_events
+      |> Enum.filter(&(&1.event_type == metric and &1.event_date == d))
+      |> Enum.max_by(& &1.inserted_at, NaiveDateTime, fn -> nil end)
+    else
+      _ -> nil
+    end
   end
 
   def metric_points(animal, "weight"), do: Insights.weights(animal.timeline_events, animal.records)
