@@ -383,11 +383,20 @@
 
     // Opened from the app's Papers button: go straight to that horse's papers.
     const params = new URLSearchParams(location.search);
-    if (params.get("animal")) {
-      // Opened from a horse's Papers button: "Back" goes to that horse.
-      document.getElementById("back-link").href = "/animals/" + encodeURIComponent(params.get("animal"));
-      openShow(params.get("animal"));
+
+    // "Back": to the horse (or the app) when online; to Barn mode with no connection,
+    // since the app's own pages need a connection.
+    function backLink() {
+      const link = document.getElementById("back-link");
+      if (!navigator.onLine) { link.href = "/barn.html"; link.textContent = "‹ Barn mode"; return; }
+      link.href = params.get("animal") ? "/animals/" + encodeURIComponent(params.get("animal")) : "/";
+      link.textContent = "‹ Back to the app";
     }
+    backLink();
+    window.addEventListener("online", backLink);
+    window.addEventListener("offline", backLink);
+
+    if (params.get("animal")) openShow(params.get("animal"));
   </script>
 </body>
 </html>
