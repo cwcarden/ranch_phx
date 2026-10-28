@@ -1,0 +1,199 @@
+<.styles />
+<.app_nav active={:animals} />
+<.topbar back={~p"/animals/#{@animal.id}"} back_label={@animal.name} title="Hooves" />
+
+<style>
+  .hf-feet { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .hf-foot { position: relative; text-align: left; padding: 12px; border-radius: 12px; border: 1px solid var(--border); border-top: 3px solid var(--fc); background: color-mix(in srgb, var(--fc) 5%, var(--surface)); min-height: 96px; cursor: pointer; color: var(--text); font: inherit; }
+  .hf-foot:disabled { cursor: default; }
+  .hf-foot .hf-name { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--fc); }
+  .hf-foot .hf-deg { font-size: 28px; font-weight: 800; line-height: 1.1; margin-top: 2px; }
+  .hf-foot .hf-deg small { font-size: 13px; font-weight: 600; color: var(--text2); margin-left: 4px; }
+  .hf-axis { font-size: 13px; font-weight: 700; }
+  .hf-axis.ok { color: #16a34a; } .hf-axis.check { color: #d97706; }
+  .hf-when { font-size: 12px; color: var(--text3); margin-top: 2px; }
+  .hf-pairs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .hf-pair { font-size: 14px; padding: 6px 12px; border-radius: 20px; border: 1.5px solid var(--border); font-weight: 600; }
+  .hf-pair.ok { border-color: color-mix(in srgb, #16a34a 40%, var(--border)); color: #16a34a; }
+  .hf-pair.check { border-color: color-mix(in srgb, #d97706 45%, var(--border)); color: #d97706; }
+  .hf-picker { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 10px 0 14px; }
+  .hf-pick { min-height: 52px; border-radius: 12px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text); font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; }
+  .hf-pick small { display: block; font-size: 11px; font-weight: 600; color: var(--text2); }
+  .hf-pick.on { background: var(--fc); border-color: var(--fc); color: #fff; }
+  .hf-pick.on small { color: rgba(255,255,255,.85); }
+  .hf-tips { margin: 0 0 14px; padding-left: 20px; list-style: disc; color: var(--text2); font-size: 15px; line-height: 1.5; }
+  .hf-go { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; }
+  .hf-go label { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 56px; border-radius: 14px; font-size: 17px; font-weight: 800; cursor: pointer; border: 1.5px solid var(--border); background: var(--surface); color: var(--text); text-align: center; }
+  .hf-go label.primary { background: #0f766e; border-color: #0f766e; color: #fff; }
+  [data-theme="dark"] .hf-go label.primary { color: #042f2e; background: #2dd4bf; border-color: #2dd4bf; }
+  .hf-go [class^="hero-"] { width: 22px; height: 22px; }
+  .hf-row { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 0; border: none; border-bottom: 1px solid var(--border); background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+  .hf-row:last-child { border-bottom: none; }
+  .hf-row img { width: 64px; height: 64px; object-fit: cover; border-radius: 10px; flex: none; background: var(--surface2); }
+  .hf-row .hf-main { flex: 1; min-width: 0; }
+  .hf-row b { font-size: 16px; }
+  .hf-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--fc); margin-right: 6px; }
+  .hf-fine { font-size: 13px; color: var(--text3); margin-top: 10px; line-height: 1.45; }
+  .hf-view { position: fixed; inset: 0; z-index: 300; background: #0b0f17; display: flex; flex-direction: column; }
+  .hf-view-bar { display: flex; align-items: center; gap: 12px; padding: max(12px, env(safe-area-inset-top)) 14px 12px; color: #fff; }
+  .hf-view-bar b { font-size: 17px; }
+  .hf-view-bar .sp { flex: 1; }
+  .hf-view-bar button { min-height: 44px; padding: 0 16px; border-radius: 12px; border: 1.5px solid rgba(255,255,255,.3); background: none; color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+  .hf-view img { flex: 1; min-height: 0; width: 100%; object-fit: contain; }
+  .hf-view-nums { color: #fff; padding: 10px 16px calc(14px + env(safe-area-inset-bottom)); font-size: 16px; text-align: center; }
+  .hf-err { color: #dc2626; font-weight: 600; margin: 8px 0 0; }
+</style>
+
+<div class="tr-wrap">
+  <% colors = %{"LF" => "#2563eb", "RF" => "#16a34a", "LH" => "#d97706", "RH" => "#9333ea"} %>
+
+  <div class="tr-card" id="hoof-latest">
+    <h2 style="margin:0 0 4px">Latest angles</h2>
+    <p class="tr-muted" style="margin-bottom:12px">
+      Toe angle to the ground, and whether the pastern lines up with the hoof.
+    </p>
+    <div class="hf-feet">
+      <%= for {code, name} <- RanchPhx.Animals.Hooves.feet() do %>
+        <% m = @latest[code] %>
+        <button
+          type="button"
+          class="hf-foot"
+          style={"--fc:#{colors[code]}"}
+          id={"foot-#{code}"}
+          phx-click={if m, do: "view", else: "select_foot"}
+          phx-value-id={m && m.id}
+          phx-value-foot={code}
+        >
+          <div class="hf-name">{name}</div>
+          <%= if m do %>
+            <div class="hf-deg">
+              {RanchPhx.Animals.Hooves.fmt(m.toe)}°<small :if={m.pastern}>pastern {RanchPhx.Animals.Hooves.fmt(m.pastern)}°</small>
+            </div>
+            <div
+              :if={m.axis}
+              class={["hf-axis", if(elem(m.axis, 0) == :straight, do: "ok", else: "check")]}
+            >
+              {RanchPhx.Animals.Hooves.axis_text(m.axis)}
+            </div>
+            <div class="hf-when">{Calendar.strftime(m.date, "%b %-d, %Y")}</div>
+          <% else %>
+            <div class="hf-when" style="margin-top:8px">Not measured yet</div>
+          <% end %>
+        </button>
+      <% end %>
+    </div>
+    <div :if={@pairs != []} class="hf-pairs">
+      <span :for={{label, d, status} <- @pairs} class={["hf-pair", to_string(status)]}>
+        {label} differ {RanchPhx.Animals.Hooves.fmt(d)}°{if status == :ok,
+          do: ", a good match",
+          else: ", worth a look"}
+      </span>
+    </div>
+  </div>
+
+  <div :if={@is_superuser} class="tr-card" id="hoof-measure" style="margin-top:14px">
+    <h2 style="margin:0 0 4px">Measure a hoof</h2>
+    <div class="hf-picker" id="foot-picker" data-foot={@foot}>
+      <button
+        :for={{code, name} <- RanchPhx.Animals.Hooves.feet()}
+        type="button"
+        class={["hf-pick", @foot == code && "on"]}
+        style={"--fc:#{colors[code]}"}
+        phx-click="select_foot"
+        phx-value-foot={code}
+        id={"pick-#{code}"}
+      >
+        {code}<small>{name}</small>
+      </button>
+    </div>
+    <ul class="hf-tips">
+      <li>Stand him square on flat, firm ground, with the hoof wall brushed clean.</li>
+      <li>
+        Set the camera on the ground, level, square to the side of the hoof, so the whole hoof and pastern show.
+      </li>
+      <li>
+        Then tap along the ground, the toe wall and the pastern. Pencil or finger both work.
+      </li>
+    </ul>
+
+    <div id="hoof-tool" phx-hook="HoofMeasure" phx-update="ignore" data-animal={@animal.name}>
+      <div class="hf-go">
+        <label class="primary">
+          <.icon name="hero-camera" /> Take photo
+          <input type="file" accept="image/*" capture="environment" hidden data-hoof-photo />
+        </label>
+        <label>
+          <.icon name="hero-photo" /> Choose
+          <input type="file" accept="image/*" hidden data-hoof-photo />
+        </label>
+      </div>
+    </div>
+    <p :if={@error} class="hf-err">{@error}</p>
+
+    <form id="hoof-upload-form" phx-change="upload_change" style="display:none">
+      <.live_file_input upload={@uploads.hoof} />
+    </form>
+  </div>
+
+  <div class="tr-card" id="hoof-history" style="margin-top:14px">
+    <h2 style="margin:0 0 6px">History</h2>
+    <p :if={@measurements == []} class="tr-muted">
+      No measurements yet. Measure each foot now and again after trims, and you'll see how the angles change.
+    </p>
+    <button
+      :for={m <- @measurements}
+      type="button"
+      class="hf-row"
+      style={"--fc:#{colors[m.foot]}"}
+      phx-click="view"
+      phx-value-id={m.id}
+      id={"hoof-#{m.id}"}
+    >
+      <img :if={m.photo} src={m.photo} alt="" loading="lazy" />
+      <div class="hf-main">
+        <div>
+          <span class="hf-dot"></span><b>{RanchPhx.Animals.Hooves.foot_name(m.foot)}</b>
+          · toe {RanchPhx.Animals.Hooves.fmt(m.toe)}°<span :if={m.pastern}> · pastern {RanchPhx.Animals.Hooves.fmt(m.pastern)}°</span>
+        </div>
+        <div
+          :if={m.axis}
+          class={["hf-axis", if(elem(m.axis, 0) == :straight, do: "ok", else: "check")]}
+        >
+          {RanchPhx.Animals.Hooves.axis_text(m.axis)}
+        </div>
+        <div class="hf-when">
+          {Calendar.strftime(m.date, "%b %-d, %Y")}<span :if={m.note}> · {m.note}</span>
+        </div>
+      </div>
+    </button>
+    <p class="hf-fine">
+      For keeping track of changes and talking things over with your farrier or vet. A photo angle
+      is only as good as how level and square the camera was, so measure the same way each time.
+    </p>
+  </div>
+</div>
+
+<div :if={@viewing} class="hf-view" id="hoof-view">
+  <div class="hf-view-bar">
+    <b>
+      {RanchPhx.Animals.Hooves.foot_name(@viewing.foot)} · {Calendar.strftime(
+        @viewing.date,
+        "%b %-d, %Y"
+      )}
+    </b>
+    <span class="sp"></span>
+    <button
+      :if={@is_superuser}
+      phx-click="delete"
+      phx-value-id={@viewing.id}
+      data-confirm="Delete this measurement?"
+    >
+      Delete
+    </button>
+    <button phx-click="close_view" id="close-view">Done</button>
+  </div>
+  <img :if={@viewing.photo} src={@viewing.photo} alt="Marked-up hoof photo" />
+  <div class="hf-view-nums">
+    Toe {RanchPhx.Animals.Hooves.fmt(@viewing.toe)}°<span :if={@viewing.pastern}> · Pastern {RanchPhx.Animals.Hooves.fmt(@viewing.pastern)}° · {RanchPhx.Animals.Hooves.axis_text(@viewing.axis)}</span>
+  </div>
+</div>

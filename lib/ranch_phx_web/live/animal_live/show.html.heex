@@ -546,6 +546,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 
 /* iPad and other touch screens: finger-sized controls, phone-style nav */
 .papers-btn { color: #0f766e; }
+.hoof-card { display: block; text-decoration: none; color: var(--text); }
+.hoof-card .hc-go { margin-left: auto; width: 18px; height: 18px; color: var(--text3); }
+.hc-feet { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.hc-foot { display: flex; flex-direction: column; align-items: center; padding: 8px 4px; border-radius: 10px; background: var(--surface2); border: 1px solid var(--border); }
+.hc-foot span { font-size: 11px; font-weight: 800; color: var(--text3); letter-spacing: .05em; }
+.hc-foot b { font-size: 20px; font-weight: 800; }
+.hc-foot small { font-size: 11px; font-weight: 700; text-align: center; }
+.hc-foot small.ok { color: #16a34a; } .hc-foot small.check { color: #d97706; }
 .papers-btn [class^="hero-"] { width: 16px; height: 16px; }
 @media (pointer: coarse) {
   .btn { min-height: 44px; }
@@ -818,6 +826,27 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       </div>
       <p :if={wt || ht} class="rx-sub gr-foot">Tap weight or height for the chart, every entry, and comparisons.</p>
     </div>
+    <% hooves = if @animal.kind == "horse", do: RanchPhx.Animals.Hooves.latest(RanchPhx.Animals.Hooves.measurements(@animal.timeline_events)), else: nil %>
+    <a :if={hooves && (hooves != %{} or @is_superuser)} class="rx-card hoof-card" id="hooves" href={~p"/animals/#{@animal.id}/hooves"}>
+      <div class="rx-head">
+        <span class="rx-ico" style="--c:#0f766e"><.icon name="hero-camera" /></span>
+        <h3>Hooves</h3>
+        <.icon name="hero-chevron-right" class="hc-go" />
+      </div>
+      <%= if hooves == %{} do %>
+        <p class="rx-sub">Measure toe and pastern angles from a photo. Tap to start.</p>
+      <% else %>
+        <div class="hc-feet">
+          <div :for={{code, _} <- RanchPhx.Animals.Hooves.feet()} class="hc-foot">
+            <span>{code}</span>
+            <b>{if hooves[code], do: "#{RanchPhx.Animals.Hooves.fmt(hooves[code].toe)}°", else: "–"}</b>
+            <small :if={hooves[code] && hooves[code].axis} class={if elem(hooves[code].axis, 0) == :straight, do: "ok", else: "check"}>
+              {if elem(hooves[code].axis, 0) == :straight, do: "lined up", else: String.downcase(RanchPhx.Animals.Hooves.axis_text(hooves[code].axis))}
+            </small>
+          </div>
+        </div>
+      <% end %>
+    </a>
     <div class="overview-grid">
       <div class="info-card">
         <h3>Identity</h3>
