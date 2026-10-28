@@ -87,7 +87,7 @@
         <h1>Papers</h1>
         <div class="subtitle">Saved on this device. They open with no signal.</div>
       </div>
-      <a class="app-link" href="/">Open app</a>
+      <a class="app-link" id="back-link" href="/">‹ Back to the app</a>
     </header>
     <div id="content"></div>
   </div>
@@ -171,6 +171,9 @@
     window.openShow = openShow;
 
     function closeShow() {
+      // Opened straight from a horse's Papers button: Done goes back to that horse.
+      const from = new URLSearchParams(location.search).get("animal");
+      if (from && navigator.onLine) { location.href = "/animals/" + encodeURIComponent(from); return; }
       document.getElementById("show").classList.remove("open");
       document.getElementById("show-body").innerHTML = "";
       document.body.style.overflow = "";
@@ -238,8 +241,17 @@
       }
     }
 
+    // Never send the app to the bare file (in the Home Screen app there's no way back);
+    // offer the share sheet instead (Files, Print, Mail).
     function failed(body, doc) {
-      body.innerHTML = `<p class="show-msg">Couldn't show this one here.<br><a href="${esc(doc.url)}">Open it directly</a></p>`;
+      body.innerHTML = `<p class="show-msg">This one can't be shown here.<br><button class="show-close" style="margin-top:14px">Share it</button></p>`;
+      body.querySelector("button").onclick = async () => {
+        try {
+          const blob = await (await fetch(doc.url)).blob();
+          const file = new File([blob], doc.url.split("/").pop(), {type: blob.type});
+          if (navigator.canShare && navigator.canShare({files: [file]})) await navigator.share({files: [file], title: label(doc)});
+        } catch (e) {}
+      };
     }
 
     // Swipe left or right between papers.
@@ -317,7 +329,11 @@
 
     // Opened from the app's Papers button: go straight to that horse's papers.
     const params = new URLSearchParams(location.search);
-    if (params.get("animal")) openShow(params.get("animal"));
+    if (params.get("animal")) {
+      // Opened from a horse's Papers button: "Back" goes to that horse.
+      document.getElementById("back-link").href = "/animals/" + encodeURIComponent(params.get("animal"));
+      openShow(params.get("animal"));
+    }
   </script>
 </body>
 </html>
