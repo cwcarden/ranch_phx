@@ -117,6 +117,7 @@ export const HoofMeasure = {
     this.canvas.addEventListener("pointermove", (e) => this.move(e))
     this.canvas.addEventListener("pointerup", (e) => this.up(e))
     this.canvas.addEventListener("pointercancel", (e) => this.up(e))
+    this.canvas.addEventListener("pointerleave", () => { if (this.hover) { this.hover = null; this.draw() } })
     window.addEventListener("resize", this.onResize)
 
     this.img = new Image()
@@ -211,6 +212,21 @@ export const HoofMeasure = {
     c.drawImage(this.img, this.view.ox, this.view.oy, this.img.naturalWidth * this.view.s, this.img.naturalHeight * this.view.s)
     this.paintMarks(c, (p) => this.toScreen(p), 1)
     if (this.drag && this.drag.at) this.loupe(c, this.drag.at)
+    else if (this.hover) this.hoverMark(c, this.hover)
+  },
+
+  // Apple Pencil hovering above the screen (Pencil Pro or 2nd gen on newer iPads):
+  // show where a dot would land, and the magnifier, before the tip touches.
+  hoverMark(c, at) {
+    const s = this.step()
+    const color = s ? s.color : "#fff"
+    c.strokeStyle = "rgba(0,0,0,.6)"; c.lineWidth = 4
+    c.beginPath(); c.arc(at.x, at.y, 9, 0, Math.PI * 2); c.stroke()
+    c.strokeStyle = color; c.lineWidth = 2
+    c.beginPath(); c.arc(at.x, at.y, 9, 0, Math.PI * 2); c.stroke()
+    c.beginPath(); c.moveTo(at.x - 16, at.y); c.lineTo(at.x - 5, at.y); c.moveTo(at.x + 5, at.y); c.lineTo(at.x + 16, at.y)
+    c.moveTo(at.x, at.y - 16); c.lineTo(at.x, at.y - 5); c.moveTo(at.x, at.y + 5); c.lineTo(at.x, at.y + 16); c.stroke()
+    this.loupe(c, at)
   },
 
   // Lines, dots and the angle labels, in whatever space `map` turns points into.
@@ -281,6 +297,7 @@ export const HoofMeasure = {
 
   down(e) {
     if (!this.view) return
+    this.hover = null
     e.preventDefault()
     const at = this.pos(e)
     const current = this.step()
@@ -306,6 +323,11 @@ export const HoofMeasure = {
   },
 
   move(e) {
+    if (!this.drag && e.pointerType === "pen" && e.buttons === 0 && this.view) {
+      this.hover = this.pos(e)
+      this.draw()
+      return
+    }
     if (!this.drag || e.pointerId !== this.drag.id) return
     e.preventDefault()
     const at = this.pos(e)
