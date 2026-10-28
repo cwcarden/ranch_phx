@@ -83,6 +83,8 @@ defmodule RanchPhxWeb.AnimalLive.Show do
      |> allow_upload(:document, accept: ~w(.pdf .doc .docx .jpg .jpeg .png .txt), max_entries: 5, max_file_size: 50_000_000)
      |> allow_upload(:scan, accept: ~w(.jpg .jpeg .png .webp .pdf), max_entries: 1, max_file_size: 25_000_000, auto_upload: true, progress: &handle_progress/3)
      |> allow_upload(:visit_doc, accept: ~w(.pdf .doc .docx .jpg .jpeg .png .heic .txt), max_entries: 5, max_file_size: 50_000_000)
+     |> allow_upload(:markup, accept: ~w(.jpg .jpeg), max_entries: 1, max_file_size: 20_000_000, auto_upload: true, progress: &handle_progress/3)
+     |> assign(:markup_caption, nil)
      |> allow_upload(:record_doc, accept: ~w(.pdf .doc .docx .jpg .jpeg .png .txt), max_entries: 5, max_file_size: 50_000_000)}
   end
 
@@ -949,6 +951,14 @@ defmodule RanchPhxWeb.AnimalLive.Show do
   def handle_event("compare_close", _params, socket),
     do: {:noreply, assign(socket, compare_pick: [], compare_open: false)}
 
+  def handle_event("markup_meta", %{"caption" => caption}, socket) do
+    if socket.assigns.is_superuser,
+      do: {:reply, %{ok: true}, assign(socket, :markup_caption, String.slice(String.trim(caption), 0, 120))},
+      else: {:reply, %{ok: false}, socket}
+  end
+
+  def handle_event("markup_change", _params, socket), do: {:noreply, socket}
+
   def handle_event("open_lightbox", %{"url" => url}, socket) do
     {:noreply, assign(socket, :lightbox_url, url)}
   end
@@ -1201,6 +1211,41 @@ defmodule RanchPhxWeb.AnimalLive.Show do
 
   # A scanned photo or PDF arrives: keep a copy for the animal's documents, then
   # have the AI read it in the background.
+  # A photo drawn on in the markup tool: saved as a new photo beside the original.
+  def handle_progress(:markup, entry, socket) do
+    if entry.done? do
+      %{animal: animal} = socket.assigns
+      dir = Path.join([@uploads_dir, "animals", "#{animal.id}", "photos"])
+      File.mkdir_p!(dir)
+
+      url =
+        consume_uploaded_entry(socket, entry, fn %{path: tmp} ->
+          name = "#{:crypto.strong_rand_bytes(8) |> Base.url_encode64(padding: false)}.jpg"
+          File.cp!(tmp, Path.join(dir, name))
+          {:ok, "/uploads/animals/#{animal.id}/photos/#{name}"}
+        end)
+
+      caption = socket.assigns.markup_caption
+
+      {:ok, _} =
+        Animals.create_photo(%{
+          "animal_id" => animal.id,
+          "url" => url,
+          "caption" => if(caption in [nil, ""], do: "Marked up", else: caption),
+          "tags" => ["markup"],
+          "taken_at" => Date.utc_today()
+        })
+
+      {:noreply,
+       socket
+       |> assign(animal: Animals.get_animal_with_pedigree!(animal.id), markup_caption: nil, tab: "photos")
+       |> push_event("markup-saved", %{})
+       |> put_flash(:info, "Saved the marked-up photo.")}
+    else
+      {:noreply, socket}
+    end
+  end
+
   def handle_progress(:scan, entry, socket) do
     if entry.done? do
       %{animal: animal, presets: presets} = socket.assigns
