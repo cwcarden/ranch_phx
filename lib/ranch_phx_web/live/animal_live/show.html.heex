@@ -2338,7 +2338,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       </div>
       <form method="get" action={~p"/animals/#{@animal.id}/report"}>
         <div class="dlg-body">
-          <div class="section-divider" style="margin-top:0">Sections to include</div>
+          <div class="section-divider" style="margin-top:0;display:flex;align-items:center;gap:8px">
+            <span style="flex:1">Sections to include</span>
+            <button type="button" class="btn btn-ghost rpt-all" id="rpt-select-all"
+                    onclick="this.form.querySelectorAll('input[type=checkbox]').forEach((c) => (c.checked = true))">Select all</button>
+            <button type="button" class="btn btn-ghost rpt-all" id="rpt-select-none"
+                    onclick="this.form.querySelectorAll('input[type=checkbox]').forEach((c) => (c.checked = false))">Deselect all</button>
+          </div>
           <div class="rpt-check-group">
             <label class="rpt-check">
               <input type="checkbox" name="profile" value="1" checked/>
@@ -2358,7 +2364,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
             </label>
             <label :if={@animal.kind == "horse"} class="rpt-check">
               <input type="checkbox" name="hooves" value="1" id="rpt-hooves-check"/>
-              <span>Hooves: angles, sole balance, photos</span>
+              <span>Hooves: measurements with the marked-up photos</span>
             </label>
             <label class="rpt-check">
               <input type="checkbox" name="timeline" value="1"/>

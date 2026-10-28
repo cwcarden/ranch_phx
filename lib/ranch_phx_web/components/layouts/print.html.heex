@@ -57,7 +57,7 @@
     .hf-foot { break-inside: avoid; page-break-inside: avoid; border-top: 1pt solid #e5e7eb; padding: 8pt 0 6pt; }
     .hf-foot-name { font-size: 12pt; font-weight: bold; margin-bottom: 6pt; }
     .hf-views { display: grid; grid-template-columns: 1fr 1fr; gap: 12pt; }
-    .hf-view img { width: 100%; max-height: 210pt; object-fit: contain; background: #f3f4f6; border-radius: 4pt; border: 0.5pt solid #e5e7eb; }
+    .hf-view img { display: block; max-width: 100%; max-height: 210pt; width: auto; height: auto; border-radius: 4pt; border: 0.5pt solid #e5e7eb; }
     .hf-nums { font-size: 9pt; color: #555; margin: 4pt 0 3pt; }
     .hf-nums b { font-size: 11pt; color: #111; }
     .hf-sum { list-style: none; margin: 0; padding: 0; font-size: 9pt; line-height: 1.4; }
@@ -70,7 +70,8 @@
     .hf-guide { font-size: 8.5pt; color: #444; line-height: 1.4; padding-left: 14pt; margin: 0; }
     .hf-guide li { margin-bottom: 2pt; }
     .hf-thumb { width: 64pt; }
-    .hf-thumb img { width: 60pt; height: 60pt; object-fit: cover; border-radius: 3pt; border: 0.5pt solid #e5e7eb; display: block; }
+    .hf-thumb img { max-width: 60pt; max-height: 60pt; width: auto; height: auto; border-radius: 3pt; border: 0.5pt solid #e5e7eb; display: block; }
+    .rpt-empty { margin: 30pt 0; padding: 18pt; border: 1pt dashed #ccc; border-radius: 6pt; text-align: center; color: #555; font-family: -apple-system, Helvetica, sans-serif; font-size: 12pt; line-height: 1.5; }
     .hf-fine { font-size: 8pt; color: #777; margin-top: 6pt; }
     @page { margin: 0.75in; }
     @media print {
@@ -101,6 +102,33 @@
         document.head.appendChild(s)
       })
     }
+    // Every photo loaded and decoded first, or it can come out missing.
+    function imagesReady(root) {
+      return Promise.all([...root.querySelectorAll("img")].map((img) =>
+        (img.complete ? Promise.resolve() : new Promise((r) => { img.onload = img.onerror = r }))
+          .then(() => img.decode ? img.decode().catch(() => {}) : null)))
+    }
+
+    // The report split into pieces (whole sections) of at most `maxArea` square pixels.
+    function chunksOf(page, maxArea) {
+      const width = page.scrollWidth
+      if (width * page.scrollHeight <= maxArea) return [page]
+      const groups = []
+      let group = null, height = 0
+      for (const el of page.children) {
+        const h = el.getBoundingClientRect().height
+        if (!group || (height + h) * width > maxArea) {
+          group = document.createElement("div")
+          group.className = "print-page pdf-chunk"
+          groups.push(group)
+          height = 0
+        }
+        group.appendChild(el.cloneNode(true))
+        height += h
+      }
+      return groups
+    }
+
     async function sharePdf(btn) {
       const label = btn.textContent
       btn.disabled = true
@@ -109,15 +137,25 @@
         await loadPdfLib()
         // Capture from the top, whatever part of the report is on screen.
         window.scrollTo(0, 0)
+        const page = document.querySelector(".print-page")
+        await imagesReady(page)
         const name = (document.title.replace(/^Report — /, "") || "Report") + " report.pdf"
-        const blob = await html2pdf().set({
+        const opt = {
           margin: [0.5, 0.5, 0.6, 0.5],
           filename: name,
-          image: { type: "jpeg", quality: 0.95 },
+          image: { type: "jpeg", quality: 0.92 },
           html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff", scrollX: 0, scrollY: 0 },
           jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
-          pagebreak: { mode: ["avoid-all", "css", "legacy"], avoid: ["tr", ".rpt-photo", ".rpt-chart", ".ped-grid"] }
-        }).from(document.querySelector(".print-page")).outputPdf("blob")
+          pagebreak: { mode: ["css", "legacy"], avoid: ["tr", ".rpt-photo", ".rpt-chart", ".ped-grid", ".hf-foot"] }
+        }
+        // iPads and iPhones draw nothing at all past about 16 million pixels, which
+        // comes out as a blank PDF. A long report is drawn in pieces that each fit.
+        const chunks = chunksOf(page, 12e6 / (opt.html2canvas.scale ** 2))
+        let worker = html2pdf().set(opt).from(chunks[0]).toPdf()
+        for (const chunk of chunks.slice(1)) {
+          worker = worker.get("pdf").then((pdf) => pdf.addPage()).from(chunk).toContainer().toCanvas().toPdf()
+        }
+        const blob = await worker.outputPdf("blob")
         const file = new File([blob], name, { type: "application/pdf" })
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           try { await navigator.share({ files: [file], title: name }) } catch (_) {}
@@ -137,5 +175,22 @@
     }
   </script>
   <%= @inner_content %>
+  <script>
+    // Nothing matched what was picked: say so instead of a blank page.
+    (() => {
+      const page = document.querySelector(".print-page")
+      if (!page || page.querySelector(".rpt-section")) return
+      const msg = document.createElement("div")
+      msg.className = "rpt-empty"
+      msg.id = "rpt-empty"
+      msg.innerHTML = "<b>Nothing to show for what you picked.</b><br>The sections you checked have no entries" +
+        (location.search.includes("from=") || location.search.includes("to=") ? " in that date range" : "") +
+        ".<br>Go back and pick more sections, or tap Select all."
+      const header = page.querySelector(".rpt-header")
+      header ? header.after(msg) : page.prepend(msg)
+      const pdf = document.getElementById("share-pdf")
+      if (pdf) pdf.disabled = true
+    })()
+  </script>
 </body>
 </html>
