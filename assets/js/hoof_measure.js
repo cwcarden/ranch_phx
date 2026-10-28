@@ -57,7 +57,79 @@ const VIEWS = {
   },
 }
 
+// Conformation: the whole horse from the side (see RanchPhxWeb.ConformationLive.Index).
+VIEWS.body = {
+  title: "body",
+  steps: [
+    {key: "ground", n: 2, color: "#facc15", label: "Ground",
+     say: "Tap the ground under a front hoof, then the ground under a hind hoof.",
+     why: "The level he stands on. Heights and angles are measured from it, so a slightly tilted photo still works."},
+    {key: "withers", n: 1, color: "#f472b6", label: "Withers",
+     say: "Tap the top of the withers, the highest point above the shoulders.",
+     why: "Gives his height at the withers, to compare with the croup and the body length."},
+    {key: "shoulder", n: 2, color: "#22c55e", label: "Shoulder",
+     say: "Tap the top of the shoulder blade (a few inches below and behind the withers), then the point of the shoulder.",
+     why: "The slope of the shoulder blade. Feel for the ridge of the blade if you can; the point of shoulder is the bony front of the chest."},
+    {key: "hip", n: 1, color: "#38bdf8", label: "Point of hip",
+     say: "Tap the point of the hip, the bony knob at the front of the hindquarters.",
+     why: "Start of the hip line, and the end of the back."},
+    {key: "buttock", n: 1, color: "#a78bfa", label: "Point of buttock",
+     say: "Tap the point of the buttock, the back corner of the hindquarters.",
+     why: "End of the hip line and of the body length."},
+    {key: "croup", n: 1, color: "#fb923c", label: "Croup",
+     say: "Tap the highest point of the croup (top of the rump).",
+     why: "Compared with the withers: level, uphill, or croup-high."},
+    {key: "poll", n: 1, color: "#e2e8f0", label: "Poll", optional: true,
+     say: "Tap the poll, the top of the head between the ears. Or skip.",
+     why: "For the neck length compared with his back."},
+  ],
+  correct: [
+    "Shoulder: sloping, about 45–55° to the ground. More upright usually means a shorter, choppier stride.",
+    "Hip: the point of hip to point of buttock about 20–30° to the ground. Flatter or steeper changes how he drives from behind.",
+    "Withers and croup about level, or withers higher (uphill). Young horses are often croup-high for a while as they grow.",
+    "Body length (point of shoulder to point of buttock) about the same as his height at the withers.",
+    "Shoulder, back and hindquarters about a third of the body each.",
+    "Neck (poll to withers) at least as long as the back (withers to point of hip).",
+  ],
+}
+
 const TOE_RANGE = {front: [48, 55], hind: [50, 57]}
+
+// Conformation numbers from the landmarks (image pixels), or null until enough are in.
+function bodyNumbers(P) {
+  if (P.ground.length < 2 || !P.withers.length) return null
+  const [G0, G1] = P.ground
+  const gl = Math.hypot(G1.x - G0.x, G1.y - G0.y)
+  if (gl < 5) return null
+  const g = {x: (G1.x - G0.x) / gl, y: (G1.y - G0.y) / gl}
+  let n = {x: -g.y, y: g.x}
+  const W = P.withers[0]
+  if ((W.x - G0.x) * n.x + (W.y - G0.y) * n.y < 0) n = {x: -n.x, y: -n.y}
+  const h = (p) => (p.x - G0.x) * n.x + (p.y - G0.y) * n.y
+  const x = (p) => (p.x - G0.x) * g.x + (p.y - G0.y) * g.y
+  const out = {height: h(W)}
+  if (P.shoulder.length === 2) out.shoulder = angleBetween(P.ground, P.shoulder)
+  if (P.hip.length && P.buttock.length) out.hip = angleBetween(P.ground, [P.hip[0], P.buttock[0]])
+  if (P.croup.length && out.height > 0) out.uphill = r1((h(W) - h(P.croup[0])) / out.height * 100)
+  if (P.shoulder.length === 2 && P.buttock.length && out.height > 0) {
+    const S = P.shoulder[1], B = P.buttock[0]
+    out.lengthRatio = Math.round(Math.abs(x(B) - x(S)) / out.height * 100) / 100
+    if (P.hip.length) {
+      // The classic thirds: point of shoulder to withers, withers to point of hip, point
+      // of hip to point of buttock, as straight-line lengths.
+      const len = (p, q) => Math.hypot(p.x - q.x, p.y - q.y)
+      const a = len(S, W), b = len(W, P.hip[0]), c = len(P.hip[0], B), t = a + b + c
+      if (t > 0) out.thirds = [a, b, c].map((v) => Math.round(v / t * 100))
+    }
+  }
+  if (P.poll.length && P.hip.length) {
+    const neck = Math.hypot(P.poll[0].x - W.x, P.poll[0].y - W.y)
+    const back = Math.hypot(P.hip[0].x - W.x, P.hip[0].y - W.y)
+    if (back > 0) out.neckRatio = Math.round(neck / back * 100) / 100
+  }
+  return out
+}
+
 
 const FEET = {LF: "Left front", RF: "Right front", LH: "Left hind", RH: "Right hind"}
 
@@ -188,6 +260,7 @@ const CSS = `
 .hm-help .hm-btn { margin-top: 18px; }
 .hm-help svg { display: block; max-width: 320px; margin: 4px 0 6px; }
 .hm-q { width: 46px; padding: 0; font-size: 20px; }
+.hm-ai { border-color: #f87171; color: #fecaca; }
 .hm-read .ln { display: block; font-size: 14px; font-weight: 700; }
 .hm-read .ln.ok { color: #4ade80; } .hm-read .ln.check { color: #fbbf24; }
 .hm-foot input[type=text] { min-height: 46px; border-radius: 12px; border: 1.5px solid rgba(255,255,255,.25); background: #111827; color: #fff; padding: 0 12px; font: inherit; flex: 1; min-width: 160px; }
@@ -228,6 +301,26 @@ const SOLE_SVG = `<svg viewBox="0 0 300 228" aria-hidden="true">
   <text x="214" y="222" fill="#cbd5e1" font-size="11">heel buttress</text>
 </svg>`
 
+const BODY_SVG = `<svg viewBox="0 0 320 190" aria-hidden="true">
+  <path d="M70 70 C78 50 92 40 104 44 L118 54 C150 50 200 48 236 52 C256 54 268 66 270 84 C272 104 262 116 258 124 L262 168 L250 168 L246 126 C220 132 170 132 130 128 L122 168 L110 168 L108 120 C96 110 90 96 86 84 L62 90 C52 82 56 70 70 70 Z" fill="#334155" stroke="#94a3b8" stroke-width="2"/>
+  <line x1="20" y1="168" x2="300" y2="168" stroke="#facc15" stroke-width="3"/>
+  <line x1="122" y1="58" x2="102" y2="98" stroke="#22c55e" stroke-width="3"/>
+  <line x1="228" y1="62" x2="266" y2="88" stroke="#38bdf8" stroke-width="3"/>
+  <line x1="126" y1="50" x2="126" y2="168" stroke="#f472b6" stroke-width="2" stroke-dasharray="5 5"/>
+  <line x1="242" y1="52" x2="242" y2="168" stroke="#fb923c" stroke-width="2" stroke-dasharray="5 5"/>
+  <circle cx="126" cy="50" r="6" fill="#f472b6"/>
+  <circle cx="122" cy="58" r="5" fill="#22c55e"/><circle cx="102" cy="98" r="6" fill="#22c55e"/>
+  <circle cx="228" cy="62" r="6" fill="#38bdf8"/><circle cx="266" cy="88" r="6" fill="#a78bfa"/>
+  <circle cx="242" cy="52" r="6" fill="#fb923c"/><circle cx="72" cy="58" r="6" fill="#e2e8f0"/>
+  <circle cx="116" cy="168" r="6" fill="#facc15"/><circle cx="256" cy="168" r="6" fill="#facc15"/>
+  <text x="128" y="40" fill="#cbd5e1" font-size="11">withers</text>
+  <text x="40" y="112" fill="#cbd5e1" font-size="11">pt of shoulder</text>
+  <text x="200" y="44" fill="#cbd5e1" font-size="11">croup</text>
+  <text x="196" y="80" fill="#cbd5e1" font-size="11">pt of hip</text>
+  <text x="266" y="104" fill="#cbd5e1" font-size="11">buttock</text>
+  <text x="54" y="48" fill="#cbd5e1" font-size="11">poll</text>
+</svg>`
+
 export const HoofMeasure = {
   mounted() {
     this.el.querySelectorAll("[data-hoof-photo]").forEach((input) =>
@@ -241,6 +334,7 @@ export const HoofMeasure = {
     this.el.addEventListener("ranch:hoof-draw", (e) => this.open(e.detail.url, e.detail))
     this.handleEvent("hoof-saved", () => this.close())
     this.handleEvent("hoof-failed", ({message}) => this.saveFailed(message))
+    this.handleEvent("ai-points", (reply) => this.aiPlaced(reply))
     this.onResize = () => this.layout()
   },
 
@@ -261,7 +355,9 @@ export const HoofMeasure = {
 
     const picker = document.getElementById("foot-picker")
     this.foot = (FEET[opts.foot] && opts.foot) || (picker && picker.dataset.foot) || "LF"
-    this.mode = VIEWS[opts.view] ? opts.view : picker && VIEWS[picker.dataset.view] ? picker.dataset.view : "side"
+    this.mode = VIEWS[opts.view] ? opts.view
+      : VIEWS[this.el.dataset.mode] ? this.el.dataset.mode
+      : picker && VIEWS[picker.dataset.view] ? picker.dataset.view : "side"
     this.eventId = opts.id || null
     this.original = null
     this.url = null
@@ -289,7 +385,8 @@ export const HoofMeasure = {
     ed.className = "hm-editor"
     ed.innerHTML = `
       <div class="hm-bar">
-        <div class="hm-step"><b>${FEET[this.foot] || this.foot}${this.mode === "sole" ? " · sole" : ""}</b><span data-say></span></div>
+        <div class="hm-step"><b>${this.mode === "body" ? "Conformation" : (FEET[this.foot] || this.foot) + (this.mode === "sole" ? " · sole" : "")}</b><span data-say></span></div>
+        ${this.mode === "body" && this.el.dataset.ai === "1" ? `<button class="hm-btn hm-ai" data-ai>✦ Place dots with AI</button>` : ""}
         <button class="hm-btn hm-q" data-help aria-label="What are these lines?">?</button>
         <button class="hm-btn" data-undo>Undo</button>
         <button class="hm-btn" data-cancel>Cancel</button>
@@ -298,7 +395,7 @@ export const HoofMeasure = {
       <div class="hm-foot">
         <div class="hm-read" data-read></div>
         <input type="date" data-date value="${opts.date || iso}" max="${iso}" aria-label="Date measured">
-        <input type="text" data-note placeholder="Note (optional), e.g. 4 weeks since trim" maxlength="200">
+        <input type="text" data-note placeholder="${this.mode === "body" ? "Note (optional), e.g. 2 yr old, $6,500, seen at the Stanley sale" : "Note (optional), e.g. 4 weeks since trim"}" maxlength="200">
         <button class="hm-btn" data-skip>Skip</button>
         <button class="hm-btn go" data-save disabled>Save</button>
       </div>`
@@ -311,6 +408,8 @@ export const HoofMeasure = {
     ed.querySelector("[data-cancel]").onclick = () => this.close()
     ed.querySelector("[data-undo]").onclick = () => this.undo()
     ed.querySelector("[data-help]").onclick = () => this.toggleHelp()
+    const ai = ed.querySelector("[data-ai]")
+    if (ai) ai.onclick = () => this.askAi()
     ed.querySelector("[data-skip]").onclick = () => {
       const st = this.step()
       if (st && st.optional) { this.skipped.add(st.key); this.points[st.key] = [] }
@@ -367,15 +466,17 @@ export const HoofMeasure = {
       const steps = this.steps.map((st) =>
         `<li><i style="background:${st.color}"></i><div><b>${st.label}${st.optional ? " (optional)" : ""}</b> · ${st.say}<small>${st.why}</small></div></li>`).join("")
       panel.innerHTML = `
-        <h3>${this.mode === "sole" ? "Bottom of the foot" : "Side of the foot"}: what the lines are</h3>
-        ${this.mode === "sole" ? SOLE_SVG : SIDE_SVG}
+        <h3>${{sole: "Bottom of the foot", side: "Side of the foot", body: "Conformation"}[this.mode]}: what the dots are</h3>
+        ${{sole: SOLE_SVG, side: SIDE_SVG, body: BODY_SVG}[this.mode]}
         <ol>${steps}</ol>
         <h4>What's correct</h4>
         <ul>${this.def.correct.map((c) => `<li>${c}</li>`).join("")}</ul>
         <h4>Photo tips</h4>
-        <ul>${this.mode === "sole"
-          ? "<li>Pick the foot up, clean the sole and frog, and shoot straight down at the sole so the whole foot fills the photo.</li><li>Hold the camera square to the bottom of the foot, not tilted toward the toe or heel.</li>"
-          : "<li>Stand him square on flat ground. Camera on the ground, level, square to the side of the hoof.</li>"}</ul>
+        <ul>${{
+          sole: "<li>Pick the foot up, clean the sole and frog, and shoot straight down at the sole so the whole foot fills the photo.</li><li>Hold the camera square to the bottom of the foot, not tilted toward the toe or heel.</li>",
+          side: "<li>Stand him square on flat ground. Camera on the ground, level, square to the side of the hoof.</li>",
+          body: "<li>Stand him square on flat, level ground: front legs together, hind legs together, head up and looking straight ahead.</li><li>Stand back 15 to 20 feet, square to his side, camera level at about the middle of his barrel. The whole horse, hooves to ears, in the photo.</li><li>Same spot and same distance each time, so the photos compare.</li>",
+        }[this.mode]}</ul>
         <button class="hm-btn go" data-closehelp>Got it</button>`
       panel.querySelector("[data-closehelp]").onclick = () => this.toggleHelp(false)
     }
@@ -416,7 +517,12 @@ export const HoofMeasure = {
     return this.mode === "sole" ? soleNumbers(this.points) : null
   },
 
+  body() {
+    return this.mode === "body" ? bodyNumbers(this.points) : null
+  },
+
   ready() {
+    if (this.mode === "body") { const b = this.body(); return !!(b && b.shoulder != null && b.hip != null && b.uphill != null) }
     if (this.mode === "sole") return !!this.sole()
     const {toe} = this.angles()
     return toe != null && toe > 0 && toe < 90
@@ -432,7 +538,17 @@ export const HoofMeasure = {
     }
     const line = (ok, text) => `<span class="ln ${ok ? "ok" : "check"}">${text}</span>`
     const read = this.ed.querySelector("[data-read]")
-    if (this.mode === "sole") {
+    if (this.mode === "body") {
+      const b = this.body() || {}
+      const parts = []
+      if (b.shoulder != null) parts.push(`Shoulder <b>${b.shoulder}°</b>`)
+      if (b.hip != null) parts.push(`Hip <b>${b.hip}°</b>`)
+      read.innerHTML = (parts.join(" · ") || "Angles show here.") +
+        (b.uphill != null ? line(b.uphill >= 0, b.uphill >= 0 ? `Uphill ${b.uphill}%` : `Croup-high ${-b.uphill}%`) : "") +
+        (b.lengthRatio != null ? `<span class="ln">Length ÷ height ${b.lengthRatio}</span>` : "") +
+        (b.thirds ? `<span class="ln">Thirds ${b.thirds.join(" / ")}</span>` : "") +
+        (b.neckRatio != null ? `<span class="ln">Neck ÷ back ${b.neckRatio}</span>` : "")
+    } else if (this.mode === "sole") {
       const m = this.sole()
       read.innerHTML = !m ? "Balance shows here." :
         `Toe <b>${m.toeShare}%</b> · Heel <b>${r1(100 - m.toeShare)}%</b>` +
@@ -513,6 +629,7 @@ export const HoofMeasure = {
   // Lines, dots and the angle labels, in whatever space `map` turns points into.
   paintMarks(c, map, k) {
     if (this.mode === "sole") return this.paintSole(c, map, k)
+    if (this.mode === "body") return this.paintBody(c, map, k)
     const {toe, pastern} = this.angles()
     const g = this.points.ground.map(map), w = this.points.wall.map(map), pa = this.points.pastern.map(map)
     const col = Object.fromEntries(this.steps.map((st) => [st.key, st.color]))
@@ -578,6 +695,92 @@ export const HoofMeasure = {
   dot(c, p, color, k) {
     c.fillStyle = color; c.strokeStyle = "#fff"; c.lineWidth = 2.5 * k
     c.beginPath(); c.arc(p.x, p.y, 8 * k, 0, Math.PI * 2); c.fill(); c.stroke()
+  },
+
+  paintBody(c, map, k) {
+    const P = this.points, col = Object.fromEntries(this.steps.map((st) => [st.key, st.color]))
+    const M = (key) => P[key].map(map)
+    const g = M("ground"), sh = M("shoulder"), hip = M("hip"), bt = M("buttock"), w = M("withers"), cr = M("croup"), poll = M("poll")
+    const b = bodyNumbers(P) || {}
+    if (g.length === 2) this.stroke(c, g[0], g[1], col.ground, k, 0.15)
+    if (sh.length === 2) {
+      this.stroke(c, sh[0], sh[1], col.shoulder, k, 0.2)
+      if (g.length === 2 && b.shoulder != null) this.levelAngle(c, g, sh, b.shoulder, col.shoulder, k)
+    }
+    if (hip.length && bt.length) {
+      this.stroke(c, hip[0], bt[0], col.hip, k, 0.2)
+      if (g.length === 2 && b.hip != null) this.levelAngle(c, g, [hip[0], bt[0]], b.hip, col.hip, k)
+    }
+    // Withers and croup heights: straight down to the ground line.
+    const drop = (p, color) => {
+      if (g.length < 2) return
+      const gx = g[1].x - g[0].x, gy = g[1].y - g[0].y, gl = gx * gx + gy * gy
+      const t = ((p.x - g[0].x) * gx + (p.y - g[0].y) * gy) / gl
+      this.stroke(c, p, {x: g[0].x + t * gx, y: g[0].y + t * gy}, color, k, 0, [6, 7])
+    }
+    if (w.length) drop(w[0], col.withers)
+    if (cr.length) drop(cr[0], col.croup)
+    if (w.length && cr.length) this.stroke(c, w[0], cr[0], col.croup, k, 0, [3, 6])
+    if (w.length && hip.length) this.stroke(c, w[0], hip[0], "rgba(255,255,255,.7)", k, 0, [2, 6])
+    if (poll.length && w.length) this.stroke(c, poll[0], w[0], col.poll, k, 0, [2, 6])
+    if (cr.length && b.uphill != null)
+      this.tag(c, b.uphill >= 0 ? `Uphill ${b.uphill}%` : `Croup-high ${-b.uphill}%`, cr[0].x + 12 * k, cr[0].y - 26 * k, col.croup, k)
+    for (const [key, pts] of [["ground", g], ["withers", w], ["shoulder", sh], ["hip", hip], ["buttock", bt], ["croup", cr], ["poll", poll]])
+      for (const p of pts) this.dot(c, p, col[key], k)
+  },
+
+  // The angle of a line against level (parallel to the ground), drawn at the line's
+  // lower end with a short level line: the point of shoulder, the point of buttock.
+  levelAngle(c, ground, line, deg, color, k) {
+    const gx = ground[1].x - ground[0].x, gy = ground[1].y - ground[0].y, gl = Math.hypot(gx, gy) || 1
+    let up = {x: gy / gl, y: -gx / gl}
+    if (up.y > 0) up = {x: -up.x, y: -up.y}
+    const h = (p) => p.x * up.x + p.y * up.y
+    const [lo, hi] = h(line[0]) <= h(line[1]) ? [line[0], line[1]] : [line[1], line[0]]
+    const L = 70 * k
+    // Level line pointing the same way the line leans.
+    const dir = ((hi.x - lo.x) * gx + (hi.y - lo.y) * gy) >= 0 ? 1 : -1
+    const end = {x: lo.x + dir * gx / gl * L, y: lo.y + dir * gy / gl * L}
+    this.stroke(c, lo, end, "rgba(255,255,255,.85)", k, 0, [5, 5])
+    this.cornerAngle(c, [lo, end], [lo, hi], deg, color, k, 0.9)
+  },
+
+  // ── AI: place the dots ──
+  // Sends a small copy of the photo; the server asks Claude where each landmark is.
+  askAi() {
+    const btn = this.ed.querySelector("[data-ai]")
+    if (!btn || !this.img.naturalWidth) return
+    btn.disabled = true
+    btn.textContent = "Looking…"
+    this.say("The AI is looking at the photo…")
+    const k = Math.min(1, 1024 / Math.max(this.img.naturalWidth, this.img.naturalHeight))
+    const cv = document.createElement("canvas")
+    cv.width = Math.round(this.img.naturalWidth * k)
+    cv.height = Math.round(this.img.naturalHeight * k)
+    cv.getContext("2d").drawImage(this.img, 0, 0, cv.width, cv.height)
+    const image = cv.toDataURL("image/jpeg", 0.85).split(",")[1]
+    clearTimeout(this.aiTimer)
+    this.aiTimer = setTimeout(() => this.aiPlaced({error: "That took too long. Try again, or place the dots yourself."}), 90000)
+    this.pushEvent("ai_points", {image})
+  },
+
+  // Points come back as fractions of the width and height.
+  aiPlaced(reply) {
+    clearTimeout(this.aiTimer)
+    if (!this.ed) return
+    const btn = this.ed.querySelector("[data-ai]")
+    if (btn) { btn.disabled = false; btn.textContent = "✦ Place dots with AI" }
+    if (!reply || reply.error) { this.say(reply && reply.error ? reply.error : "The AI couldn't place the dots. Place them yourself."); return }
+    const W = this.img.naturalWidth, H = this.img.naturalHeight
+    const pt = (q) => q && isFinite(q.x) && isFinite(q.y) ? {x: Math.max(0, Math.min(1, q.x)) * W, y: Math.max(0, Math.min(1, q.y)) * H} : null
+    for (const st of this.steps) {
+      const v = (reply.points || {})[st.key]
+      const pts = (Array.isArray(v) ? v : [v]).map(pt).filter(Boolean).slice(0, st.n)
+      if (pts.length === st.n) { this.points[st.key] = pts; this.skipped.delete(st.key) }
+    }
+    this.refresh()
+    const note = reply.note ? ` <i>${String(reply.note).replace(/[<>&]/g, "")}</i>` : ""
+    this.say("AI placed the dots. Check each one and drag any that are off, then Save." + note)
   },
 
   paintSole(c, map, k) {
@@ -742,6 +945,7 @@ export const HoofMeasure = {
     const {toe, pastern} = this.angles()
     const sole = this.sole()
     const btn = this.ed.querySelector("[data-save]")
+    if (this.mode === "body") this.foot = "body"
     btn.disabled = true
     btn.textContent = "Saving…"
     clearTimeout(this.saveTimer)
@@ -769,6 +973,9 @@ export const HoofMeasure = {
       note: this.ed.querySelector("[data-note]").value,
       points,
     }
+    const body = this.body()
+    if (body) Object.assign(data, {shoulder: body.shoulder, hip: body.hip, uphill: body.uphill,
+      length_ratio: body.lengthRatio, thirds: body.thirds || null, neck_ratio: body.neckRatio ?? null})
     if (sole) Object.assign(data, {toe_share: sole.toeShare, sides: sole.sides, heels: sole.heels, frog: sole.frog, ratio: sole.ratio, area: sole.area})
 
     data.event_id = this.eventId
@@ -779,9 +986,9 @@ export const HoofMeasure = {
       const files = this.original
         ? [file, new File([this.original], `original-${this.foot}-${this.mode}.jpg`, {type: "image/jpeg"})]
         : [file]
-      this.pushEvent("hoof_measured", data, (reply) => {
+      this.pushEvent(this.el.dataset.event || "hoof_measured", data, (reply) => {
         if (reply && reply.ok) {
-          this.upload("hoof", files)
+          this.upload(this.el.dataset.upload || "hoof", files)
         } else {
           this.saveFailed("Couldn't save that. Check the lines and try again.")
         }

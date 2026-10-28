@@ -810,6 +810,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   <a :if={@animal.kind == "horse"} class="act-row" href={~p"/animals/#{@animal.id}/hooves"}>
     <.icon name="hero-camera" /> Hooves
   </a>
+  <a :if={@animal.kind == "horse"} class="act-row" href={~p"/conformation?animal=#{@animal.id}"}>
+    <.icon name="hero-viewfinder-circle" /> Conformation
+  </a>
   <button class="act-row" phx-click={close_actions |> JS.push("open_report")}>
     <.icon name="hero-document-text" /> Report / PDF
   </button>
@@ -1086,6 +1089,16 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
           </div>
         </div>
       <% end %>
+    </a>
+    <% conf = if @animal.kind == "horse", do: List.first(RanchPhx.Conformations.list(animal_id: @animal.id)), else: :none %>
+    <a :if={conf != :none and (conf || @is_superuser)} class="rx-card hoof-card" id="conformation-card" href={~p"/conformation?animal=#{@animal.id}"}>
+      <div class="rx-head">
+        <span class="rx-ico" style="--c:#7c3aed"><.icon name="hero-viewfinder-circle" /></span>
+        <h3>Conformation</h3>
+        <.icon name="hero-chevron-right" class="hc-go" />
+      </div>
+      <p :if={!conf} class="rx-sub">Shoulder, hip, uphill and more from a side photo, with an AI review. Tap to start.</p>
+      <p :if={conf} class="rx-sub">{RanchPhx.Conformations.short(conf)} · {Calendar.strftime(conf.date, "%b %-d, %Y")}</p>
     </a>
     <div class="overview-grid">
       <div class="info-card">
