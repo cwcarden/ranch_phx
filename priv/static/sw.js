@@ -1,4 +1,4 @@
-const SHELL_CACHE = "ranch-shell-v9";
+const SHELL_CACHE = "ranch-shell-v10";
 const DOCS_CACHE = "ranch-docs-v1";
 const SHELL_ASSETS = [
   "/offline.html",
