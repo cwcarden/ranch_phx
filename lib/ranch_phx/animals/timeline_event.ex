@@ -20,7 +20,7 @@ defmodule RanchPhx.Animals.TimelineEvent do
   @event_types ~w(birth registration purchase sale
                   vet_visit vaccination deworming farrier dental
                   training show branding
-                  weight height pregnancy foaling
+                  weight height hoof pregnancy foaling
                   photo_added note retirement death other)
 
   def changeset(event, attrs) do
