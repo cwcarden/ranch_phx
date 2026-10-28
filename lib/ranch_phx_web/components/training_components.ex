@@ -437,7 +437,7 @@ defmodule RanchPhxWeb.TrainingComponents do
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--surface2); color: var(--text); font-size: 17px; line-height: 1.45; }
 
-      .tr-topbar { position: sticky; top: calc(52px + env(safe-area-inset-top)); z-index: 50; height: 56px; display: flex; align-items: center; gap: 12px; padding: 0 16px; background: var(--surface); border-bottom: 1px solid var(--border); }
+      .tr-topbar { position: sticky; top: calc(var(--an-h, 52px) + env(safe-area-inset-top)); z-index: 50; height: 56px; display: flex; align-items: center; gap: 12px; padding: 0 16px; background: var(--surface); border-bottom: 1px solid var(--border); }
       .tr-back { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; color: var(--brand); font-weight: 600; text-decoration: none; font-size: 16px; }
       .tr-title { font-weight: 700; font-size: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -592,7 +592,7 @@ defmodule RanchPhxWeb.TrainingComponents do
       [data-theme="dark"] .sec-log      { --sec: #4ade80; --sec-soft: #0d2e1a; }
       [data-theme="dark"] .sec-sessions { --sec: #60a5fa; --sec-soft: #0f1f3d; }
 
-      .tr-sec { border-top: 4px solid var(--sec); scroll-margin-top: calc(164px + env(safe-area-inset-top)); }
+      .tr-sec { border-top: 4px solid var(--sec); scroll-margin-top: calc(var(--an-h, 52px) + 112px + env(safe-area-inset-top)); }
       .tr-sec-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; min-height: 40px; }
       /* Sections fold up: tap the title to open or close (remembered on this device). */
       .tr-sec-toggle { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; min-height: 44px; padding: 0; border: none; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
@@ -607,7 +607,7 @@ defmodule RanchPhxWeb.TrainingComponents do
       .tr-sec-ico [class^="hero-"] { width: 20px; height: 20px; }
       .tr-sec-actions { display: flex; align-items: center; gap: 6px; }
 
-      .tr-jump { position: sticky; top: calc(108px + env(safe-area-inset-top)); z-index: 40; display: flex; gap: 8px; overflow-x: auto; padding: 10px 16px; margin: 0 -16px; background: var(--surface2); scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+      .tr-jump { position: sticky; top: calc(var(--an-h, 52px) + 56px + env(safe-area-inset-top)); z-index: 40; display: flex; gap: 8px; overflow-x: auto; padding: 10px 16px; margin: 0 -16px; background: var(--surface2); scrollbar-width: none; -webkit-overflow-scrolling: touch; }
       .tr-jump::-webkit-scrollbar { display: none; }
       /* Wider screens have no swipe, so let the shortcuts wrap instead of hiding off the edge. */
       @media (min-width: 640px) { .tr-jump { flex-wrap: wrap; overflow-x: visible; } }
