@@ -348,6 +348,25 @@ defmodule RanchPhxWeb.AnimalRecordsTest do
     assert html =~ "14.2 hh"
   end
 
+  test "decimal hands and earlier dates", %{conn: conn, animal: animal} do
+    {:ok, view, _} = live(conn, ~p"/animals/#{animal.id}")
+    view |> element("#log-height") |> render_click()
+
+    view |> form("#measure-form", measure: %{value: "13.375"}) |> render_change()
+    assert has_element?(view, "#height-read", "13.1½ hh (53.5 inches)")
+
+    earlier = Date.add(Date.utc_today(), -40)
+
+    view
+    |> form("#measure-form", measure: %{value: "13.375", date: Date.to_iso8601(earlier)})
+    |> render_submit()
+
+    assert has_element?(view, "#growth-height", "13.1½ hh")
+    [event] = Animals.get_animal_with_pedigree!(animal.id).timeline_events
+    assert event.event_date == earlier
+    assert event.metadata["inches"] == 53.5
+  end
+
   test "an impossible height is refused", %{conn: conn, animal: animal} do
     {:ok, view, _} = live(conn, ~p"/animals/#{animal.id}")
     view |> element("#log-height") |> render_click()

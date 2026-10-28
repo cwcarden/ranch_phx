@@ -69,20 +69,70 @@ defmodule RanchPhx.Animals.Insights do
   read as hands. Nil when there's none.
   """
   def parse_height(text) do
-    text = String.downcase(to_string(text))
+    t =
+      text
+      |> to_string()
+      |> String.downcase()
+      |> String.replace("½", " 1/2")
+      |> String.replace("¼", " 1/4")
+      |> String.replace("¾", " 3/4")
 
-    cond do
-      m = Regex.run(~r/(\d{2,3}(?:\.\d)?)\s*(?:in\b|inch|inches|")/, text) ->
-        m |> Enum.at(1) |> Float.parse() |> elem(0)
+    frac = fn m, i ->
+      case {Enum.at(m, i), Enum.at(m, i + 1)} do
+        {n, d} when n not in [nil, ""] and d not in [nil, "", "0"] ->
+          String.to_integer(n) / String.to_integer(d)
 
-      m = Regex.run(~r/(?<![\d.])(\d{1,2})(?:\.([0-3]))?\s*(?:hh|h\b|hands?)?(?![\d.])/, text) ->
-        hands = String.to_integer(Enum.at(m, 1))
-        extra = if Enum.at(m, 2) in [nil, ""], do: 0, else: String.to_integer(Enum.at(m, 2))
-        if hands in 8..19, do: hands * 4.0 + extra
-
-      true ->
-        nil
+        _ ->
+          0
+      end
     end
+
+    num = fn s -> s |> Float.parse() |> elem(0) end
+
+    inches =
+      cond do
+        # 53.5 in, 53 1/2", 58 inches
+        m = Regex.run(~r/(\d{2,3}(?:\.\d+)?)(?:\s+(\d)\/(\d))?\s*(?:in\b|inch|inches|")/, t) ->
+          num.(Enum.at(m, 1)) + frac.(m, 2)
+
+        # 13 hands 1.5 inches, 13 hh 1 1/2
+        m = Regex.run(~r/(\d{1,2})\s*(?:hands?|hh)\s+(\d(?:\.\d+)?)(?:\s+(\d)\/(\d))?/, t) ->
+          String.to_integer(Enum.at(m, 1)) * 4 + num.(Enum.at(m, 2)) + frac.(m, 3)
+
+        # 13.1.5 (hands, inches, half)
+        m = Regex.run(~r/(?<![\d.])(\d{1,2})\.([0-3])\.(\d+)(?![\d.])/, t) ->
+          String.to_integer(Enum.at(m, 1)) * 4 + String.to_integer(Enum.at(m, 2)) +
+            num.("0." <> Enum.at(m, 3))
+
+        m = Regex.run(~r/(?<![\d.\/])(\d{1,3})(?:\.(\d+))?(?:\s+(\d)\/(\d))?(?![\d.\/])/, t) ->
+          whole = String.to_integer(Enum.at(m, 1))
+          dec = Enum.at(m, 2)
+
+          cond do
+            # 14.2 = 14 hands 2 inches (with an optional 1/2)
+            whole in 8..19 and dec in [nil, ""] ->
+              whole * 4 + frac.(m, 3)
+
+            whole in 8..19 and String.length(dec) == 1 and dec in ~w(0 1 2 3) ->
+              whole * 4 + String.to_integer(dec) + frac.(m, 3)
+
+            # 13.375 or 13.5: decimal hands
+            whole in 8..19 ->
+              num.("#{whole}.#{dec}") * 4
+
+            # 53.5 with no unit: inches
+            whole in 30..80 ->
+              num.("#{whole}.#{dec || 0}") + frac.(m, 3)
+
+            true ->
+              nil
+          end
+
+        true ->
+          nil
+      end
+
+    if is_number(inches) and inches >= 30 and inches <= 80, do: Float.round(inches * 1.0, 2)
   end
 
   @doc "Dated heights in inches, oldest first, from height events and height records."
@@ -103,12 +153,22 @@ defmodule RanchPhx.Animals.Insights do
     one_per_day(from_events ++ from_records)
   end
 
-  @doc "Inches as hands: 58 → \"14.2\", 57.5 → \"14.1½\"."
+  @doc "Inches as hands, to the quarter inch: 58 → \"14.2\", 53.5 → \"13.1½\", 53.25 → \"13.1¼\"."
   def hands(inches) when is_number(inches) do
-    whole = trunc(inches / 4)
-    rest = inches - whole * 4
-    half = if rest - trunc(rest) >= 0.5, do: "½", else: ""
-    "#{whole}.#{trunc(rest)}#{half}"
+    q = round(inches * 4) / 4
+    whole = trunc(q / 4)
+    rest = q - whole * 4
+    i = trunc(rest)
+
+    part =
+      case rest - i do
+        f when f >= 0.75 -> "¾"
+        f when f >= 0.5 -> "½"
+        f when f >= 0.25 -> "¼"
+        _ -> ""
+      end
+
+    "#{whole}.#{i}#{part}"
   end
 
   defp stored(%{metadata: %{} = meta}, key) do
