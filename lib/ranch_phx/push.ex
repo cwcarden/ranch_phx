@@ -7,7 +7,7 @@ defmodule RanchPhx.Push do
   import Ecto.Query
   require Logger
   alias RanchPhx.Repo
-  alias RanchPhx.Push.{Subscription, WebPush}
+  alias RanchPhx.Push.{Settings, Subscription, WebPush}
 
   @subject "https://ranch.gimelranch.com"
 
@@ -60,6 +60,24 @@ defmodule RanchPhx.Push do
     do: Repo.all(from s in Subscription, where: s.user_id == ^user.id, order_by: s.inserted_at)
 
   def all_devices, do: Repo.all(Subscription)
+
+  # ── Choices ──
+
+  @doc "A person's notification settings (the defaults until they change something)."
+  def settings(%{id: user_id}),
+    do: Repo.get_by(Settings, user_id: user_id) || %Settings{user_id: user_id}
+
+  def update_settings(user, attrs) do
+    user |> settings() |> Settings.changeset(attrs) |> Repo.insert_or_update()
+  end
+
+  @doc "Everyone with at least one device, with their settings and devices."
+  def people do
+    Subscription
+    |> Repo.all()
+    |> Enum.group_by(& &1.user_id)
+    |> Enum.map(fn {user_id, subs} -> {settings(%{id: user_id}), subs} end)
+  end
 
   # ── Sending ──
 
