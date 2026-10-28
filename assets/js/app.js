@@ -24,95 +24,14 @@ import {Socket} from "phoenix"
 import {LiveSocket} from "phoenix_live_view"
 import topbar from "../vendor/topbar"
 import {HoofMeasure} from "./hoof_measure"
+import {installDocViewer} from "./doc_viewer"
 import {PhotoMarkup} from "./photo_markup"
 
 const OFFLINE_DOCS_KEY = "gimelRanchOfflineDocs"
 const DOCS_CACHE = "ranch-docs-v1"
 
-// Installed as a standalone PWA, there's no browser chrome (no back button,
-// no address bar) — navigating straight to a PDF traps the user there with
-// no way back. An <iframe> avoids that but iOS Safari's embedded PDF
-// renderer only shows page one, so instead render every page ourselves
-// (via PDF.js, vendored locally so it still works offline) onto stacked
-// canvases inside our own scrollable, closeable overlay.
-let pdfjsLibPromise = null
-function loadPdfjs() {
-  if (!pdfjsLibPromise) {
-    pdfjsLibPromise = import("/pdfjs/pdf.min.mjs").then((lib) => {
-      lib.GlobalWorkerOptions.workerSrc = "/pdfjs/pdf.worker.min.mjs"
-      return lib
-    })
-  }
-  return pdfjsLibPromise
-}
-
-// Each getDocument() call spins up a dedicated Worker that stays alive
-// until destroyed — track the current one so opening another document
-// (or closing this one) frees it instead of leaking workers indefinitely.
-let currentPdfDoc = null
-
-async function renderPdfPages(container, url) {
-  container.innerHTML = '<p style="color:#fff;text-align:center;padding:40px">Loading…</p>'
-  try {
-    if (currentPdfDoc) {
-      currentPdfDoc.destroy()
-      currentPdfDoc = null
-    }
-    const pdfjsLib = await loadPdfjs()
-    // Loading from a fully-cached (often offline) copy, not streaming over a
-    // real connection — disable PDF.js's range/streaming fetch strategy so
-    // it just does one plain GET. The Cache API doesn't reliably serve
-    // partial/range responses from a whole cached Response (inconsistent in
-    // Safari especially), which caused intermittent render failures.
-    const pdf = await pdfjsLib.getDocument({url, disableRange: true, disableStream: true}).promise
-    currentPdfDoc = pdf
-    container.innerHTML = ""
-    const width = container.clientWidth || window.innerWidth
-
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i)
-      const viewport = page.getViewport({scale: width / page.getViewport({scale: 1}).width})
-      const canvas = document.createElement("canvas")
-      canvas.width = viewport.width
-      canvas.height = viewport.height
-      canvas.style.cssText = "display:block;margin:0 auto 12px;max-width:100%"
-      container.appendChild(canvas)
-      await page.render({canvasContext: canvas.getContext("2d"), viewport}).promise
-    }
-  } catch (e) {
-    console.error("Failed to render PDF", e)
-    container.innerHTML = `<p style="color:#fff;text-align:center;padding:40px">
-      Couldn't render this document. <a href="${url}" style="color:#a78bfa">Open it directly</a> instead.
-    </p>`
-  }
-}
-
-window.openPdfViewer = function (event, url, title) {
-  event.preventDefault()
-  const container = document.getElementById("pdf-viewer-pages")
-  const overlay = document.getElementById("pdf-viewer-overlay")
-  const titleEl = document.getElementById("pdf-viewer-title")
-  if (!container || !overlay) return
-  if (titleEl) titleEl.textContent = title || ""
-  overlay.style.display = "flex"
-  renderPdfPages(container, url)
-}
-
-window.closePdfViewer = function () {
-  const container = document.getElementById("pdf-viewer-pages")
-  const overlay = document.getElementById("pdf-viewer-overlay")
-  if (!container || !overlay) return
-  overlay.style.display = "none"
-  container.innerHTML = ""
-  if (currentPdfDoc) {
-    currentPdfDoc.destroy()
-    currentPdfDoc = null
-  }
-}
-
-window.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") window.closePdfViewer()
-})
+// Documents open in our own viewer (see doc_viewer.js): never the bare file.
+installDocViewer()
 
 // Swap a broken hero photo (cover_photo_url points at a missing/corrupt
 // file) for the placeholder icon. Only touches the DOM when loading
