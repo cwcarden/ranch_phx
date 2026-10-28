@@ -64,7 +64,7 @@ defmodule RanchPhxWeb.HoofLive.Index do
     foot = params["foot"]
 
     nums =
-      ~w(toe_share sides heels frog)
+      ~w(toe_share sides heels frog area)
       |> Map.new(&{&1, number(params[&1])})
       |> Map.put("ratio", ratio(params["ratio"]))
 

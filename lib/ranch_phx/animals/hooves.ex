@@ -195,7 +195,7 @@ defmodule RanchPhx.Animals.Hooves do
 
   @side_correct [
     {"Toe angle",
-     "The front of the hoof wall to the ground. Usually about 48–55° in front and 50–57° behind, but the right angle for him is the one that matches his pastern."},
+     "The angle at the toe between the ground line (heel to toe) and the toe wall line (toe up to the hairline). The front of the hoof wall to the ground. Usually about 48–55° in front and 50–57° behind, but the right angle for him is the one that matches his pastern."},
     {"Hoof-pastern axis",
      "Looking from the side, the front of the pastern and the front of the hoof wall should make one straight line (within about 3°). Pastern steeper = broken back; hoof steeper = broken forward."},
     {"Pairs",
@@ -212,7 +212,11 @@ defmodule RanchPhx.Animals.Hooves do
     {"Heels",
      "The two heels should sit level with each other, square across the center line (within about 3°). One heel ahead of the other means it's longer or run forward."},
     {"Frog",
-     "The tip of the frog should sit on the center line. A frog pulled to one side often points to the foot being uneven."}
+     "The tip of the frog should sit on the center line, with the line running down the frog's middle groove. A frog pulled to one side often points to the foot being uneven."},
+    {"White line (optional trace)",
+     "The pale band where the wall meets the sole. Traced all the way around, the sole should split about evenly each side of the center line (within about 4%). Leave the bars out."},
+    {"Where the dots go",
+     "Toe: center of the toe on the outside of the wall. Heels: the back corner of the wall where it turns forward into the bar (not on the bar or frog). Widest part: outside of the wall at the widest point, usually just behind the frog tip."}
   ]
 
   def side_correct, do: @side_correct
@@ -242,6 +246,7 @@ defmodule RanchPhx.Animals.Hooves do
         sides: num(m["sides"]),
         heels: num(m["heels"]),
         frog: num(m["frog"]),
+        area: num(m["area"]),
         ratio: num(m["ratio"]),
         photo: List.first(e.photo_urls || []),
         note: e.description,
@@ -310,13 +315,27 @@ defmodule RanchPhx.Animals.Hooves do
            "The frog tip is #{fmt(f)}% of the width off center. Worth showing your farrier."}
       end
 
+    area_line =
+      case Map.get(m, :area) do
+        nil ->
+          nil
+
+        a when a - 50 <= @sides_ok ->
+          {:ok,
+           "Sole area #{fmt(a)}/#{fmt(Float.round(100 - a, 1))}: the white line sits evenly each side of the center line."}
+
+        a ->
+          {:check,
+           "Sole area #{fmt(a)}/#{fmt(Float.round(100 - a, 1))}: more of the foot is on one side of the center line. Often a flare on the bigger side, or the foot landing unevenly."}
+      end
+
     ratio_line =
       if m.ratio,
         do:
           {:info,
            "Width is #{fmt(Float.round(m.ratio * 100, 0))}% of length. Fronts are usually about as wide as long; hinds a little narrower and more pointed."}
 
-    Enum.reject([toe_line, side_line, heel_line, frog_line, ratio_line], &is_nil/1)
+    Enum.reject([toe_line, side_line, heel_line, frog_line, area_line, ratio_line], &is_nil/1)
   end
 
   @doc "True when every check on a sole measurement passes."

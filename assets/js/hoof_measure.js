@@ -31,23 +31,28 @@ const VIEWS = {
     title: "sole",
     steps: [
       {key: "toe", n: 1, color: "#f472b6", label: "Toe",
-       say: "Tap the center of the toe, on the outer edge of the wall.",
-       why: "The front end of the foot's center line."},
+       say: "Tap the center of the toe, on the outside edge of the wall, in line with the frog's center groove.",
+       why: "The front end of the foot's center line. Use the outside of the wall, not the white line."},
       {key: "heels", n: 2, color: "#facc15", label: "Heels",
-       say: "Tap the end of each heel, where the wall turns in (the heel buttresses).",
-       why: "The back of the foot. The center line runs from the toe to the middle of the two heels, down the frog."},
+       say: "Tap the back corner of the wall at each heel, where the wall stops and turns forward into the bar.",
+       why: "These are the heel buttresses. Not on the bar, the frog or the heel bulbs. The center line runs from the toe to halfway between these two dots."},
       {key: "widest", n: 2, color: "#22c55e", label: "Widest part",
-       say: "Tap the outer wall on each side at the widest part of the foot.",
-       why: "Straight across at the widest point. It should sit about halfway between toe and heels."},
+       say: "Tap the outside edge of the wall on each side, at the widest point of the foot.",
+       why: "Usually a little behind the tip of the frog. Keep the line square across the foot. It should sit about halfway between toe and heels."},
       {key: "frog", n: 1, color: "#38bdf8", label: "Frog tip", optional: true,
-       say: "Tap the point of the frog. Or skip.",
-       why: "The frog's tip should sit right on the center line."},
+       say: "Tap the point of the frog (toward the toe). Or skip.",
+       why: "The dashed center line should run down the frog's middle groove and through its tip. If it doesn't, check the toe and heel dots."},
+      {key: "trace", n: 1, trace: true, color: "#f8fafc", label: "White line", optional: true,
+       say: "Trace the white line all the way around with the Pencil or a finger, from one heel round the toe to the other heel, then lift. Or skip.",
+       why: "The pale band where the wall meets the sole. Stop where it meets the bar at each heel; leave the bars out. Shows how evenly the sole sits each side of the center line."},
     ],
     correct: [
       "Toe/heel: the widest part about halfway, so close to 50/50.",
       "Sides: the center line splits the widest part into near-equal halves (within about 4%).",
       "Heels: level with each other, square across the center line (within about 3°).",
-      "Frog: tip on the center line.",
+      "Frog: tip on the center line, with the center line running down its middle groove.",
+      "White line: the sole splits about evenly each side of the center line (within about 4%).",
+      "Bars: they fold forward along the frog from each heel. They're not part of these lines; leave them out.",
     ],
   },
 }
@@ -82,6 +87,39 @@ function toeNote(foot, toe) {
 
 const r1 = (n) => Math.round(n * 10) / 10
 
+// Where two lines (each two points) cross, or null if they're parallel.
+function intersect(a, b) {
+  const d1 = {x: a[1].x - a[0].x, y: a[1].y - a[0].y}, d2 = {x: b[1].x - b[0].x, y: b[1].y - b[0].y}
+  const den = d1.x * d2.y - d1.y * d2.x
+  if (Math.abs(den) < 1e-9) return null
+  const t = ((b[0].x - a[0].x) * d2.y - (b[0].y - a[0].y) * d2.x) / den
+  return {x: a[0].x + t * d1.x, y: a[0].y + t * d1.y}
+}
+
+// Area of a polygon (shoelace).
+function polyArea(pts) {
+  let a = 0
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i], q = pts[(i + 1) % pts.length]
+    a += p.x * q.y - q.x * p.y
+  }
+  return Math.abs(a) / 2
+}
+
+// The part of a polygon on one side of a line (f(p) >= 0), Sutherland–Hodgman.
+function clipSide(pts, f) {
+  const out = []
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i], q = pts[(i + 1) % pts.length], fp = f(p), fq = f(q)
+    if (fp >= 0) out.push(p)
+    if ((fp >= 0) !== (fq >= 0)) {
+      const t = fp / (fp - fq)
+      out.push({x: p.x + t * (q.x - p.x), y: p.y + t * (q.y - p.y)})
+    }
+  }
+  return out
+}
+
 // Balance of the sole from its landmarks (image pixels). Null until the toe, heels
 // and widest part are all in.
 function soleNumbers(pts) {
@@ -103,7 +141,16 @@ function soleNumbers(pts) {
   const F = pts.frog[0]
   const frog = F ? Math.abs((F.x - Hm.x) * n.x + (F.y - Hm.y) * n.y) / W * 100 : null
   const side = Math.min(1, Math.max(0, sP))
+  // The traced white line, split by the center line.
+  let area = null
+  const trace = pts.trace && pts.trace[0]
+  if (trace && trace.length > 10) {
+    const f = (p) => (p.x - Hm.x) * n.x + (p.y - Hm.y) * n.y
+    const a1 = polyArea(clipSide(trace, f)), a2 = polyArea(clipSide(trace, (p) => -f(p)))
+    if (a1 + a2 > 0) area = r1(Math.max(a1, a2) / (a1 + a2) * 100)
+  }
   return {
+    area,
     toeShare: r1(Math.min(100, Math.max(0, (1 - t) * 100))),
     sides: r1(Math.max(side, 1 - side) * 100),
     heels: heels == null ? null : r1(heels),
@@ -152,22 +199,33 @@ const SIDE_SVG = `<svg viewBox="0 0 300 150" aria-hidden="true">
   <line x1="40" y1="128" x2="270" y2="128" stroke="#facc15" stroke-width="3"/>
   <line x1="178" y1="64" x2="240" y2="128" stroke="#22c55e" stroke-width="3"/>
   <line x1="150" y1="20" x2="178" y2="64" stroke="#38bdf8" stroke-width="3"/>
+  <path d="M206 128 A34 34 0 0 1 216.3 103.6" fill="none" stroke="#22c55e" stroke-width="3"/>
+  <text x="178" y="116" fill="#fff" font-size="14" font-weight="800">52°</text>
   <circle cx="100" cy="128" r="6" fill="#facc15"/><circle cx="240" cy="128" r="6" fill="#facc15"/>
   <circle cx="178" cy="64" r="6" fill="#22c55e"/><circle cx="236" cy="124" r="6" fill="#22c55e"/>
   <circle cx="150" cy="20" r="6" fill="#38bdf8"/><circle cx="176" cy="60" r="6" fill="#38bdf8"/>
-  <text x="196" y="96" fill="#fff" font-size="14" font-weight="700">toe angle</text>
+  <text x="44" y="146" fill="#cbd5e1" font-size="11">ground: heel → toe</text>
+  <text x="214" y="80" fill="#cbd5e1" font-size="11">toe wall</text>
+  <text x="168" y="30" fill="#cbd5e1" font-size="11">pastern</text>
 </svg>`
 
-const SOLE_SVG = `<svg viewBox="0 0 300 200" aria-hidden="true">
-  <path d="M150 12 C222 12 252 80 246 128 C242 160 222 182 206 186 L184 160 C172 150 128 150 116 160 L94 186 C78 182 58 160 54 128 C48 80 78 12 150 12 Z" fill="#334155" stroke="#94a3b8" stroke-width="2"/>
-  <path d="M150 70 L176 160 L124 160 Z" fill="#475569"/>
-  <line x1="150" y1="12" x2="150" y2="178" stroke="#f472b6" stroke-width="3" stroke-dasharray="8 6"/>
-  <line x1="58" y1="104" x2="242" y2="104" stroke="#22c55e" stroke-width="3"/>
-  <line x1="98" y1="178" x2="202" y2="178" stroke="#facc15" stroke-width="3"/>
-  <circle cx="150" cy="14" r="6" fill="#f472b6"/>
-  <circle cx="98" cy="178" r="6" fill="#facc15"/><circle cx="202" cy="178" r="6" fill="#facc15"/>
-  <circle cx="58" cy="104" r="6" fill="#22c55e"/><circle cx="242" cy="104" r="6" fill="#22c55e"/>
-  <circle cx="150" cy="72" r="6" fill="#38bdf8"/>
+const SOLE_SVG = `<svg viewBox="0 0 300 228" aria-hidden="true">
+  <path d="M90 200 C70 188 52 158 50 118 C48 70 80 16 150 16 C220 16 252 70 250 118 C248 158 230 188 210 200 L188 150 L168 112 L150 92 L132 112 L112 150 Z" fill="#334155" stroke="#94a3b8" stroke-width="2"/>
+  <path d="M100 192 C82 180 64 154 63 118 C62 76 90 29 150 29 C210 29 238 76 237 118 C236 154 218 180 200 192" fill="none" stroke="#f8fafc" stroke-width="2" stroke-dasharray="3 4"/>
+  <path d="M150 84 L178 196 L122 196 Z" fill="#475569" stroke="#64748b"/>
+  <line x1="150" y1="104" x2="150" y2="196" stroke="#1e293b" stroke-width="2"/>
+  <line x1="150" y1="16" x2="150" y2="200" stroke="#f472b6" stroke-width="3" stroke-dasharray="8 6"/>
+  <line x1="50" y1="118" x2="250" y2="118" stroke="#22c55e" stroke-width="3"/>
+  <line x1="90" y1="200" x2="210" y2="200" stroke="#facc15" stroke-width="3"/>
+  <circle cx="150" cy="16" r="6" fill="#f472b6"/>
+  <circle cx="90" cy="200" r="6" fill="#facc15"/><circle cx="210" cy="200" r="6" fill="#facc15"/>
+  <circle cx="50" cy="118" r="6" fill="#22c55e"/><circle cx="250" cy="118" r="6" fill="#22c55e"/>
+  <circle cx="150" cy="84" r="6" fill="#38bdf8"/>
+  <text x="196" y="160" fill="#cbd5e1" font-size="11">bar</text>
+  <text x="84" y="160" fill="#cbd5e1" font-size="11">bar</text>
+  <text x="158" y="150" fill="#e2e8f0" font-size="11">frog</text>
+  <text x="196" y="46" fill="#cbd5e1" font-size="11">white line</text>
+  <text x="214" y="222" fill="#cbd5e1" font-size="11">heel buttress</text>
 </svg>`
 
 export const HoofMeasure = {
@@ -203,9 +261,9 @@ export const HoofMeasure = {
     this.def = VIEWS[this.mode]
     this.steps = this.def.steps
     this.points = Object.fromEntries(this.steps.map((st) => [st.key, []]))
-    this.skipped = false
+    this.skipped = new Set()
     this.drag = null
-    const optional = this.steps.find((st) => st.optional)
+    this.tracing = null
 
     const today = new Date()
     const iso = new Date(today.getTime() - today.getTimezoneOffset() * 60000).toISOString().slice(0, 10)
@@ -224,7 +282,7 @@ export const HoofMeasure = {
         <div class="hm-read" data-read></div>
         <input type="date" data-date value="${iso}" max="${iso}" aria-label="Date measured">
         <input type="text" data-note placeholder="Note (optional), e.g. 4 weeks since trim" maxlength="200">
-        <button class="hm-btn" data-skip>Skip ${optional ? optional.label.toLowerCase() : ""}</button>
+        <button class="hm-btn" data-skip>Skip</button>
         <button class="hm-btn go" data-save disabled>Save</button>
       </div>`
     document.body.appendChild(ed)
@@ -237,8 +295,8 @@ export const HoofMeasure = {
     ed.querySelector("[data-undo]").onclick = () => this.undo()
     ed.querySelector("[data-help]").onclick = () => this.toggleHelp()
     ed.querySelector("[data-skip]").onclick = () => {
-      this.skipped = true
-      if (optional) this.points[optional.key] = []
+      const st = this.step()
+      if (st && st.optional) { this.skipped.add(st.key); this.points[st.key] = [] }
       this.refresh()
     }
     ed.querySelector("[data-save]").onclick = () => this.save()
@@ -298,7 +356,7 @@ export const HoofMeasure = {
 
   step() {
     for (const st of this.steps) {
-      if (st.optional && this.skipped) continue
+      if (st.optional && this.skipped.has(st.key)) continue
       if (this.points[st.key].length < st.n) return st
     }
     return null
@@ -330,7 +388,7 @@ export const HoofMeasure = {
     const st = this.step()
     const n = st ? this.points[st.key].length : 0
     if (st) {
-      this.say(`<i style="color:${st.color}">${st.label}${st.n > 1 && n ? " · 2nd dot" : ""}:</i> ${st.say}`)
+      this.say(`<i style="color:${st.trace ? "#e2e8f0" : st.color}">${st.label}${st.n > 1 && n ? " · 2nd dot" : ""}:</i> ${st.say}`)
     } else {
       this.say("Drag any dot to fine-tune, then Save.")
     }
@@ -343,26 +401,27 @@ export const HoofMeasure = {
         line(Math.abs(m.toeShare - 50) <= 5, Math.abs(m.toeShare - 50) <= 5 ? "Widest part near the middle" : "Widest part off the middle") +
         line(m.sides - 50 <= 4, `Sides ${m.sides}/${r1(100 - m.sides)}`) +
         line(m.heels <= 3, m.heels <= 3 ? "Heels even" : `Heels ${m.heels}° off square`) +
-        (m.frog == null ? "" : line(m.frog <= 4, m.frog <= 4 ? "Frog centered" : `Frog ${m.frog}% off center`))
+        (m.frog == null ? "" : line(m.frog <= 4, m.frog <= 4 ? "Frog centered" : `Frog ${m.frog}% off center`)) +
+        (m.area == null ? "" : line(m.area - 50 <= 4, `Sole area ${m.area}/${r1(100 - m.area)}`))
     } else {
       const {toe, pastern} = this.angles()
       const ax = axisText(toe, pastern)
       const tn = toeNote(this.foot, toe)
       read.innerHTML = toe == null
         ? "Toe angle shows here."
-        : `Toe <b>${toe}°</b>${pastern != null ? ` · Pastern <b>${pastern}°</b>` : ""}` +
+        : `Toe <b>${toe}°</b>${pastern != null ? ` · Pastern <b>${pastern}°</b> · <span title="difference">Δ ${r1(Math.abs(pastern - toe))}°</span>` : ""}` +
           (tn ? line(tn.ok, tn.text) : "") + (ax ? line(ax.startsWith("Hoof"), ax) : "")
     }
-    const opt = this.steps.find((x) => x.optional)
     const skip = this.ed.querySelector("[data-skip]")
-    skip.style.display = !opt || this.skipped || this.points[opt.key].length === opt.n || this.step() !== opt ? "none" : ""
+    skip.style.display = st && st.optional && this.points[st.key].length === 0 ? "" : "none"
+    skip.textContent = st && st.optional ? `Skip ${st.label.toLowerCase()}` : "Skip"
     this.ed.querySelector("[data-save]").disabled = !this.ready()
     this.draw()
   },
 
   undo() {
     for (const st of [...this.steps].reverse()) {
-      if (st.optional && this.skipped && this.points[st.key].length === 0) { this.skipped = false; return this.refresh() }
+      if (st.optional && this.skipped.has(st.key) && this.points[st.key].length === 0) { this.skipped.delete(st.key); return this.refresh() }
       if (this.points[st.key].length) { this.points[st.key].pop(); return this.refresh() }
     }
   },
@@ -417,29 +476,51 @@ export const HoofMeasure = {
   paintMarks(c, map, k) {
     if (this.mode === "sole") return this.paintSole(c, map, k)
     const {toe, pastern} = this.angles()
-    for (const s of this.steps) {
-      const pts = this.points[s.key].map(map)
-      c.lineCap = "round"
-      if (pts.length === 2) {
-        // Extend each line past its dots so it's easy to see along the hoof.
-        const dx = pts[1].x - pts[0].x, dy = pts[1].y - pts[0].y
-        const ext = s.key === "ground" ? 0.6 : 0.25
-        c.strokeStyle = "rgba(0,0,0,.55)"
-        c.lineWidth = 6 * k
-        c.beginPath(); c.moveTo(pts[0].x - dx * ext, pts[0].y - dy * ext); c.lineTo(pts[1].x + dx * ext, pts[1].y + dy * ext); c.stroke()
-        c.strokeStyle = s.color
-        c.lineWidth = 3 * k
-        c.beginPath(); c.moveTo(pts[0].x - dx * ext, pts[0].y - dy * ext); c.lineTo(pts[1].x + dx * ext, pts[1].y + dy * ext); c.stroke()
-        const label = s.key === "wall" ? toe : s.key === "pastern" ? pastern : null
-        if (label != null) this.tag(c, `${label}°`, (pts[0].x + pts[1].x) / 2 + 14 * k, (pts[0].y + pts[1].y) / 2, s.color, k)
-      }
-      for (const p of pts) {
-        c.fillStyle = s.color
-        c.strokeStyle = "#fff"
-        c.lineWidth = 2.5 * k
-        c.beginPath(); c.arc(p.x, p.y, 8 * k, 0, Math.PI * 2); c.fill(); c.stroke()
+    const g = this.points.ground.map(map), w = this.points.wall.map(map), pa = this.points.pastern.map(map)
+    const col = Object.fromEntries(this.steps.map((st) => [st.key, st.color]))
+    for (const [key, pts, ext] of [["ground", g, 0.6], ["wall", w, 0.25], ["pastern", pa, 0.25]]) {
+      if (pts.length === 2) this.stroke(c, pts[0], pts[1], col[key], k, ext)
+    }
+    // The angle sits where the line meets the ground: an arc in the corner with the degrees.
+    if (g.length === 2 && w.length === 2 && toe != null) this.cornerAngle(c, g, w, toe, col.wall, k, 1)
+    if (g.length === 2 && pa.length === 2 && pastern != null) {
+      // Run the pastern line down to the ground, dashed, so its angle shows too.
+      const v = intersect(g, pa)
+      if (v) {
+        const far = Math.hypot(pa[0].x - v.x, pa[0].y - v.y) > Math.hypot(pa[1].x - v.x, pa[1].y - v.y) ? pa[1] : pa[0]
+        this.stroke(c, far, v, col.pastern, k, 0, [8, 8])
+        this.cornerAngle(c, g, pa, pastern, col.pastern, k, 2.5)
       }
     }
+    for (const [key, pts] of [["ground", g], ["wall", w], ["pastern", pa]])
+      for (const p of pts) this.dot(c, p, col[key], k)
+  },
+
+  // Arc between the ground (toward the heel) and a line, at the corner where they meet,
+  // with the angle written in it. `rk` sizes the arc so two arcs don't sit on top of each other.
+  cornerAngle(c, ground, line, deg, color, k, rk) {
+    const v = intersect(ground, line)
+    if (!v) return
+    const unit = (p) => { const dx = p.x - v.x, dy = p.y - v.y, l = Math.hypot(dx, dy) || 1; return {x: dx / l, y: dy / l} }
+    const farther = (a, b) => (Math.hypot(a.x - v.x, a.y - v.y) >= Math.hypot(b.x - v.x, b.y - v.y) ? a : b)
+    let gd = unit(farther(ground[0], ground[1]))
+    const ld = unit(farther(line[0], line[1]))
+    // Use the side of the ground that makes the measured (acute) angle with the line.
+    if (gd.x * ld.x + gd.y * ld.y < 0) gd = {x: -gd.x, y: -gd.y}
+    const a1 = Math.atan2(gd.y, gd.x), a2 = Math.atan2(ld.y, ld.x)
+    let d = a2 - a1
+    while (d > Math.PI) d -= 2 * Math.PI
+    while (d < -Math.PI) d += 2 * Math.PI
+    const r = 44 * k * rk
+    c.lineWidth = 6 * k; c.strokeStyle = "rgba(0,0,0,.55)"
+    c.beginPath(); c.arc(v.x, v.y, r, a1, a1 + d, d < 0); c.stroke()
+    c.lineWidth = 3 * k; c.strokeStyle = color
+    c.beginPath(); c.arc(v.x, v.y, r, a1, a1 + d, d < 0); c.stroke()
+    const mid = a1 + d / 2, lr = r + 30 * k
+    const text = `${deg}°`
+    c.font = `800 ${18 * k}px -apple-system, system-ui, sans-serif`
+    const tw = c.measureText(text).width + 14 * k
+    this.tag(c, text, v.x + Math.cos(mid) * lr - tw / 2, v.y + Math.sin(mid) * lr, color, k)
   },
 
   // A line with a dark outline so it shows on any photo; `ext` runs it past its ends.
@@ -464,6 +545,17 @@ export const HoofMeasure = {
   paintSole(c, map, k) {
     const P = this.points, col = Object.fromEntries(this.steps.map((st) => [st.key, st.color]))
     const m = soleNumbers(P)
+    // The traced white line (or the one being drawn right now).
+    const trace = (P.trace && P.trace[0]) || (this.tracing && this.tracing.pts)
+    if (trace && trace.length > 1) {
+      const t = trace.map(map)
+      c.beginPath(); c.moveTo(t[0].x, t[0].y)
+      for (const q of t.slice(1)) c.lineTo(q.x, q.y)
+      if (!this.tracing) { c.closePath(); c.fillStyle = "rgba(248,250,252,.12)"; c.fill() }
+      c.lineJoin = "round"; c.lineCap = "round"
+      c.strokeStyle = "rgba(0,0,0,.55)"; c.lineWidth = 5 * k; c.stroke()
+      c.strokeStyle = col.trace; c.lineWidth = 2.5 * k; c.stroke()
+    }
     const toe = P.toe.map(map), heels = P.heels.map(map), widest = P.widest.map(map), frog = P.frog.map(map)
     if (heels.length === 2) this.stroke(c, heels[0], heels[1], col.heels, k)
     if (widest.length === 2) this.stroke(c, widest[0], widest[1], col.widest, k)
@@ -480,6 +572,7 @@ export const HoofMeasure = {
       this.tag(c, `Toe ${m.toeShare}%`, (T.x + X.x) / 2 + 12 * k, (T.y + X.y) / 2, col.toe, k)
       this.tag(c, `Heel ${r1(100 - m.toeShare)}%`, (H.x + X.x) / 2 + 12 * k, (H.y + X.y) / 2, col.heels, k)
       this.tag(c, `${m.sides}/${r1(100 - m.sides)}`, widest[1].x + 12 * k, widest[1].y, col.widest, k)
+      if (m.area != null) this.tag(c, `Area ${m.area}/${r1(100 - m.area)}`, widest[0].x + 12 * k, widest[0].y + 34 * k, col.trace, k)
     }
     for (const [key, pts] of [["toe", toe], ["heels", heels], ["widest", widest], ["frog", frog]])
       for (const p of pts) this.dot(c, p, col[key], k)
@@ -529,10 +622,16 @@ export const HoofMeasure = {
     e.preventDefault()
     const at = this.pos(e)
     const current = this.step()
+    if (current && current.trace) {
+      this.tracing = {id: e.pointerId, pts: [this.toImage(at.x, at.y)]}
+      this.canvas.setPointerCapture(e.pointerId)
+      this.draw()
+      return
+    }
     let best = null, bestD = e.pointerType === "pen" ? 22 : 34
     // While a line still needs dots, a tap adds one (the wall's second dot often sits
     // right on the ground's toe dot). Once every line is in, a touch grabs the nearest dot.
-    for (const s of current ? [] : this.steps) {
+    for (const s of current ? [] : this.steps.filter((x) => !x.trace)) {
       this.points[s.key].forEach((p, i) => {
         const q = this.toScreen(p)
         const d = Math.hypot(q.x - at.x, q.y - at.y)
@@ -556,6 +655,13 @@ export const HoofMeasure = {
       this.draw()
       return
     }
+    if (this.tracing && e.pointerId === this.tracing.id) {
+      e.preventDefault()
+      const events = e.getCoalescedEvents ? e.getCoalescedEvents() : [e]
+      for (const ev of events) { const q = this.pos(ev); this.tracing.pts.push(this.toImage(q.x, q.y)) }
+      this.draw()
+      return
+    }
     if (!this.drag || e.pointerId !== this.drag.id) return
     e.preventDefault()
     const at = this.pos(e)
@@ -565,6 +671,18 @@ export const HoofMeasure = {
   },
 
   up(e) {
+    if (this.tracing && e.pointerId === this.tracing.id) {
+      const pts = this.tracing.pts
+      this.tracing = null
+      // A real trace, thinned to every few pixels; a stray tap is ignored.
+      if (pts.length > 10) {
+        const keep = [pts[0]]
+        for (const q of pts) { const l = keep[keep.length - 1]; if (Math.hypot(q.x - l.x, q.y - l.y) > 3 / this.view.s) keep.push(q) }
+        this.points.trace = [keep]
+      }
+      this.refresh()
+      return
+    }
     if (!this.drag || e.pointerId !== this.drag.id) return
     this.drag = null
     this.refresh()
@@ -601,7 +719,8 @@ export const HoofMeasure = {
     this.paintMarks(c, (p) => ({x: p.x * scale, y: p.y * scale}), Math.max(1, out.width / 900))
 
     const round = (p) => ({x: Math.round(p.x), y: Math.round(p.y)})
-    const points = Object.fromEntries(this.steps.map((st) => [st.key, this.points[st.key].map(round)]))
+    const points = Object.fromEntries(this.steps.map((st) =>
+      [st.key, st.trace ? this.points[st.key].map((line) => line.map(round)) : this.points[st.key].map(round)]))
     points.width = this.img.naturalWidth
     points.height = this.img.naturalHeight
     const data = {
@@ -612,7 +731,7 @@ export const HoofMeasure = {
       note: this.ed.querySelector("[data-note]").value,
       points,
     }
-    if (sole) Object.assign(data, {toe_share: sole.toeShare, sides: sole.sides, heels: sole.heels, frog: sole.frog, ratio: sole.ratio})
+    if (sole) Object.assign(data, {toe_share: sole.toeShare, sides: sole.sides, heels: sole.heels, frog: sole.frog, ratio: sole.ratio, area: sole.area})
 
     out.toBlob((blob) => {
       const file = new File([blob], `hoof-${this.foot}-${this.mode}.jpg`, {type: "image/jpeg"})
