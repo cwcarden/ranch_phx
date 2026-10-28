@@ -77,6 +77,8 @@ defmodule RanchPhxWeb.AnimalLive.Show do
      |> assign(:ped_editing, nil)
      |> assign(:ped_form, %{})
      |> assign(:lightbox_url, nil)
+     |> assign(:compare_pick, nil)
+     |> assign(:compare_open, false)
      |> allow_upload(:photo, accept: ~w(.jpg .jpeg .png .webp .gif .heic .heif), max_entries: 10, max_file_size: 20_000_000)
      |> allow_upload(:document, accept: ~w(.pdf .doc .docx .jpg .jpeg .png .txt), max_entries: 5, max_file_size: 50_000_000)
      |> allow_upload(:scan, accept: ~w(.jpg .jpeg .png .webp .pdf), max_entries: 1, max_file_size: 25_000_000, auto_upload: true, progress: &handle_progress/3)
@@ -930,6 +932,23 @@ defmodule RanchPhxWeb.AnimalLive.Show do
     {:noreply, assign(socket, :report_modal, false)}
   end
 
+  # Compare two photos: "Compare" turns on picking, two taps open the comparison.
+  def handle_event("compare_start", _params, socket),
+    do: {:noreply, assign(socket, compare_pick: [], compare_open: false)}
+
+  def handle_event("compare_cancel", _params, socket),
+    do: {:noreply, assign(socket, compare_pick: nil, compare_open: false)}
+
+  def handle_event("compare_pick", %{"id" => id}, socket) do
+    id = String.to_integer(id)
+    pick = socket.assigns.compare_pick || []
+    pick = if id in pick, do: List.delete(pick, id), else: pick ++ [id]
+    {:noreply, assign(socket, compare_pick: pick, compare_open: length(pick) == 2)}
+  end
+
+  def handle_event("compare_close", _params, socket),
+    do: {:noreply, assign(socket, compare_pick: [], compare_open: false)}
+
   def handle_event("open_lightbox", %{"url" => url}, socket) do
     {:noreply, assign(socket, :lightbox_url, url)}
   end
@@ -1605,6 +1624,21 @@ defmodule RanchPhxWeb.AnimalLive.Show do
       text =~ ~r/registration/ -> "registration"
       text =~ ~r/brand/ -> "brand_inspection"
       true -> nil
+    end
+  end
+
+  @doc "When a photo was taken (or added, if no date was given)."
+  def photo_date(photo), do: photo.taken_at || NaiveDateTime.to_date(photo.inserted_at)
+
+  @doc "\"4 months apart\", \"12 days apart\" or \"Same day\"."
+  def apart(a, b) do
+    days = abs(Date.diff(a, b))
+
+    cond do
+      days == 0 -> "Same day"
+      days < 60 -> "#{days} days apart"
+      days < 730 -> "#{round(days / 30.4)} months apart"
+      true -> "#{Float.round(days / 365.25, 1)} years apart"
     end
   end
 end

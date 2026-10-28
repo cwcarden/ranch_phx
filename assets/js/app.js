@@ -220,6 +220,31 @@ Hooks.Sections = {
   },
 }
 
+// Photo compare: drag anywhere across the photos (finger or Pencil) to move the divider.
+Hooks.CompareSlider = {
+  mounted() {
+    const range = this.el.querySelector(".cmp-range")
+    const set = (pct) => {
+      pct = Math.max(0, Math.min(100, pct))
+      this.el.style.setProperty("--pos", pct + "%")
+      if (range) range.value = pct
+    }
+    const at = (e) => {
+      const r = this.el.getBoundingClientRect()
+      set(((e.clientX - r.left) / r.width) * 100)
+    }
+    this.el.addEventListener("pointerdown", (e) => {
+      this.el.setPointerCapture(e.pointerId)
+      this.dragging = true
+      at(e)
+    })
+    this.el.addEventListener("pointermove", (e) => { if (this.dragging) at(e) })
+    const stop = () => { this.dragging = false }
+    this.el.addEventListener("pointerup", stop)
+    this.el.addEventListener("pointercancel", stop)
+  },
+}
+
 Hooks.SaveOffline = {
   mounted() {
     this.updateLabel()
