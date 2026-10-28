@@ -22,6 +22,14 @@ defmodule RanchPhxWeb.AnimalReportController do
     date_from   = parse_date(params["from"])
     date_to     = parse_date(params["to"])
 
+    # Picking Hoof Care records (and not every category) means "the hoof stuff":
+    # bring in the hoof measurements and photos too.
+    sections =
+      if sections.records and "hoof_care" in record_cats and
+           length(record_cats) < length(Record.categories()),
+         do: %{sections | hooves: true},
+         else: sections
+
     records =
       animal.records
       |> Enum.filter(fn r ->
