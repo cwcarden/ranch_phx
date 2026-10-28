@@ -527,4 +527,26 @@ defmodule RanchPhxWeb.AnimalRecordsTest do
     assert marked.caption == "Left side markings"
     File.rm(Path.join(Application.app_dir(:ranch_phx, "priv/static"), marked.url))
   end
+
+  test "a dozen photos upload and save on their own, no button", %{conn: conn, animal: animal} do
+    {:ok, view, _} = live(conn, ~p"/animals/#{animal.id}?tab=photos")
+    names = for i <- 1..12, do: "IMG_#{i}.jpg"
+
+    # (The test client stops once an upload is saved, so each photo goes in on its own;
+    # in the browser they're picked and sent together.)
+    for name <- names do
+      view
+      |> file_input("form[phx-change=validate_photo]", :photo, [
+        %{name: name, content: <<0xFF, 0xD8, 0xFF, 0xD9>>, type: "image/jpeg"}
+      ])
+      |> render_upload(name)
+    end
+
+    saved = Animals.get_animal_with_pedigree!(animal.id).photos
+    assert length(saved) == 12
+    assert has_element?(view, "#toast-info", "Added 1 photo")
+    assert Animals.get_animal_with_pedigree!(animal.id).cover_photo_url
+
+    for p <- saved, do: File.rm(Path.join(Application.app_dir(:ranch_phx, "priv/static"), p.url))
+  end
 end

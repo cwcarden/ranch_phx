@@ -140,6 +140,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 
 /* Photos */
 .photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-bottom: 24px; }
+@media (max-width: 600px) { .photo-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; } .photo-actions .btn { padding: 6px 8px; font-size: 12px; } }
 .photo-card { position: relative; border-radius: var(--radius-sm); overflow: hidden; aspect-ratio: 4/3; background: var(--surface2); border: 1px solid var(--border); }
 .photo-card img { width: 100%; height: 100%; object-fit: cover; }
 .photo-actions { position: absolute; inset: 0; background: rgba(0,0,0,0); display: flex; align-items: center; justify-content: center; gap: 6px; transition: background .15s; opacity: 0; pointer-events: none; }
@@ -515,6 +516,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .lightbox-close { position: absolute; top: 16px; right: 16px; width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,.15); border: none; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 20px; }
 .lightbox-close:hover { background: rgba(255,255,255,.3); }
 .photo-card img { cursor: zoom-in; }
+.up-list { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.up-sum { display: flex; justify-content: space-between; font-size: 14px; font-weight: 700; color: var(--brand); padding: 0 2px; }
+.up-thumb { width: 44px; height: 44px; object-fit: cover; border-radius: 8px; flex: none; background: var(--surface2); }
+.up-x { width: 40px; height: 40px; border: none; background: none; color: var(--text3); cursor: pointer; font-size: 16px; }
 /* Dragging a file over a drop spot (Files or Photos beside the app on an iPad) */
 .upload-zone.phx-drop-target-active, .rx-scan-btn.phx-drop-target-active { border-color: var(--brand); border-style: solid; background: color-mix(in srgb, var(--brand) 10%, var(--surface)); color: var(--brand); }
 .lightbox-markup { position: absolute; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom)); transform: translateX(-50%); display: inline-flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 20px; border-radius: 24px; border: none; background: #8b5cf6; color: #fff; font-size: 16px; font-weight: 700; cursor: pointer; box-shadow: 0 6px 20px rgba(0,0,0,.4); }
@@ -705,7 +710,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 }
 </style>
 
-<.app_nav active={:animals} detail />
+<.app_nav active={:animals} detail flash={@flash} />
 <div class={["as-layout", length(@side_rows) > 1 && "has-side"]}>
 <RanchPhxWeb.AnimalSidebar.animal_sidebar :if={length(@side_rows) > 1} rows={@side_rows} current={@animal.id} tab={@tab} />
 <div class="as-main-col">
@@ -1216,31 +1221,27 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
             <polyline points="21 15 16 10 5 21"/>
           </svg>
           <p style="font-size:14px;font-weight:600;margin-bottom:4px">Tap to choose photos, or drag them here</p>
-          <p style="font-size:12px">JPG, PNG, WebP up to 20 MB each · up to 10 at once</p>
+          <p style="font-size:12px">Up to 40 at once · they save as soon as they finish uploading</p>
           <.live_file_input upload={@uploads.photo}/>
         </label>
-        <%= for entry <- @uploads.photo.entries do %>
-          <div class="upload-entry">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20" style="color:var(--brand)">
-              <rect x="3" y="3" width="18" height="18" rx="2"/>
-            </svg>
-            <div style="flex:1">
-              <div class="upload-entry-name"><%= entry.client_name %></div>
+        <p :for={err <- upload_errors(@uploads.photo)} class="rx-err" style="margin-top:8px">{error_to_string(err)}</p>
+        <div :if={@uploads.photo.entries != []} class="up-list" id="photo-uploads">
+          <% entries = @uploads.photo.entries %>
+          <div class="up-sum">
+            Uploading {Enum.count(entries, & &1.done?)} of {length(entries)}…
+            <span>{entries |> Enum.map(& &1.progress) |> Enum.sum() |> div(max(length(entries), 1))}%</span>
+          </div>
+          <div :for={entry <- entries} class="upload-entry">
+            <.live_img_preview entry={entry} class="up-thumb" />
+            <div style="flex:1;min-width:0">
+              <div class="upload-entry-name">{entry.client_name}</div>
               <div class="upload-progress"><div class="upload-progress-bar" style={"width:#{entry.progress}%"}></div></div>
+              <p :for={err <- upload_errors(@uploads.photo, entry)} class="rx-err" style="margin:4px 0 0">{error_to_string(err)}</p>
             </div>
-            <span class="upload-entry-size"><%= Float.round(entry.client_size / 1_000_000, 1) %> MB</span>
-            <button type="button" phx-click="cancel_upload" phx-value-ref={entry.ref} phx-target="photo"
-                    style="background:none;border:none;cursor:pointer;color:var(--text3)">✕</button>
+            <span class="upload-entry-size">{Float.round(entry.client_size / 1_000_000, 1)} MB</span>
+            <button type="button" phx-click="cancel_upload" phx-value-ref={entry.ref} aria-label="Remove" class="up-x">✕</button>
           </div>
-          <%= for err <- upload_errors(@uploads.photo, entry) do %>
-            <p style="color:#ef4444;font-size:12px;margin-top:4px"><%= error_to_string(err) %></p>
-          <% end %>
-        <% end %>
-        <%= if length(@uploads.photo.entries) > 0 do %>
-          <div style="margin-top:14px;display:flex;justify-content:flex-end">
-            <button type="submit" class="btn btn-primary">Upload <%= length(@uploads.photo.entries) %> Photo<%= if length(@uploads.photo.entries) != 1, do: "s" %></button>
-          </div>
-        <% end %>
+        </div>
       </.form>
     <% end %>
     <%= if !@is_superuser && length(@animal.photos) == 0 do %>
