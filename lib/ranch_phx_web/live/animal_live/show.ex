@@ -16,6 +16,7 @@ defmodule RanchPhxWeb.AnimalLive.Show do
     {:ok,
      socket
      |> assign(:animal, animal)
+     |> assign(:side_rows, RanchPhxWeb.AnimalSidebar.rows())
      |> assign(:tab, "overview")
      |> assign(:edit_modal, false)
      |> assign(:event_modal, false)
