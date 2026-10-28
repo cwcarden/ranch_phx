@@ -78,7 +78,7 @@ defmodule RanchPhxWeb.HoofLive.Index do
         pending = %{
           foot: foot,
           toe: toe,
-          pastern: if((pastern && pastern > 0) and pastern < 90, do: pastern),
+          pastern: if(is_number(pastern) and pastern > 0 and pastern < 90, do: pastern),
           date: date,
           note: params["note"] |> to_string() |> String.trim() |> String.slice(0, 500),
           points: params["points"]
@@ -132,8 +132,8 @@ defmodule RanchPhxWeb.HoofLive.Index do
           {:ok, "/uploads/animals/#{animal.id}/hooves/#{name}"}
         end)
 
-      if pending do
-        {:ok, _} =
+      saved =
+        pending &&
           Animals.create_event(%{
             "animal_id" => animal.id,
             "event_type" => "hoof",
@@ -149,17 +149,25 @@ defmodule RanchPhxWeb.HoofLive.Index do
             }
           })
 
-        {:noreply,
-         socket
-         |> assign(:pending, nil)
-         |> reload()
-         |> push_event("hoof-saved", %{})
-         |> put_flash(
-           :info,
-           "Saved #{Hooves.foot_name(pending.foot)}: toe #{Hooves.fmt(pending.toe)}°."
-         )}
-      else
-        {:noreply, assign(socket, :error, "Couldn't save that one. Try again.")}
+      case saved do
+        {:ok, _} ->
+          {:noreply,
+           socket
+           |> assign(:pending, nil)
+           |> reload()
+           |> push_event("hoof-saved", %{})
+           |> put_flash(
+             :info,
+             "Saved #{Hooves.foot_name(pending.foot)}: toe #{Hooves.fmt(pending.toe)}°."
+           )}
+
+        _ ->
+          {:noreply,
+           socket
+           |> assign(:pending, nil)
+           |> push_event("hoof-failed", %{
+             message: "Couldn't save that one. Tap Save to try again."
+           })}
       end
     else
       {:noreply, socket}

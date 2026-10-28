@@ -5,6 +5,12 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Merging several PRs back to back starts several deploys; run them one at a time
+# so two builds never collide on the server.
+concurrency:
+  group: deploy-portal
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
