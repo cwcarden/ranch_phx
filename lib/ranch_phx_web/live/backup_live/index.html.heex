@@ -1,0 +1,167 @@
+<.styles />
+<.app_nav active={:animals} detail flash={@flash} />
+<.topbar back={~p"/"} back_label="Animals" title="Backups" />
+
+<style>
+  .bk-state { display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 14px; background: var(--surface2); border: 1px solid var(--border); margin-bottom: 14px; }
+  .bk-state [class^="hero-"] { width: 28px; height: 28px; flex: none; }
+  .bk-state b { display: block; font-size: 17px; }
+  .bk-state small { color: var(--text2); font-size: 14px; }
+  .bk-state.on { background: color-mix(in srgb, #16a34a 10%, var(--surface)); border-color: color-mix(in srgb, #16a34a 35%, var(--border)); }
+  .bk-state.on [class^="hero-"] { color: #16a34a; }
+  .bk-state.warn [class^="hero-"] { color: #d97706; }
+  .bk-meter { height: 12px; border-radius: 6px; background: var(--surface2); border: 1px solid var(--border); overflow: hidden; margin: 8px 0 4px; }
+  .bk-meter i { display: block; height: 100%; min-width: 3px; background: #16a34a; border-radius: 6px; }
+  .bk-meter.high i { background: #d97706; }
+  .bk-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 10px; }
+  .bk-tile { padding: 12px; border-radius: 12px; background: var(--surface2); border: 1px solid var(--border); }
+  .bk-tile b { display: block; font-size: 20px; }
+  .bk-tile small { color: var(--text2); font-size: 13px; }
+  .bk-run { display: flex; gap: 10px; align-items: baseline; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 15px; }
+  .bk-run:last-child { border-bottom: none; }
+  .bk-run span { flex: 1; min-width: 0; }
+  .bk-run small { display: block; color: var(--text3); }
+  .bk-run small.err { color: #dc2626; }
+  .bk-ok { color: #16a34a; font-weight: 700; }
+  .bk-bad { color: #dc2626; font-weight: 700; }
+  .bk-steps { list-style: decimal; padding-left: 22px; display: grid; gap: 8px; font-size: 15px; line-height: 1.5; margin: 8px 0 0; }
+  .bk-wrap > * + * { margin-top: 14px; }
+  .bk-wrap .bk-state { margin-bottom: 0; }
+  .bk-steps code { font-size: 13px; background: var(--surface2); padding: 1px 5px; border-radius: 5px; word-break: break-all; }
+</style>
+
+<div class="tr-wrap bk-wrap">
+  <div :if={@configured and @last_ok} class="bk-state on" id="backup-state">
+    <.icon name="hero-shield-check" />
+    <div>
+      <b>Backed up {when_local(@last_ok.finished_at)}</b>
+      <small>Every night after 2 a.m. to your Cloudflare R2 bucket.</small>
+    </div>
+  </div>
+  <div :if={@configured and is_nil(@last_ok)} class="bk-state warn" id="backup-state">
+    <.icon name="hero-clock" />
+    <div>
+      <b>No backup yet</b>
+      <small>The first one runs tonight after 2 a.m., or tap Back up now.</small>
+    </div>
+  </div>
+  <div :if={not @configured} class="bk-state warn" id="backup-state">
+    <.icon name="hero-exclamation-triangle" />
+    <div>
+      <b>Not backed up off the server</b>
+      <small>Set up Cloudflare R2 below and backups start that night.</small>
+    </div>
+  </div>
+
+  <button
+    :if={@configured}
+    id="backup-now"
+    class="tr-btn tr-btn-primary tr-btn-block"
+    phx-click="run"
+    disabled={@running}
+  >
+    <.icon
+      name={if @running, do: "hero-arrow-path", else: "hero-cloud-arrow-up"}
+      class={if @running, do: "animate-spin"}
+    />
+    {if @running, do: "Backing up…", else: "Back up now"}
+  </button>
+
+  <section class="tr-card">
+    <h2 style="margin:0 0 6px">What's backed up</h2>
+    <div class="bk-grid">
+      <div class="bk-tile">
+        <b>{elem(@docs, 0)}</b>
+        <small>Documents · {size(elem(@docs, 1))}</small>
+      </div>
+      <div class="bk-tile">
+        <b>{elem(@other, 0)}</b>
+        <small>Photos and other files · {size(elem(@other, 1))}</small>
+      </div>
+      <div class="bk-tile">
+        <b>{size(@last_ok && @last_ok.db_bytes)}</b>
+        <small>Database (all records)</small>
+      </div>
+    </div>
+    <p class="tr-muted" style="margin:10px 0 0;font-size:14px">
+      Database first, then documents, then photos. A file is only sent once. Deleting something in the app doesn't delete it from the backup.
+    </p>
+  </section>
+
+  <section :if={@configured} class="tr-card" id="backup-storage">
+    <h2 style="margin:0 0 6px">Storage used</h2>
+    <div class={["bk-meter", percent(@remote_bytes) > 80 && "high"]}>
+      <i style={"width:#{percent(@remote_bytes)}%"}></i>
+    </div>
+    <div class="tr-muted" style="font-size:14px">
+      {size(@remote_bytes)} of 10 GB free tier ({percent(@remote_bytes)}%)
+    </div>
+  </section>
+
+  <section :if={@runs != []} class="tr-card" id="backup-runs">
+    <h2 style="margin:0 0 6px">Recent</h2>
+    <div :for={r <- @runs} class="bk-run">
+      <span :if={r.status == "ok"} class="bk-ok">✓</span>
+      <span :if={r.status == "error"} class="bk-bad">✕</span>
+      <span :if={r.status == "running"} class="tr-muted">…</span>
+      <span>
+        {when_local(r.started_at)}
+        <span class="tr-muted">· {if r.trigger == "manual", do: "by hand", else: "nightly"}</span>
+        <small :if={r.status != "error"}>
+          {r.files_uploaded} new file(s), {size(r.bytes_uploaded)}
+        </small>
+        <small :if={r.error} class="err">{r.error}</small>
+      </span>
+    </div>
+  </section>
+
+  <details class="tr-card tr-more" open={not @configured} id="backup-setup">
+    <summary><.icon name="hero-wrench" /> Set up Cloudflare R2</summary>
+    <ol class="bk-steps">
+      <li>
+        In Cloudflare, go to <b>R2 Object Storage</b>
+        and create a bucket named <code>gimel-ranch-backup</code>.
+      </li>
+      <li>
+        Still in R2, open <b>Manage API tokens</b>, then <b>Create API token</b>: permission <b>Object Read &amp; Write</b>, limited to that bucket. Copy the
+        <b>Access Key ID</b>
+        and <b>Secret Access Key</b>.
+      </li>
+      <li>Your <b>Account ID</b> is on the R2 overview page.</li>
+      <li>
+        On the server, add four lines to <code>/opt/ranch_phx/.env</code>:<br />
+        <code>R2_ACCOUNT_ID=…</code> <br />
+        <code>R2_ACCESS_KEY_ID=…</code> <br />
+        <code>R2_SECRET_ACCESS_KEY=…</code> <br />
+        <code>R2_BUCKET=gimel-ranch-backup</code>
+      </li>
+      <li>
+        Restart the app: <code>sudo systemctl restart ranch_phx</code>. Then come back here and tap <b>Back up now</b>.
+      </li>
+    </ol>
+  </details>
+
+  <details class="tr-card tr-more" id="backup-restore">
+    <summary><.icon name="hero-arrow-uturn-left" /> How to restore</summary>
+    <ol class="bk-steps">
+      <li>
+        In Cloudflare R2, open the bucket. <code>db/</code>
+        has a database copy for each of the last 14 nights, plus one a month for a year.
+        <code>uploads/</code>
+        has every document and photo, in the same folders as on the server.
+      </li>
+      <li>Download the newest <code>db/ranch-DATE.dump</code> and put it on the server.</li>
+      <li>
+        Restore it:
+        <code>pg_restore --clean --if-exists --no-owner -d ranch_phx_prod ranch-DATE.dump</code>
+      </li>
+      <li>
+        Copy the <code>uploads/</code>
+        folder back into the app's uploads folder, then restart the app.
+      </li>
+    </ol>
+    <p class="tr-muted" style="font-size:14px">
+      For a single lost document, just download it from <code>uploads/animals/ID/documents/</code>.
+    </p>
+  </details>
+</div>

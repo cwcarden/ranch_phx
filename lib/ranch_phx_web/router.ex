@@ -51,6 +51,7 @@ defmodule RanchPhxWeb.Router do
       on_mount: [{RanchPhxWeb.UserAuth, :ensure_superuser}] do
       live "/users",    AdminLive.Users,   :index
       live "/settings", SettingsLive.Index, :index
+      live "/backups",  BackupLive.Index,  :index
     end
   end
 
