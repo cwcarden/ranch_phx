@@ -74,6 +74,26 @@ defmodule RanchPhxWeb.NotificationsLive.Index do
     {:noreply, assign(socket, :settings, settings)}
   end
 
+  # iOS doesn't show a banner for the app you're in, so this one waits: go to the Home
+  # Screen or lock the phone and it pops up.
+  def handle_event("send_test_later", _params, socket) do
+    devices = Push.devices(socket.assigns.current_scope.user)
+
+    Task.start(fn ->
+      Process.sleep(:timer.seconds(15))
+
+      Push.notify(devices, %{
+        title: "Gimel Ranch",
+        body: "Notifications work. This is what a reminder looks like.",
+        url: "/notifications",
+        tag: "test"
+      })
+    end)
+
+    {:noreply,
+     put_flash(socket, :info, "Sending in 15 seconds. Go to the Home Screen or lock the phone.")}
+  end
+
   def handle_event("send_test", _params, socket) do
     devices = Push.devices(socket.assigns.current_scope.user)
 

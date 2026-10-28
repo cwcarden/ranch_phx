@@ -47,8 +47,14 @@
           <.icon name="hero-bell-alert" />
           <div><b>Notifications are on</b><span class="tr-muted">Reminders come to this device.</span></div>
         </div>
+        <p class="tr-muted" style="margin:0 0 10px">
+          While you're in the app, iOS doesn't pop up a banner; the notification goes quietly to
+          Notification Center (swipe down from the top-left of the screen). Use <b>Test in 15 seconds</b>,
+          then go to the Home Screen or lock the phone to see it pop up.
+        </p>
         <div style="display:flex;gap:10px;flex-wrap:wrap">
-          <button class="tr-btn tr-btn-primary" phx-click="send_test" id="send-test">Send a test</button>
+          <button class="tr-btn tr-btn-primary" phx-click="send_test_later" id="send-test-later">Test in 15 seconds</button>
+          <button class="tr-btn" phx-click="send_test" id="send-test">Send a test now</button>
           <button class="tr-btn" data-push="off" id="push-off">Turn off on this device</button>
         </div>
       <% :off -> %>
