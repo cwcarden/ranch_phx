@@ -40,4 +40,20 @@ defmodule RanchPhxWeb.NotificationsLiveTest do
     render_hook(view, "push_status", %{"state" => "needs_home_screen"})
     assert render(view) =~ "Add to Home Screen"
   end
+
+  test "change when and what, and mute an animal", %{conn: conn, user: user} do
+    {:ok, asher} = RanchPhx.Animals.create_animal(%{name: "Asher", kind: "horse"})
+    {:ok, view, _} = live(conn, ~p"/notifications")
+
+    view
+    |> form("#settings-form", s: %{morning_hour: "6", care_days_ahead: "7", evening_on: "false"})
+    |> render_change()
+
+    s = Push.settings(user)
+    assert s.morning_hour == 6 and s.care_days_ahead == 7 and s.evening_on == false
+
+    view |> element("#mute-#{asher.id}") |> render_click()
+    assert Push.settings(user).muted_animal_ids == [asher.id]
+    assert has_element?(view, "#mute-#{asher.id}.off")
+  end
 end

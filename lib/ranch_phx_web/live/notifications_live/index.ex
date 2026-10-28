@@ -14,7 +14,9 @@ defmodule RanchPhxWeb.NotificationsLive.Index do
      |> assign(:public_key, Push.public_key())
      |> assign(:state, :checking)
      |> assign(:endpoint, nil)
-     |> assign(:devices, Push.devices(user))}
+     |> assign(:devices, Push.devices(user))
+     |> assign(:settings, Push.settings(user))
+     |> assign(:animals, RanchPhx.Animals.list_animals(status: "active"))}
   end
 
   @impl true
@@ -53,6 +55,25 @@ defmodule RanchPhxWeb.NotificationsLive.Index do
      )}
   end
 
+  # Saved as soon as anything changes.
+  def handle_event("save_settings", %{"s" => params}, socket) do
+    case Push.update_settings(socket.assigns.current_scope.user, params) do
+      {:ok, settings} -> {:noreply, assign(socket, :settings, settings)}
+      {:error, _} -> {:noreply, put_flash(socket, :error, "Couldn't save that.")}
+    end
+  end
+
+  def handle_event("toggle_mute", %{"id" => id}, socket) do
+    id = String.to_integer(id)
+    muted = socket.assigns.settings.muted_animal_ids
+    muted = if id in muted, do: List.delete(muted, id), else: [id | muted]
+
+    {:ok, settings} =
+      Push.update_settings(socket.assigns.current_scope.user, %{muted_animal_ids: muted})
+
+    {:noreply, assign(socket, :settings, settings)}
+  end
+
   def handle_event("send_test", _params, socket) do
     devices = Push.devices(socket.assigns.current_scope.user)
 
@@ -86,4 +107,9 @@ defmodule RanchPhxWeb.NotificationsLive.Index do
 
     {:noreply, assign(socket, :devices, Push.devices(user))}
   end
+
+  @doc "7 → \"7 a.m.\", 18 → \"6 p.m.\""
+  def hour_label(12), do: "noon"
+  def hour_label(h) when h < 12, do: "#{h} a.m."
+  def hour_label(h), do: "#{h - 12} p.m."
 end

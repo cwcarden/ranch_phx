@@ -112,4 +112,73 @@ defmodule RanchPhx.PushTest do
     assert body =~ "Day 2 of 5"
     assert Reminders.morning([{asher, []}], today) == nil
   end
+
+  test "settings choose what's included and when; muted animals are left out" do
+    user = RanchPhx.AccountsFixtures.user_fixture()
+    {:ok, asher} = Animals.create_animal(%{name: "Asher", kind: "horse"})
+    {:ok, ruby} = Animals.create_animal(%{name: "Ruby", kind: "dog"})
+    today = ~D[2026-11-01]
+
+    for a <- [asher, ruby] do
+      {:ok, _} =
+        Animals.create_record(%{
+          "animal_id" => a.id,
+          "record_type" => "coggins",
+          "title" => "Coggins test",
+          "date" => ~D[2025-11-06],
+          "next_due_date" => ~D[2026-11-06]
+        })
+    end
+
+    rows = for a <- [asher, ruby], do: {a, Animals.get_animal_with_pedigree!(a.id).records}
+
+    # Due in 5 days: not with the default (1 day ahead), yes with a week ahead.
+    assert Reminders.morning(rows, today, Push.settings(user)) == nil
+    {:ok, s} = Push.update_settings(user, %{care_days_ahead: 7, muted_animal_ids: [ruby.id]})
+    assert %{body: "Asher: Coggins test due in 5 days"} = Reminders.morning(rows, today, s)
+
+    {:ok, s} = Push.update_settings(user, %{care: false})
+    assert Reminders.morning(rows, today, s) == nil
+    assert {:error, _} = Push.update_settings(user, %{morning_hour: 2})
+  end
+
+  test "run sends each person's morning reminder once, at their hour" do
+    user = RanchPhx.AccountsFixtures.user_fixture()
+    {ua_public, _} = :crypto.generate_key(:ecdh, :prime256v1)
+
+    {:ok, _} =
+      Push.subscribe(user, %{
+        "endpoint" => "https://push.example/me",
+        "keys" => %{
+          "p256dh" => WebPush.b64(ua_public),
+          "auth" => WebPush.b64(:crypto.strong_rand_bytes(16))
+        }
+      })
+
+    {:ok, asher} = Animals.create_animal(%{name: "Asher", kind: "horse"})
+
+    {:ok, _} =
+      Animals.create_record(%{
+        "animal_id" => asher.id,
+        "record_type" => "coggins",
+        "title" => "Coggins test",
+        "date" => ~D[2025-11-01],
+        "next_due_date" => ~D[2026-11-01]
+      })
+
+    test = self()
+
+    Req.Test.stub(Push, fn conn ->
+      send(test, :pushed)
+      Plug.Conn.send_resp(conn, 201, "")
+    end)
+
+    {:ok, _} = Push.update_settings(user, %{morning_hour: 9})
+    Reminders.run(~N[2026-11-01 08:00:00])
+    refute_received :pushed
+    Reminders.run(~N[2026-11-01 09:10:00])
+    assert_received :pushed
+    Reminders.run(~N[2026-11-01 09:20:00])
+    refute_received :pushed
+  end
 end

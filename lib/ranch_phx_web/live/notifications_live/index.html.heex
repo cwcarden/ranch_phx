@@ -14,6 +14,24 @@
   .nt-dev:last-child { border-bottom: none; }
   .nt-dev span { flex: 1; min-width: 0; }
   .nt-dev small { display: block; color: var(--text3); }
+  .nt-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .nt-row:last-of-type { border-bottom: none; }
+  .nt-row select { flex: none; min-height: 44px; border-radius: 10px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text); padding: 0 10px; font-size: 16px; }
+  .nt-row select:disabled { opacity: .45; }
+  .nt-switch { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; cursor: pointer; }
+  .nt-switch span { display: flex; flex-direction: column; }
+  .nt-switch b { font-size: 16px; }
+  .nt-switch small { font-size: 13px; color: var(--text2); }
+  .nt-switch input[type=checkbox] { appearance: none; -webkit-appearance: none; flex: none; width: 50px; height: 30px; border-radius: 15px; background: var(--border); position: relative; cursor: pointer; transition: background .15s; }
+  .nt-switch input[type=checkbox]::after { content: ""; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: transform .15s; }
+  .nt-switch input[type=checkbox]:checked { background: #16a34a; }
+  .nt-switch input[type=checkbox]:checked::after { transform: translateX(20px); }
+  .nt-sub { margin: 14px 0 2px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--text3); }
+  .nt-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .nt-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 42px; padding: 0 14px; border-radius: 21px; border: 1.5px solid color-mix(in srgb, #16a34a 40%, var(--border)); background: color-mix(in srgb, #16a34a 8%, var(--surface)); color: var(--text); font: inherit; font-weight: 600; cursor: pointer; }
+  .nt-chip [class^="hero-"] { width: 16px; height: 16px; color: #16a34a; }
+  .nt-chip.off { border-color: var(--border); background: var(--surface2); color: var(--text3); text-decoration: line-through; }
+  .nt-chip.off [class^="hero-"] { color: var(--text3); }
   .nt-what { margin: 0; padding-left: 20px; list-style: disc; color: var(--text2); font-size: 15px; line-height: 1.5; display: grid; gap: 4px; }
 </style>
 
@@ -67,13 +85,75 @@
     <% end %>
   </div>
 
-  <div class="tr-card" style="margin-top:14px">
-    <h2 style="margin:0 0 8px">What you'll get</h2>
-    <ul class="nt-what">
-      <li><b>7 a.m.:</b> what's due today, like "Asher: Deworming, day 2 of 5" or "Coggins due tomorrow".</li>
-      <li><b>6 p.m.:</b> a nudge if a treatment dose isn't checked off yet.</li>
-      <li>Nothing on days when nothing's due. Tap a notification to open that horse.</li>
-    </ul>
+  <div class="tr-card" style="margin-top:14px" id="push-settings">
+    <h2 style="margin:0 0 4px">What and when</h2>
+    <p class="tr-muted" style="margin-bottom:12px">Saved as you change it. Nothing is sent on days when nothing's due.</p>
+    <.form for={%{}} as={:s} id="settings-form" phx-change="save_settings">
+      <div class="nt-row">
+        <label class="nt-switch">
+          <input type="hidden" name="s[morning_on]" value="false" />
+          <input type="checkbox" name="s[morning_on]" value="true" checked={@settings.morning_on} />
+          <span><b>Morning reminder</b><small>What's due today</small></span>
+        </label>
+        <select name="s[morning_hour]" disabled={!@settings.morning_on} aria-label="Morning time">
+          <option :for={h <- 5..11} value={h} selected={h == @settings.morning_hour}>{hour_label(h)}</option>
+        </select>
+      </div>
+      <div class="nt-row">
+        <label class="nt-switch">
+          <input type="hidden" name="s[evening_on]" value="false" />
+          <input type="checkbox" name="s[evening_on]" value="true" checked={@settings.evening_on} />
+          <span><b>Evening nudge</b><small>If a dose isn't checked off</small></span>
+        </label>
+        <select name="s[evening_hour]" disabled={!@settings.evening_on} aria-label="Evening time">
+          <option :for={h <- 15..21} value={h} selected={h == @settings.evening_hour}>{hour_label(h)}</option>
+        </select>
+      </div>
+
+      <div class="nt-sub">Include</div>
+      <div class="nt-row">
+        <label class="nt-switch">
+          <input type="hidden" name="s[doses]" value="false" />
+          <input type="checkbox" name="s[doses]" value="true" checked={@settings.doses} />
+          <span><b>Treatment doses</b><small>Like Panacur, day 2 of 5</small></span>
+        </label>
+      </div>
+      <div class="nt-row">
+        <label class="nt-switch">
+          <input type="hidden" name="s[care]" value="false" />
+          <input type="checkbox" name="s[care]" value="true" checked={@settings.care} />
+          <span><b>Care coming due</b><small>Vaccines, Coggins, trims. How far ahead:</small></span>
+        </label>
+        <select name="s[care_days_ahead]" disabled={!@settings.care} aria-label="How far ahead">
+          <option :for={{d, l} <- [{0, "Same day"}, {1, "1 day"}, {3, "3 days"}, {7, "1 week"}, {14, "2 weeks"}]} value={d} selected={d == @settings.care_days_ahead}>{l}</option>
+        </select>
+      </div>
+      <div class="nt-row">
+        <label class="nt-switch">
+          <input type="hidden" name="s[overdue]" value="false" />
+          <input type="checkbox" name="s[overdue]" value="true" checked={@settings.overdue} />
+          <span><b>Overdue</b><small>The day after something comes due</small></span>
+        </label>
+      </div>
+    </.form>
+
+    <div :if={@animals != []}>
+      <div class="nt-sub">Animals</div>
+      <p class="tr-muted" style="margin:0 0 8px">Tap one to leave it out of reminders.</p>
+      <div class="nt-chips">
+        <button
+          :for={a <- @animals}
+          type="button"
+          class={["nt-chip", a.id in @settings.muted_animal_ids && "off"]}
+          phx-click="toggle_mute"
+          phx-value-id={a.id}
+          id={"mute-#{a.id}"}
+        >
+          <.icon name={if a.id in @settings.muted_animal_ids, do: "hero-bell-slash", else: "hero-bell"} />
+          {a.name}
+        </button>
+      </div>
+    </div>
   </div>
 
   <div :if={@devices != []} class="tr-card" style="margin-top:14px" id="push-devices">
