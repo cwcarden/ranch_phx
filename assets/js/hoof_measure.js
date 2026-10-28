@@ -237,6 +237,8 @@ export const HoofMeasure = {
         if (file) this.open(file)
       })
     )
+    // "Draw lines" on a saved photo, or "Edit lines" on a measurement (see the Hooves page).
+    this.el.addEventListener("ranch:hoof-draw", (e) => this.open(e.detail.url, e.detail))
     this.handleEvent("hoof-saved", () => this.close())
     this.handleEvent("hoof-failed", ({message}) => this.saveFailed(message))
     this.onResize = () => this.layout()
@@ -247,7 +249,9 @@ export const HoofMeasure = {
     this.close()
   },
 
-  open(file) {
+  // `src` is a photo just taken (a File) or a saved photo's address. `opts` (for a saved
+  // one): foot, view, id (the entry to update), date, and points to start from.
+  open(src, opts = {}) {
     if (!document.getElementById("hm-css")) {
       const style = document.createElement("style")
       style.id = "hm-css"
@@ -256,11 +260,24 @@ export const HoofMeasure = {
     }
 
     const picker = document.getElementById("foot-picker")
-    this.foot = (picker && picker.dataset.foot) || "LF"
-    this.mode = picker && VIEWS[picker.dataset.view] ? picker.dataset.view : "side"
+    this.foot = (FEET[opts.foot] && opts.foot) || (picker && picker.dataset.foot) || "LF"
+    this.mode = VIEWS[opts.view] ? opts.view : picker && VIEWS[picker.dataset.view] ? picker.dataset.view : "side"
+    this.eventId = opts.id || null
+    this.original = null
+    this.url = null
     this.def = VIEWS[this.mode]
     this.steps = this.def.steps
     this.points = Object.fromEntries(this.steps.map((st) => [st.key, []]))
+    // Editing: start from the dots saved last time.
+    const saved = opts.points || {}
+    for (const st of this.steps) {
+      const v = saved[st.key]
+      if (!Array.isArray(v)) continue
+      const pt = (q) => q && isFinite(q.x) && isFinite(q.y) ? {x: +q.x, y: +q.y} : null
+      this.points[st.key] = st.trace
+        ? v.filter(Array.isArray).map((line) => line.map(pt).filter(Boolean)).filter((l) => l.length > 10).slice(0, 1)
+        : v.map(pt).filter(Boolean).slice(0, st.n)
+    }
     this.skipped = new Set()
     this.drag = null
     this.tracing = null
@@ -280,7 +297,7 @@ export const HoofMeasure = {
       <div class="hm-stage"><canvas></canvas><div class="hm-help" data-helppanel hidden></div></div>
       <div class="hm-foot">
         <div class="hm-read" data-read></div>
-        <input type="date" data-date value="${iso}" max="${iso}" aria-label="Date measured">
+        <input type="date" data-date value="${opts.date || iso}" max="${iso}" aria-label="Date measured">
         <input type="text" data-note placeholder="Note (optional), e.g. 4 weeks since trim" maxlength="200">
         <button class="hm-btn" data-skip>Skip</button>
         <button class="hm-btn go" data-save disabled>Save</button>
@@ -309,10 +326,31 @@ export const HoofMeasure = {
     window.addEventListener("resize", this.onResize)
 
     this.img = new Image()
-    this.img.onload = () => { this.layout(); this.refresh() }
     this.img.onerror = () => { this.say("Couldn't open that photo. Try another.") }
-    this.url = URL.createObjectURL(file)
-    this.img.src = this.url
+    if (src instanceof Blob) {
+      // A new photo: keep a clean copy (at most 2000 px) so the lines can be redone later.
+      // The dots are placed on that copy, so they line up with it when it's opened again.
+      const raw = new Image()
+      raw.onerror = this.img.onerror
+      raw.onload = () => {
+        const k = Math.min(1, 2000 / Math.max(raw.naturalWidth, raw.naturalHeight))
+        const cv = document.createElement("canvas")
+        cv.width = Math.round(raw.naturalWidth * k)
+        cv.height = Math.round(raw.naturalHeight * k)
+        cv.getContext("2d").drawImage(raw, 0, 0, cv.width, cv.height)
+        URL.revokeObjectURL(raw.src)
+        cv.toBlob((blob) => {
+          this.original = blob
+          this.url = URL.createObjectURL(blob)
+          this.img.onload = () => { this.layout(); this.refresh() }
+          this.img.src = this.url
+        }, "image/jpeg", 0.9)
+      }
+      raw.src = URL.createObjectURL(src)
+    } else {
+      this.img.onload = () => { this.layout(); this.refresh() }
+      this.img.src = src
+    }
 
     // First time with a view on this device: show the helper so the lines make sense.
     try {
@@ -733,11 +771,17 @@ export const HoofMeasure = {
     }
     if (sole) Object.assign(data, {toe_share: sole.toeShare, sides: sole.sides, heels: sole.heels, frog: sole.frog, ratio: sole.ratio, area: sole.area})
 
+    data.event_id = this.eventId
+    data.with_original = !!this.original
+
     out.toBlob((blob) => {
-      const file = new File([blob], `hoof-${this.foot}-${this.mode}.jpg`, {type: "image/jpeg"})
+      const file = new File([blob], `marked-${this.foot}-${this.mode}.jpg`, {type: "image/jpeg"})
+      const files = this.original
+        ? [file, new File([this.original], `original-${this.foot}-${this.mode}.jpg`, {type: "image/jpeg"})]
+        : [file]
       this.pushEvent("hoof_measured", data, (reply) => {
         if (reply && reply.ok) {
-          this.upload("hoof", [file])
+          this.upload("hoof", files)
         } else {
           this.saveFailed("Couldn't save that. Check the lines and try again.")
         }

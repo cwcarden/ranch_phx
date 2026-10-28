@@ -146,4 +146,102 @@ defmodule RanchPhxWeb.HoofLiveTest do
     [event] = Animals.get_animal_with_pedigree!(animal.id).timeline_events
     File.rm(Path.join(Application.app_dir(:ranch_phx, "priv/static"), hd(event.photo_urls)))
   end
+
+  test "photo now, lines later; then edit the lines without deleting",
+       %{conn: conn, animal: animal} do
+    {:ok, view, _} = live(conn, ~p"/animals/#{animal.id}/hooves")
+    view |> element("#view-sole") |> render_click()
+    view |> element("#pick-RH") |> render_click()
+
+    # On the phone: just the photo.
+    later =
+      file_input(view, "#hoof-later-form", :hoof_later, [
+        %{name: "IMG_1234.jpg", content: <<0xFF, 0xD8, 0xFF, 0xD9>>, type: "image/jpeg"}
+      ])
+
+    render_upload(later, "IMG_1234.jpg")
+    [pending] = Animals.get_animal_with_pedigree!(animal.id).timeline_events
+    assert pending.metadata["status"] == "pending"
+    assert has_element?(view, "#todo-#{pending.id}", "Right hind")
+    assert has_element?(view, "#draw-#{pending.id}")
+    refute has_element?(view, "#hoof-history .hf-row")
+
+    # Later, on the iPad: lines drawn on that photo update the same entry.
+    measure = fn date ->
+      render_hook(view, "hoof_measured", %{
+        "view" => "sole",
+        "event_id" => pending.id,
+        "with_original" => false,
+        "foot" => "RH",
+        "toe_share" => 52.0,
+        "sides" => 51.0,
+        "heels" => 1.0,
+        "frog" => nil,
+        "area" => 50.5,
+        "ratio" => 0.9,
+        "date" => date,
+        "points" => %{"toe" => [%{"x" => 10, "y" => 20}]}
+      })
+
+      marked =
+        file_input(view, "#hoof-upload-form", :hoof, [
+          %{name: "marked-RH-sole.jpg", content: <<0xFF, 0xD8, 0xFF, 0xD9>>, type: "image/jpeg"}
+        ])
+
+      render_upload(marked, "marked-RH-sole.jpg")
+    end
+
+    measure.("2026-10-20")
+    [event] = Animals.get_animal_with_pedigree!(animal.id).timeline_events
+    assert event.id == pending.id
+    assert event.metadata["status"] == nil
+    assert event.metadata["original"] == pending.metadata["original"]
+    assert event.metadata["area"] == 50.5
+    refute has_element?(view, "#hoof-to-measure")
+    assert has_element?(view, "#hoof-summary", "Sole area 50.5/49.5")
+    assert has_element?(view, "#edit-lines")
+    first_marked = hd(event.photo_urls)
+
+    # Edit lines: same entry again, the old marked-up photo is replaced, the clean one kept.
+    measure.("2026-10-21")
+    [event] = Animals.get_animal_with_pedigree!(animal.id).timeline_events
+    assert event.id == pending.id
+    assert event.event_date == ~D[2026-10-21]
+    refute hd(event.photo_urls) == first_marked
+    static = Application.app_dir(:ranch_phx, "priv/static")
+    refute File.exists?(Path.join(static, first_marked))
+    assert File.exists?(Path.join(static, event.metadata["original"]))
+
+    for u <- [hd(event.photo_urls), event.metadata["original"]], do: File.rm(Path.join(static, u))
+  end
+
+  test "a new photo keeps its clean original next to the marked-up one",
+       %{conn: conn, animal: animal} do
+    {:ok, view, _} = live(conn, ~p"/animals/#{animal.id}/hooves")
+
+    render_hook(view, "hoof_measured", %{
+      "foot" => "LF",
+      "toe" => 52.0,
+      "pastern" => 51.0,
+      "with_original" => true,
+      "date" => Date.to_iso8601(Date.utc_today()),
+      "points" => %{}
+    })
+
+    for name <- ["marked-LF-side.jpg", "original-LF-side.jpg"] do
+      f =
+        file_input(view, "#hoof-upload-form", :hoof, [
+          %{name: name, content: <<0xFF, 0xD8, 0xFF, 0xD9>>, type: "image/jpeg"}
+        ])
+
+      render_upload(f, name)
+    end
+
+    [event] = Animals.get_animal_with_pedigree!(animal.id).timeline_events
+    assert event.metadata["original"] =~ "/hooves/"
+    refute event.metadata["original"] == hd(event.photo_urls)
+    assert has_element?(view, "#edit-lines")
+    static = Application.app_dir(:ranch_phx, "priv/static")
+    for u <- [hd(event.photo_urls), event.metadata["original"]], do: File.rm(Path.join(static, u))
+  end
 end
