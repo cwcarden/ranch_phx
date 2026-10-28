@@ -510,7 +510,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 /* Bottom tab bar — mobile/tablet nav, replaces the scrolling top tab row */
 .bottom-nav, .more-sheet-backdrop, .more-sheet { display: none; }
 
-@media (max-width: 900px) {
+@media (max-width: 900px), (pointer: coarse) {
   .tabs-bar { display: none; }
   .page-wrap { padding-bottom: calc(70px + env(safe-area-inset-bottom)); }
 
@@ -543,6 +543,29 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   }
   .more-sheet-row.active { color: var(--brand); }
   .more-sheet-count { color: var(--text3); font-weight: 500; font-size: 13px; }
+}
+
+/* iPad and other touch screens: finger-sized controls, phone-style nav */
+.papers-btn { color: #0f766e; }
+.papers-btn [class^="hero-"] { width: 16px; height: 16px; }
+@media (pointer: coarse) {
+  .btn { min-height: 44px; }
+  .btn-icon { width: 44px; height: 44px; }
+  .back-btn { min-height: 44px; display: inline-flex; align-items: center; gap: 4px; }
+  .papers-btn { font-weight: 700; border: 1.5px solid color-mix(in srgb, #0f766e 35%, var(--border)); }
+}
+@media (pointer: coarse) and (max-width: 1100px) {
+  .mobile-hide { display: none !important; }
+}
+@media (pointer: coarse) and (max-width: 900px) {
+  .btn-label { display: none; }
+  .papers-btn .btn-label { display: inline; }
+}
+/* Wide screens (iPad sideways, computers): Records in two columns */
+@media (min-width: 1000px) {
+  .rx-split { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+  .rx-split > div > .rx-card:last-child { margin-bottom: 0; }
+  .rx-split { margin-bottom: 14px; }
 }
 </style>
 
@@ -585,6 +608,20 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
         <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
       </svg>
       <span class="btn-label">Report</span>
+    </button>
+    <% papers = papers(@animal) %>
+    <button
+      :if={papers != []}
+      id="show-papers"
+      phx-hook="ShowPapers"
+      class="btn btn-ghost papers-btn"
+      data-animal-id={@animal.id}
+      data-animal-name={@animal.name}
+      data-papers={Jason.encode!(papers)}
+      title="Show papers"
+    >
+      <.icon name="hero-identification" />
+      <span class="btn-label">Papers</span>
     </button>
     <%= if @is_superuser do %>
       <a href="/admin/settings" class="btn btn-ghost mobile-hide" style="font-size:13px">Settings</a>
@@ -947,6 +984,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     <% planned = CareSchedule.planned(@animal.records, today) %>
     <% attention = Enum.count(care, &(&1.days <= 30)) %>
 
+<div class="rx-split">
+<div>
     <%!-- Last done & next due, for each kind of care --%>
     <div :if={care != [] or planned != []} class="rx-card" id="records-due">
       <div class="rx-head">
@@ -1007,6 +1046,36 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       </div>
     </div>
 
+    <%!-- AI summary --%>
+    <div :if={@ai_on and @animal.records != []} class="rx-card" id="records-summary">
+      <div class="rx-head">
+        <span class="rx-ico" style="--c:#dc2626"><.icon name="hero-sparkles" /></span>
+        <h3>Summary</h3>
+        <button
+          :if={is_nil(@summary) and not @summary_loading}
+          class="btn btn-ghost btn-sm"
+          phx-click="summarize_records"
+          id="summarize-records"
+        >
+          Summarize
+        </button>
+        <button :if={@summary} class="rx-link" phx-click="close_summary">Hide</button>
+      </div>
+      <%= cond do %>
+        <% @summary_loading -> %>
+          <p class="rx-sub">Reading {@animal.name}'s records…</p>
+        <% match?({:ok, _}, @summary) -> %>
+          <.coach_answer text={elem(@summary, 1)} />
+          <p class="rx-sub" style="margin-top:4px">AI summary of your records. Check timing with your vet.</p>
+        <% match?({:error, _}, @summary) -> %>
+          <p class="rx-err">{elem(@summary, 1)}</p>
+        <% true -> %>
+          <p class="rx-sub">Where things stand, what's due, and any gaps in {@animal.name}'s records.</p>
+      <% end %>
+    </div>
+
+</div>
+<div>
     <%!-- Add: pick one or more, scan paperwork, or say what was done --%>
     <div :if={@is_superuser} class="rx-card" id="records-add">
       <div class="rx-head">
@@ -1247,33 +1316,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     <% end %>
 
 
-    <%!-- AI summary --%>
-    <div :if={@ai_on and @animal.records != []} class="rx-card" id="records-summary">
-      <div class="rx-head">
-        <span class="rx-ico" style="--c:#dc2626"><.icon name="hero-sparkles" /></span>
-        <h3>Summary</h3>
-        <button
-          :if={is_nil(@summary) and not @summary_loading}
-          class="btn btn-ghost btn-sm"
-          phx-click="summarize_records"
-          id="summarize-records"
-        >
-          Summarize
-        </button>
-        <button :if={@summary} class="rx-link" phx-click="close_summary">Hide</button>
-      </div>
-      <%= cond do %>
-        <% @summary_loading -> %>
-          <p class="rx-sub">Reading {@animal.name}'s records…</p>
-        <% match?({:ok, _}, @summary) -> %>
-          <.coach_answer text={elem(@summary, 1)} />
-          <p class="rx-sub" style="margin-top:4px">AI summary of your records. Check timing with your vet.</p>
-        <% match?({:error, _}, @summary) -> %>
-          <p class="rx-err">{elem(@summary, 1)}</p>
-        <% true -> %>
-          <p class="rx-sub">Where things stand, what's due, and any gaps in {@animal.name}'s records.</p>
-      <% end %>
-    </div>
+</div>
+</div>
 
     <%!-- Filter and search --%>
     <% counts = Enum.frequencies_by(@animal.records, & &1.category) %>

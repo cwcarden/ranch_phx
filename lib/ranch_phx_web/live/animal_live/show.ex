@@ -1468,4 +1468,55 @@ defmodule RanchPhxWeb.AnimalLive.Show do
   def signed(nil), do: "–"
   def signed(n) when is_float(n), do: "#{if n >= 0, do: "+"}#{:erlang.float_to_binary(n, decimals: 1)}"
   def signed(n), do: "#{if n >= 0, do: "+"}#{n}"
+
+  @paper_types [
+    {"coggins", "Coggins"},
+    {"health_cert", "Health certificate"},
+    {"registration", "Registration"},
+    {"brand_inspection", "Brand inspection"}
+  ]
+
+  @doc """
+  The papers to show at a show or roping: the newest Coggins, health certificate,
+  registration and brand inspection, in that order.
+  """
+  def papers(animal) do
+    for {type, label} <- @paper_types,
+        doc =
+          animal.documents
+          |> Enum.filter(&(paper_kind(&1) == type and is_binary(&1.file_url)))
+          |> Enum.sort_by(&(&1.doc_date || NaiveDateTime.to_date(&1.inserted_at)), {:desc, Date})
+          |> List.first(),
+        doc != nil do
+      %{
+        id: doc.id,
+        type: type,
+        label: label,
+        title: doc.title,
+        url: doc.file_url,
+        mime: doc.mime_type,
+        date: doc.doc_date && Date.to_iso8601(doc.doc_date)
+      }
+    end
+  end
+
+  # Document types are names the ranch picks ("Coggins", "Health Certificate"), so
+  # match on the words; untyped documents go by their title.
+  defp paper_kind(doc) do
+    text =
+      case doc.doc_type do
+        t when t in [nil, ""] -> doc.title
+        t -> t
+      end
+      |> to_string()
+      |> String.downcase()
+
+    cond do
+      text =~ ~r/coggins|\beia\b/ -> "coggins"
+      text =~ ~r/health|\bcvi\b/ -> "health_cert"
+      text =~ ~r/registration/ -> "registration"
+      text =~ ~r/brand/ -> "brand_inspection"
+      true -> nil
+    end
+  end
 end

@@ -142,6 +142,52 @@ function isDocSaved(url) {
 
 const Hooks = {}
 
+// "Papers" on an animal: saves its current Coggins, health certificate, registration
+// and brand inspection on this device, then opens them full screen. Saved copies
+// open at the arena with no signal (see /offline.html and sw.js).
+Hooks.ShowPapers = {
+  mounted() {
+    this.el.addEventListener("click", () => this.open())
+  },
+
+  async open() {
+    const {animalId, animalName} = this.el.dataset
+    const papers = JSON.parse(this.el.dataset.papers || "[]")
+    const label = this.el.querySelector(".btn-label")
+    if (label) label.textContent = "Saving…"
+
+    let docs = loadOfflineDocs()
+    const cache = "caches" in window ? await caches.open(DOCS_CACHE) : null
+
+    for (const p of papers) {
+      try {
+        if (cache && !(await cache.match(p.url))) {
+          const res = await fetch(p.url)
+          if (res.ok) await cache.put(p.url, res.clone())
+        }
+      } catch (e) {
+        // No signal: whatever was saved before still opens.
+      }
+      docs = docs.filter((d) => d.url !== p.url)
+      docs.push({
+        id: String(p.id), animalId: String(animalId), animalName, title: p.title,
+        docType: p.type, label: p.label, docDate: p.date, mime: p.mime, url: p.url, cachedAt: Date.now()
+      })
+    }
+
+    // Older papers of the same kind for this horse are replaced by the current ones.
+    const current = new Set(papers.map((p) => p.url))
+    const kinds = new Set(papers.map((p) => p.type))
+    const stale = docs.filter((d) => String(d.animalId) === String(animalId) && kinds.has(d.docType) && !current.has(d.url))
+    docs = docs.filter((d) => !stale.includes(d))
+    if (cache) for (const d of stale) await cache.delete(d.url)
+
+    saveOfflineDocs(docs)
+    window.dispatchEvent(new Event("gimel:offline-docs-updated"))
+    window.location.href = "/offline.html?animal=" + encodeURIComponent(animalId)
+  }
+}
+
 Hooks.SaveOffline = {
   mounted() {
     this.updateLabel()
