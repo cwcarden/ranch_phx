@@ -446,6 +446,27 @@ window.addEventListener("phx:page-loading-stop", _info => topbar.hide())
 liveSocket.connect()
 
 // Light/dark switch in the top bar.
+// Share text (iOS share sheet: Messages, Mail…), or copy it where sharing isn't offered:
+// JS.dispatch("ranch:share", detail: {from: "#id", title: "…"}).
+window.addEventListener("ranch:share", async e => {
+  const src = document.querySelector(e.detail.from)
+  if (!src) return
+  const text = src.innerText.trim()
+  const btn = e.target
+  try {
+    if (navigator.share) {
+      await navigator.share({title: e.detail.title || "", text})
+      return
+    }
+    await navigator.clipboard.writeText(text)
+    const label = btn.innerHTML
+    btn.textContent = "Copied"
+    setTimeout(() => btn.innerHTML = label, 1500)
+  } catch (err) {
+    // Share sheet closed without sending: nothing to do.
+  }
+})
+
 // Copy a field's text (Siri setup page): JS.dispatch("ranch:copy", detail: {from: "#id"}).
 window.addEventListener("ranch:copy", e => {
   const src = document.querySelector(e.detail.from)
