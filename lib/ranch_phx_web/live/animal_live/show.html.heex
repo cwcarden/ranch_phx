@@ -372,6 +372,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 #data-sheet .wh-row.on { background: color-mix(in srgb, var(--mc) 14%, var(--surface)); }
 #measure-sheet .wg-method.on { border-color: var(--mc); background: color-mix(in srgb, var(--mc) 12%, var(--surface)); color: var(--mc); }
 #measure-sheet .rx-save { background: var(--mc); }
+.mh-read { display: block; margin-top: 6px; font-size: 16px; font-weight: 800; color: var(--mc); }
 .tr-prose { font-size: 16px; line-height: 1.6; color: var(--text); }
 .tr-prose p { margin: 0 0 10px; }
 .tr-prose ul, .tr-prose ol { margin: 0 0 10px; padding-left: 20px; display: grid; gap: 5px; }
@@ -2400,7 +2401,23 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
               />
               <b>{if weight?, do: "lb", else: "hh"}</b>
             </div>
-            <small :if={!weight?} class="rx-sub">Hands.inches: 14.2 is 14 hands 2 inches. Or type inches, like 58 in.</small>
+            <%= if !weight? do %>
+              <% parsed = Insights.parse_height(@measure["value"]) %>
+              <small :if={parsed} class="mh-read" id="height-read">
+                = {Insights.hands(parsed)} hh ({:erlang.float_to_binary(parsed, [:compact, decimals: 2])} inches)
+              </small>
+              <small :if={!parsed and String.trim(@measure["value"] || "") != ""} class="rx-err">
+                Not sure what that is. Try 13.1½, 13.375 or 53.5 in.
+              </small>
+              <small :if={!parsed} class="rx-sub">
+                14.2 is 14 hands 2 inches. Decimal hands (13.375), inches (53.5) and halves (13.1½ or 13.1 1/2) all work.
+              </small>
+            <% end %>
+          </label>
+          <label class="rx-vfield">
+            <span>Date measured</span>
+            <input type="date" name="measure[date]" value={@measure["date"]} max={Date.to_iso8601(Date.utc_today())} required />
+            <small class="rx-sub">Pick an earlier date to add an older measurement.</small>
           </label>
           <div class="rx-vfield">
             <span>How was it measured?</span>
@@ -2414,10 +2431,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
               </label>
             </div>
           </div>
-          <label class="rx-vfield">
-            <span>Date</span>
-            <input type="date" name="measure[date]" value={@measure["date"]} max={Date.to_iso8601(Date.utc_today())} required />
-          </label>
           <label class="rx-vfield">
             <span>Note (optional)</span>
             <input type="text" name="measure[note]" value={@measure["note"]} placeholder={if weight?, do: "e.g. after feeding", else: "e.g. barefoot, level ground"} />

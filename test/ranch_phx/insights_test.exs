@@ -92,6 +92,22 @@ defmodule RanchPhx.InsightsTest do
     assert Insights.parse_height("no number") == nil
     assert Insights.hands(58.0) == "14.2"
     assert Insights.hands(57.5) == "14.1½"
+
+    # Decimal hands, bare inches and halves all read the same.
+    for said <- [
+          "13.375",
+          "53.5",
+          "53.5 in",
+          "53 1/2\"",
+          "13.1½",
+          "13.1 1/2",
+          "13 hands 1.5 inches"
+        ] do
+      assert Insights.parse_height(said) == 53.5, said
+    end
+
+    assert Insights.hands(53.25) == "13.1¼"
+    assert Insights.parse_height("5") == nil
   end
 
   test "height chart gridlines sit on whole hands" do
