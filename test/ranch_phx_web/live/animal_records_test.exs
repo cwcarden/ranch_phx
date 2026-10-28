@@ -359,4 +359,36 @@ defmodule RanchPhxWeb.AnimalRecordsTest do
 
     assert html =~ "rx-err"
   end
+
+  test "Papers shows the newest Coggins and health certificate, matched by type name",
+       %{conn: conn, animal: animal} do
+    {:ok, view, _} = live(conn, ~p"/animals/#{animal.id}")
+    refute has_element?(view, "#show-papers")
+
+    for {type, url, date} <- [
+          {"Coggins", "/uploads/old.pdf", ~D[2025-03-01]},
+          {"Coggins", "/uploads/new.pdf", ~D[2026-03-10]},
+          {"Health Certificate", "/uploads/cvi.png", ~D[2026-10-24]},
+          {"Bill of Sale", "/uploads/bos.pdf", ~D[2025-07-15]}
+        ] do
+      {:ok, _} =
+        Animals.create_document(%{
+          "animal_id" => animal.id,
+          "title" => type,
+          "doc_type" => type,
+          "file_url" => url,
+          "doc_date" => date
+        })
+    end
+
+    {:ok, view, _} = live(conn, ~p"/animals/#{animal.id}")
+    assert has_element?(view, "#show-papers")
+
+    papers = RanchPhxWeb.AnimalLive.Show.papers(Animals.get_animal_with_pedigree!(animal.id))
+
+    assert Enum.map(papers, &{&1.type, &1.url}) == [
+             {"coggins", "/uploads/new.pdf"},
+             {"health_cert", "/uploads/cvi.png"}
+           ]
+  end
 end
