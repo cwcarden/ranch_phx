@@ -45,6 +45,19 @@
   .hf-notes-actions { display: flex; gap: 10px; margin-top: 8px; }
   .hf-notes-actions .tr-btn-primary, .hf-ask { background: #0f766e; border-color: #0f766e; }
   .hf-ask { width: 100%; }
+  .hf-later { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; margin-top: 10px; border-radius: 14px; border: 1.5px dashed color-mix(in srgb, #0f766e 50%, var(--border)); color: #0f766e; font-size: 16px; font-weight: 700; cursor: pointer; text-align: center; padding: 0 12px; }
+  [data-theme="dark"] .hf-later { color: #2dd4bf; }
+  .hf-later [class^="hero-"] { width: 20px; height: 20px; }
+  .hf-later small { font-weight: 600; color: var(--text2); }
+  .hf-todo { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .hf-todo:last-child { border-bottom: none; }
+  .hf-todo img { width: 72px; height: 72px; object-fit: cover; border-radius: 10px; flex: none; background: var(--surface2); }
+  .hf-todo .hf-main { flex: 1; min-width: 0; }
+  .hf-todo b { font-size: 16px; }
+  .hf-todo .tr-btn { min-height: 44px; padding: 0 14px; }
+  .hf-todo .hf-draw { background: #0f766e; border-color: #0f766e; color: #fff; }
+  [data-theme="dark"] .hf-todo .hf-draw { background: #2dd4bf; border-color: #2dd4bf; color: #042f2e; }
+  .hf-up { font-size: 14px; color: var(--text2); margin-top: 6px; }
   .hf-report { width: 100%; margin-top: 12px; background: #0f766e; border-color: #0f766e; }
   .hf-sole { font-size: 12px; font-weight: 700; margin-top: 4px; }
   .hf-sole.ok { color: #16a34a; } .hf-sole.check { color: #d97706; }
@@ -180,6 +193,52 @@
     </button>
   </div>
 
+  <div :if={@to_measure != []} class="tr-card" id="hoof-to-measure" style="margin-top:14px">
+    <h2 style="margin:0 0 4px">To measure</h2>
+    <p class="tr-muted" style="margin-bottom:6px">
+      Photos saved for later. Draw the lines when you're ready.
+    </p>
+    <div :for={t <- @to_measure} class="hf-todo" id={"todo-#{t.id}"}>
+      <img src={t.photo} alt="" loading="lazy" />
+      <div class="hf-main">
+        <b>{RanchPhx.Animals.Hooves.foot_name(t.foot)}</b>
+        · {if t.view == "sole", do: "bottom", else: "side"}
+        <div class="hf-when">{Calendar.strftime(t.date, "%b %-d, %Y")}</div>
+      </div>
+      <button
+        :if={@is_superuser}
+        type="button"
+        class="tr-btn hf-draw"
+        id={"draw-#{t.id}"}
+        phx-click={
+          JS.dispatch("ranch:hoof-draw",
+            to: "#hoof-tool",
+            detail: %{
+              url: t.photo,
+              foot: t.foot,
+              view: t.view,
+              id: t.id,
+              date: Date.to_iso8601(t.date)
+            }
+          )
+        }
+      >
+        Draw lines
+      </button>
+      <button
+        :if={@is_superuser}
+        type="button"
+        class="tr-link-btn"
+        phx-click="delete"
+        phx-value-id={t.id}
+        data-confirm="Delete this photo?"
+        aria-label="Delete photo"
+      >
+        <.icon name="hero-trash" />
+      </button>
+    </div>
+  </div>
+
   <div :if={@is_superuser} class="tr-card" id="hoof-measure" style="margin-top:14px">
     <h2 style="margin:0 0 4px">Measure a hoof</h2>
     <div class="hf-views" role="group" aria-label="Which photo">
@@ -248,6 +307,21 @@
         </label>
       </div>
     </div>
+    <form id="hoof-later-form" phx-change="upload_change">
+      <label class="hf-later">
+        <.icon name="hero-clock" /> Save photo for later
+        <small>
+          {RanchPhx.Animals.Hooves.foot_name(@foot)} · {if @view == "sole",
+            do: "bottom",
+            else: "side"}
+        </small>
+        <.live_file_input upload={@uploads.hoof_later} class="sr-only" />
+      </label>
+    </form>
+    <p :for={e <- @uploads.hoof_later.entries} class="hf-up">Uploading… {e.progress}%</p>
+    <p class="hf-fine" style="margin-top:6px">
+      Easier with your phone: pick the foot and Side or Bottom, take the photos and save them for later. Draw the lines on the iPad whenever you like.
+    </p>
     <p :if={@error} class="hf-err">{@error}</p>
 
     <form id="hoof-upload-form" phx-change="upload_change" style="display:none">
@@ -345,6 +419,26 @@
       data-confirm="Delete this measurement?"
     >
       Delete
+    </button>
+    <button
+      :if={@is_superuser and @viewing.original}
+      id="edit-lines"
+      phx-click={
+        JS.push("close_view")
+        |> JS.dispatch("ranch:hoof-draw",
+          to: "#hoof-tool",
+          detail: %{
+            url: @viewing.original,
+            foot: @viewing.foot,
+            view: if(Map.get(@viewing, :view) == :sole, do: "sole", else: "side"),
+            id: @viewing.id,
+            date: Date.to_iso8601(@viewing.date),
+            points: @viewing.points
+          }
+        )
+      }
+    >
+      Edit lines
     </button>
     <button phx-click="close_view" id="close-view">Done</button>
   </div>

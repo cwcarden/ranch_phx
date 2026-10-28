@@ -32,12 +32,22 @@ defmodule RanchPhxWeb.HoofLive.Index do
      |> assign(:notes, nil)
      |> assign(:notes_loading, false)
      |> load()
+     |> assign(:files, %{})
+     # The marked-up photo, plus the clean original when it's a new photo.
      |> allow_upload(:hoof,
        accept: ~w(.jpg .jpeg),
-       max_entries: 1,
+       max_entries: 2,
        max_file_size: 15_000_000,
        auto_upload: true,
        progress: &handle_progress/3
+     )
+     # Photos taken now (often on the phone) to draw the lines on later.
+     |> allow_upload(:hoof_later,
+       accept: ~w(.jpg .jpeg .png),
+       max_entries: 8,
+       max_file_size: 30_000_000,
+       auto_upload: true,
+       progress: &handle_later/3
      )}
   end
 
@@ -80,6 +90,8 @@ defmodule RanchPhxWeb.HoofLive.Index do
       true ->
         pending = %{
           view: "sole",
+          event_id: own_event_id(socket, params["event_id"]),
+          with_original: params["with_original"] == true,
           foot: foot,
           nums: nums,
           date: past_date(params["date"]),
@@ -87,7 +99,7 @@ defmodule RanchPhxWeb.HoofLive.Index do
           points: params["points"]
         }
 
-        {:reply, %{ok: true}, assign(socket, pending: pending, error: nil)}
+        {:reply, %{ok: true}, assign(socket, pending: pending, files: %{}, error: nil)}
     end
   end
 
@@ -108,6 +120,8 @@ defmodule RanchPhxWeb.HoofLive.Index do
 
       true ->
         pending = %{
+          event_id: own_event_id(socket, params["event_id"]),
+          with_original: params["with_original"] == true,
           foot: foot,
           toe: toe,
           pastern: if(is_number(pastern) and pastern > 0 and pastern < 90, do: pastern),
@@ -116,7 +130,7 @@ defmodule RanchPhxWeb.HoofLive.Index do
           points: params["points"]
         }
 
-        {:reply, %{ok: true}, assign(socket, pending: pending, error: nil)}
+        {:reply, %{ok: true}, assign(socket, pending: pending, files: %{}, error: nil)}
     end
   end
 
@@ -146,6 +160,8 @@ defmodule RanchPhxWeb.HoofLive.Index do
            Enum.find(socket.assigns.animal.timeline_events, &(to_string(&1.id) == id)),
          "hoof" <- event.event_type do
       Animals.delete_event(event)
+      m = event.metadata || %{}
+      Enum.each(Enum.uniq((event.photo_urls || []) ++ [m["original"]]), &remove/1)
     end
 
     {:noreply, socket |> assign(:viewing, nil) |> reload()}
@@ -153,42 +169,124 @@ defmodule RanchPhxWeb.HoofLive.Index do
 
   def handle_progress(:hoof, entry, socket) do
     if entry.done? do
-      %{animal: animal, pending: pending} = socket.assigns
+      %{animal: animal} = socket.assigns
+      url = consume_uploaded_entry(socket, entry, &{:ok, store(animal, &1.path)})
+      kind = if String.starts_with?(entry.client_name, "original"), do: :original, else: :marked
+      socket = update(socket, :files, &Map.put(&1, kind, url))
+      %{pending: pending, files: files} = socket.assigns
 
-      url =
-        consume_uploaded_entry(socket, entry, fn %{path: tmp} ->
-          dir = Path.join([@uploads_dir, "animals", "#{animal.id}", "hooves"])
-          File.mkdir_p!(dir)
-          name = "#{:crypto.strong_rand_bytes(8) |> Base.url_encode64(padding: false)}.jpg"
-          File.cp!(tmp, Path.join(dir, name))
-          {:ok, "/uploads/animals/#{animal.id}/hooves/#{name}"}
-        end)
-
-      saved = pending && Animals.create_event(event_attrs(animal, pending, url))
-
-      case saved do
-        {:ok, event} ->
-          socket = socket |> assign(:pending, nil) |> reload()
-          %{measurements: ms, soles: soles} = socket.assigns
-
-          {:noreply,
-           socket
-           |> assign(:viewing, Enum.find(ms ++ soles, &(&1.id == event.id)))
-           |> push_event("hoof-saved", %{})
-           |> put_flash(:info, saved_message(pending))}
-
-        _ ->
-          {:noreply,
-           socket
-           |> assign(:pending, nil)
-           |> push_event("hoof-failed", %{
-             message: "Couldn't save that one. Tap Save to try again."
-           })}
-      end
+      # Save once the marked-up photo (and the clean original, if one is coming) is in.
+      if pending && files[:marked] && (files[:original] || !pending.with_original),
+        do: {:noreply, finish(socket, pending, files)},
+        else: {:noreply, socket}
     else
       {:noreply, socket}
     end
   end
+
+  # A photo to measure later: saved as a hoof entry waiting for its lines.
+  def handle_later(:hoof_later, entry, socket) do
+    if entry.done? do
+      %{animal: animal, foot: foot, view: view} = socket.assigns
+
+      url =
+        consume_uploaded_entry(socket, entry, &{:ok, store(animal, &1.path, entry.client_name)})
+
+      {:ok, _} =
+        Animals.create_event(%{
+          "animal_id" => animal.id,
+          "event_type" => "hoof",
+          "title" =>
+            "#{Hooves.foot_name(foot)} #{if view == "sole", do: "sole", else: "side"} photo, to measure",
+          "event_date" => RanchPhx.LocalTime.today(),
+          "photo_urls" => [url],
+          "metadata" => %{
+            "status" => "pending",
+            "foot" => foot,
+            "view" => view,
+            "original" => url
+          }
+        })
+
+      {:noreply,
+       socket
+       |> reload()
+       |> put_flash(:info, "Saved for later. Draw the lines when you're ready.")}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  defp store(animal, tmp, client_name \\ "photo.jpg") do
+    dir = Path.join([@uploads_dir, "animals", "#{animal.id}", "hooves"])
+    File.mkdir_p!(dir)
+    ext = if String.ends_with?(String.downcase(client_name), ".png"), do: ".png", else: ".jpg"
+    name = "#{:crypto.strong_rand_bytes(8) |> Base.url_encode64(padding: false)}#{ext}"
+    File.cp!(tmp, Path.join(dir, name))
+    "/uploads/animals/#{animal.id}/hooves/#{name}"
+  end
+
+  defp finish(socket, pending, files) do
+    %{animal: animal} = socket.assigns
+    attrs = event_attrs(animal, pending, files[:marked])
+    existing = pending.event_id && hoof_event(socket, pending.event_id)
+    old = existing && (existing.metadata || %{})
+
+    # Keep the clean photo: the new one, or the one already on the entry.
+    original = files[:original] || (old && old["original"])
+    attrs = put_in(attrs, ["metadata", "original"], original)
+
+    saved =
+      case existing do
+        nil ->
+          Animals.create_event(attrs)
+
+        event ->
+          # Redrawn: the old marked-up photo goes (never the clean original).
+          with {:ok, e} <- Animals.update_event(event, attrs) do
+            for u <- event.photo_urls || [], u != original, u != files[:marked], do: remove(u)
+            {:ok, e}
+          end
+      end
+
+    socket = assign(socket, pending: nil, files: %{})
+
+    case saved do
+      {:ok, event} ->
+        socket = reload(socket)
+        %{measurements: ms, soles: soles} = socket.assigns
+
+        socket
+        |> assign(:viewing, Enum.find(ms ++ soles, &(&1.id == event.id)))
+        |> push_event("hoof-saved", %{})
+        |> put_flash(:info, saved_message(pending))
+
+      _ ->
+        push_event(socket, "hoof-failed", %{
+          message: "Couldn't save that one. Tap Save to try again."
+        })
+    end
+  end
+
+  defp hoof_event(socket, id),
+    do:
+      Enum.find(
+        socket.assigns.animal.timeline_events,
+        &(&1.id == id and &1.event_type == "hoof")
+      )
+
+  defp own_event_id(socket, id) do
+    case Integer.parse(to_string(id)) do
+      {n, ""} -> if hoof_event(socket, n), do: n
+      _ -> nil
+    end
+  end
+
+  defp remove("/uploads/animals/" <> rest) do
+    if not String.contains?(rest, ".."), do: File.rm(Path.join([@uploads_dir, "animals", rest]))
+  end
+
+  defp remove(_), do: :ok
 
   @impl true
   def handle_async(:notes, {:ok, {:ok, text}}, socket),
@@ -259,6 +357,7 @@ defmodule RanchPhxWeb.HoofLive.Index do
     events = socket.assigns.animal.timeline_events
     ms = Hooves.measurements(events)
     soles = Hooves.soles(events)
+    to_measure = Hooves.to_measure(events)
     latest = Hooves.latest(ms)
 
     history =
@@ -270,7 +369,8 @@ defmodule RanchPhxWeb.HoofLive.Index do
       latest: latest,
       latest_sole: Hooves.latest(soles),
       pairs: Hooves.pairs(latest),
-      history: history
+      history: history,
+      to_measure: to_measure
     )
   end
 

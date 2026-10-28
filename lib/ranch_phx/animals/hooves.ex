@@ -81,6 +81,8 @@ defmodule RanchPhx.Animals.Hooves do
         pastern: pastern,
         axis: axis(toe, pastern),
         photo: List.first(e.photo_urls || []),
+        original: m["original"],
+        points: m["points"],
         note: e.description,
         inserted_at: e.inserted_at
       }
@@ -106,6 +108,24 @@ defmodule RanchPhx.Animals.Hooves do
       d = Float.round(abs(a.toe - b.toe) * 1.0, 1)
       {label, d, if(d <= @pair_ok, do: :ok, else: :check)}
     end
+  end
+
+  @doc "Photos saved to draw the lines on later (oldest first)."
+  def to_measure(events) do
+    events
+    |> Enum.filter(&(&1.event_type == "hoof" and (&1.metadata || %{})["status"] == "pending"))
+    |> Enum.map(fn e ->
+      m = e.metadata
+
+      %{
+        id: e.id,
+        foot: m["foot"],
+        view: if(m["view"] == "sole", do: "sole", else: "side"),
+        date: e.event_date || NaiveDateTime.to_date(e.inserted_at),
+        photo: m["original"] || List.first(e.photo_urls || [])
+      }
+    end)
+    |> Enum.sort_by(&{&1.date, &1.id})
   end
 
   @doc "A title for the timeline: \"Left front: toe 52.5°, pastern 50°, line up\"."
@@ -249,6 +269,8 @@ defmodule RanchPhx.Animals.Hooves do
         area: num(m["area"]),
         ratio: num(m["ratio"]),
         photo: List.first(e.photo_urls || []),
+        original: m["original"],
+        points: m["points"],
         note: e.description,
         inserted_at: e.inserted_at
       }
