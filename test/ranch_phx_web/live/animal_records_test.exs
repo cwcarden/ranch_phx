@@ -410,4 +410,41 @@ defmodule RanchPhxWeb.AnimalRecordsTest do
              {"health_cert", "/uploads/cvi.png"}
            ]
   end
+
+  test "fix or delete a past height from the growth list", %{conn: conn, animal: animal} do
+    for {days, inches} <- [{60, 54.0}, {0, 54.0}] do
+      {:ok, _} =
+        Animals.create_event(%{
+          "animal_id" => animal.id,
+          "event_type" => "height",
+          "title" => "#{RanchPhx.Animals.Insights.hands(inches)} hh",
+          "metadata" => %{"inches" => inches, "method" => "stick"},
+          "event_date" => Date.add(Date.utc_today(), -days)
+        })
+    end
+
+    {:ok, view, _} = live(conn, ~p"/animals/#{animal.id}?data=height")
+    view |> element("#toggle-data-edit") |> render_click()
+
+    today = Date.to_iso8601(Date.utc_today())
+    view |> element("#data-rows button[phx-value-date='#{today}']") |> render_click()
+    assert has_element?(view, "#measure-sheet", "Edit height")
+
+    view |> form("#measure-form", measure: %{value: "13.375"}) |> render_submit()
+    assert has_element?(view, "#data-rows", "13.1½")
+
+    heights =
+      Animals.get_animal_with_pedigree!(animal.id).timeline_events
+      |> Enum.filter(&(&1.event_type == "height"))
+
+    assert length(heights) == 2
+    assert Enum.any?(heights, &(&1.metadata["inches"] == 53.5))
+
+    view |> element("#data-rows button[phx-value-date='#{today}']") |> render_click()
+    view |> element("#delete-entry") |> render_click()
+
+    assert [_one] =
+             Animals.get_animal_with_pedigree!(animal.id).timeline_events
+             |> Enum.filter(&(&1.event_type == "height"))
+  end
 end

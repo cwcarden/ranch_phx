@@ -345,8 +345,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .wh-dot { fill: #16a34a; stroke: var(--surface); stroke-width: 2; }
 .wh-pt.on .wh-dot { fill: #d97706; }
 .wh-label { font-size: 12px; font-weight: 800; fill: var(--text); }
-.wh-table { display: grid; gap: 2px; }
-.wh-row { display: grid; grid-template-columns: 1.4fr .8fr 1.2fr .8fr; gap: 6px; align-items: center; padding: 10px 8px; border: none; border-radius: 10px; background: none; color: var(--text); font-size: 14px; text-align: left; cursor: pointer; min-height: 44px; font-family: inherit; }
+.wh-table { display: grid; gap: 2px; min-width: 0; }
+.wh-row { display: grid; width: 100%; grid-template-columns: minmax(0,1.4fr) minmax(0,.8fr) minmax(0,1.2fr) minmax(0,.8fr); gap: 6px; align-items: center; padding: 10px 8px; border: none; border-radius: 10px; background: none; color: var(--text); font-size: 14px; text-align: left; cursor: pointer; min-height: 44px; font-family: inherit; }
 .wh-row small { color: var(--text3); font-size: 12px; }
 .wh-row.on { background: color-mix(in srgb, #d97706 14%, var(--surface)); }
 .wh-head { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text3); cursor: default; min-height: 0; padding-bottom: 4px; border-bottom: 1px solid var(--border); border-radius: 0; }
@@ -372,6 +372,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 #data-sheet .wh-row.on { background: color-mix(in srgb, var(--mc) 14%, var(--surface)); }
 #measure-sheet .wg-method.on { border-color: var(--mc); background: color-mix(in srgb, var(--mc) 12%, var(--surface)); color: var(--mc); }
 #measure-sheet .rx-save { background: var(--mc); }
+.dt-edit-bar { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin: 4px 0 2px; }
+.dt-edit-bar .rx-sub { margin-right: auto; }
+.wh-table.editing .wh-row { cursor: pointer; grid-template-columns: minmax(0,1.4fr) minmax(0,.8fr) minmax(0,1.2fr) auto; }
+.dt-edit-go { display: inline-flex; align-items: center; justify-content: flex-end; gap: 4px; color: var(--mc); font-weight: 700; }
+.dt-edit-go [class^="hero-"] { width: 16px; height: 16px; }
+#measure-sheet .rx-sheet-foot { display: flex; gap: 10px; }
+#measure-sheet .rx-sheet-foot .rx-save { flex: 1; }
+.dt-delete { color: #dc2626; border: 1.5px solid color-mix(in srgb, #dc2626 35%, var(--border)); }
 .mh-read { display: block; margin-top: 6px; font-size: 16px; font-weight: 800; color: var(--mc); }
 .tr-prose { font-size: 16px; line-height: 1.6; color: var(--text); }
 .tr-prose p { margin: 0 0 10px; }
@@ -568,6 +576,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 @media (pointer: coarse) and (max-width: 900px) {
   .btn-label { display: none; }
   .papers-btn .btn-label { display: inline; }
+}
+/* Phones: icons only, so the top bar fits */
+@media (max-width: 600px) {
+  .papers-btn .btn-label { display: none; }
 }
 /* Wide screens (iPad sideways, computers): Records in two columns */
 @media (min-width: 1000px) {
@@ -2425,14 +2437,27 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
           <% end %>
         </svg>
 
-        <div :if={rows != []} class="wh-table" id="data-rows">
+        <div :if={rows != [] and @is_superuser} class="dt-edit-bar">
+          <span :if={@data_edit} class="rx-sub">Tap an entry to fix it or delete it.</span>
+          <button type="button" class="gr-more" id="toggle-data-edit" phx-click="toggle_data_edit">
+            {if @data_edit, do: "Done", else: "Edit entries"}
+          </button>
+        </div>
+        <div :if={rows != []} class={["wh-table", @data_edit && "editing"]} id="data-rows">
           <div class="wh-row wh-head"><span>Date</span><span>{if m == "weight", do: "Weight", else: "Height"}</span><span>Change</span><span>{if m == "weight", do: "lb/day", else: "in/mo"}</span></div>
           <%= for {r, i} <- rows |> Enum.with_index() |> Enum.reverse() do %>
-            <button type="button" class={["wh-row", i in @data_pick && "on"]} phx-click="pick_point" phx-value-i={i}>
+            <button
+              type="button"
+              class={["wh-row", i in @data_pick && !@data_edit && "on"]}
+              phx-click={if @data_edit, do: "edit_entry", else: "pick_point"}
+              phx-value-i={i}
+              phx-value-date={Date.to_iso8601(r.date)}
+            >
               <span>{Calendar.strftime(r.date, "%b %-d, %Y")}</span>
               <span><b>{if m == "height", do: Insights.hands(r.lbs), else: r.lbs}</b></span>
               <span class={r.change && r.change < 0 && "down"}>{fmt_change(m, r.change)}<small :if={r.days}> / {r.days}d</small></span>
-              <span class={r.per_day && r.per_day < 0 && "down"}>{if r.per_day, do: (if m == "height", do: signed(r.per_day * 30.4), else: signed(r.per_day)), else: "–"}</span>
+              <span :if={!@data_edit} class={r.per_day && r.per_day < 0 && "down"}>{if r.per_day, do: (if m == "height", do: signed(r.per_day * 30.4), else: signed(r.per_day)), else: "–"}</span>
+              <span :if={@data_edit} class="dt-edit-go">Edit <.icon name="hero-pencil-square" /></span>
             </button>
           <% end %>
         </div>
@@ -2450,7 +2475,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     <div class="dlg-backdrop" phx-click="close_measure"></div>
     <div class="dlg rx-sheet rx-weigh" id="measure-sheet" style={"--mc:#{if weight?, do: "#16a34a", else: "#2563eb"}"}>
       <div class="dlg-header">
-        <h2>{if weight?, do: "Log weight", else: "Log height"}</h2>
+        <h2>{if @measure["event_id"], do: "Edit", else: "Log"} {if weight?, do: "weight", else: "height"}</h2>
         <button class="btn-icon" phx-click="close_measure" aria-label="Close">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
             <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -2490,7 +2515,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
           <label class="rx-vfield">
             <span>Date measured</span>
             <input type="date" name="measure[date]" value={@measure["date"]} max={Date.to_iso8601(Date.utc_today())} required />
-            <small class="rx-sub">Pick an earlier date to add an older measurement.</small>
+            <small :if={!@measure["event_id"]} class="rx-sub">Pick an earlier date to add an older measurement.</small>
           </label>
           <div class="rx-vfield">
             <span>How was it measured?</span>
@@ -2511,8 +2536,22 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
           <p :if={@measure["error"]} class="rx-err">{@measure["error"]}</p>
         </div>
         <div class="rx-sheet-foot">
+          <button
+            :if={@measure["event_id"]}
+            type="button"
+            class="btn btn-ghost dt-delete"
+            id="delete-entry"
+            phx-click="delete_entry"
+            data-confirm={"Delete this #{@measure["metric"]}?"}
+          >
+            Delete
+          </button>
           <button type="submit" class="btn btn-primary rx-save" id="save-measure" phx-disable-with="Saving…">
-            {if weight?, do: "Save weight", else: "Save height"}
+            {cond do
+              @measure["event_id"] -> "Save changes"
+              weight? -> "Save weight"
+              true -> "Save height"
+            end}
           </button>
         </div>
       </form>

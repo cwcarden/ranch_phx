@@ -135,6 +135,12 @@ defmodule RanchPhx.Animals do
     |> Repo.insert()
   end
 
+  def update_event(%TimelineEvent{} = event, attrs) do
+    event
+    |> TimelineEvent.changeset(attrs)
+    |> Repo.update()
+  end
+
   def delete_event(%TimelineEvent{} = event), do: Repo.delete(event)
 
   # ── Genetics ───────────────────────────────────────────────────────────────
