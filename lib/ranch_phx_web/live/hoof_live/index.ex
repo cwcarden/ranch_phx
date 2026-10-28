@@ -1,8 +1,9 @@
 defmodule RanchPhxWeb.HoofLive.Index do
   @moduledoc """
-  Hoof angles from a photo: pick a foot, take a level side photo, tap along the ground,
-  the toe wall and (optionally) the pastern. The angles are worked out on the device;
-  the marked-up photo and the numbers are saved as a "hoof" timeline event.
+  Hoof measurements from a photo. Side view: tap along the ground, the toe wall and
+  (optionally) the pastern for the angles. Sole view: tap the toe, heels, widest part
+  and frog tip for the balance. The numbers are worked out on the device; the marked-up
+  photo and the numbers are saved as a "hoof" timeline event, with a plain-English summary.
   """
   use RanchPhxWeb, :live_view
   import RanchPhxWeb.TrainingComponents, only: [styles: 1, topbar: 1, coach_answer: 1]
@@ -23,6 +24,7 @@ defmodule RanchPhxWeb.HoofLive.Index do
      |> assign(:animal, animal)
      |> assign(:is_superuser, Scope.superuser?(socket.assigns.current_scope))
      |> assign(:foot, "LF")
+     |> assign(:view, "side")
      |> assign(:pending, nil)
      |> assign(:error, nil)
      |> assign(:viewing, nil)
@@ -52,19 +54,49 @@ defmodule RanchPhxWeb.HoofLive.Index do
       else: {:noreply, socket}
   end
 
+  def handle_event("select_view", %{"view" => view}, socket) when view in ["side", "sole"],
+    do: {:noreply, assign(socket, :view, view)}
+
   def handle_event("upload_change", _params, socket), do: {:noreply, socket}
 
   # The measuring screen sends the numbers first, then the marked-up photo.
+  def handle_event("hoof_measured", %{"view" => "sole"} = params, socket) do
+    foot = params["foot"]
+
+    nums =
+      ~w(toe_share sides heels frog)
+      |> Map.new(&{&1, number(params[&1])})
+      |> Map.put("ratio", ratio(params["ratio"]))
+
+    cond do
+      not socket.assigns.is_superuser ->
+        {:reply, %{ok: false}, socket}
+
+      foot not in Enum.map(Hooves.feet(), &elem(&1, 0)) or is_nil(nums["toe_share"]) or
+        nums["toe_share"] <= 0 or nums["toe_share"] >= 100 ->
+        {:reply, %{ok: false},
+         assign(socket, :error, "Those dots didn't make a foot. Try again.")}
+
+      true ->
+        pending = %{
+          view: "sole",
+          foot: foot,
+          nums: nums,
+          date: past_date(params["date"]),
+          note: params["note"] |> to_string() |> String.trim() |> String.slice(0, 500),
+          points: params["points"]
+        }
+
+        {:reply, %{ok: true}, assign(socket, pending: pending, error: nil)}
+    end
+  end
+
   def handle_event("hoof_measured", params, socket) do
     toe = number(params["toe"])
     pastern = number(params["pastern"])
     foot = params["foot"]
 
-    date =
-      case Date.from_iso8601(to_string(params["date"])) do
-        {:ok, d} -> if Date.compare(d, Date.utc_today()) == :gt, do: Date.utc_today(), else: d
-        _ -> Date.utc_today()
-      end
+    date = past_date(params["date"])
 
     cond do
       not socket.assigns.is_superuser ->
@@ -101,10 +133,10 @@ defmodule RanchPhxWeb.HoofLive.Index do
     end
   end
 
-  def handle_event("view", %{"id" => id}, socket),
-    do:
-      {:noreply,
-       assign(socket, :viewing, Enum.find(socket.assigns.measurements, &(to_string(&1.id) == id)))}
+  def handle_event("view", %{"id" => id}, socket) do
+    %{measurements: ms, soles: soles} = socket.assigns
+    {:noreply, assign(socket, :viewing, Enum.find(ms ++ soles, &(to_string(&1.id) == id)))}
+  end
 
   def handle_event("close_view", _params, socket), do: {:noreply, assign(socket, :viewing, nil)}
 
@@ -132,34 +164,18 @@ defmodule RanchPhxWeb.HoofLive.Index do
           {:ok, "/uploads/animals/#{animal.id}/hooves/#{name}"}
         end)
 
-      saved =
-        pending &&
-          Animals.create_event(%{
-            "animal_id" => animal.id,
-            "event_type" => "hoof",
-            "title" => Hooves.title(pending.foot, pending.toe, pending.pastern),
-            "description" => if(pending.note != "", do: pending.note),
-            "event_date" => pending.date,
-            "photo_urls" => [url],
-            "metadata" => %{
-              "foot" => pending.foot,
-              "toe" => pending.toe,
-              "pastern" => pending.pastern,
-              "points" => pending.points
-            }
-          })
+      saved = pending && Animals.create_event(event_attrs(animal, pending, url))
 
       case saved do
-        {:ok, _} ->
+        {:ok, event} ->
+          socket = socket |> assign(:pending, nil) |> reload()
+          %{measurements: ms, soles: soles} = socket.assigns
+
           {:noreply,
            socket
-           |> assign(:pending, nil)
-           |> reload()
+           |> assign(:viewing, Enum.find(ms ++ soles, &(&1.id == event.id)))
            |> push_event("hoof-saved", %{})
-           |> put_flash(
-             :info,
-             "Saved #{Hooves.foot_name(pending.foot)}: toe #{Hooves.fmt(pending.toe)}°."
-           )}
+           |> put_flash(:info, saved_message(pending))}
 
         _ ->
           {:noreply,
@@ -188,6 +204,51 @@ defmodule RanchPhxWeb.HoofLive.Index do
       {:noreply,
        assign(socket, notes: {:error, "Something went wrong. Try again."}, notes_loading: false)}
 
+  defp event_attrs(animal, %{view: "sole"} = p, url) do
+    n = p.nums
+    m = %{toe_share: n["toe_share"], sides: n["sides"], heels: n["heels"]}
+
+    %{
+      "animal_id" => animal.id,
+      "event_type" => "hoof",
+      "title" => Hooves.sole_title(p.foot, m),
+      "description" => if(p.note != "", do: p.note),
+      "event_date" => p.date,
+      "photo_urls" => [url],
+      "metadata" => Map.merge(n, %{"view" => "sole", "foot" => p.foot, "points" => p.points})
+    }
+  end
+
+  defp event_attrs(animal, p, url) do
+    %{
+      "animal_id" => animal.id,
+      "event_type" => "hoof",
+      "title" => Hooves.title(p.foot, p.toe, p.pastern),
+      "description" => if(p.note != "", do: p.note),
+      "event_date" => p.date,
+      "photo_urls" => [url],
+      "metadata" => %{
+        "foot" => p.foot,
+        "toe" => p.toe,
+        "pastern" => p.pastern,
+        "points" => p.points
+      }
+    }
+  end
+
+  defp saved_message(%{view: "sole"} = p),
+    do: "Saved #{Hooves.foot_name(p.foot)} sole: toe #{Hooves.fmt(p.nums["toe_share"])}%."
+
+  defp saved_message(p),
+    do: "Saved #{Hooves.foot_name(p.foot)}: toe #{Hooves.fmt(p.toe)}°."
+
+  defp past_date(value) do
+    case Date.from_iso8601(to_string(value)) do
+      {:ok, d} -> if Date.compare(d, Date.utc_today()) == :gt, do: Date.utc_today(), else: d
+      _ -> Date.utc_today()
+    end
+  end
+
   defp reload(socket),
     do:
       socket
@@ -195,9 +256,22 @@ defmodule RanchPhxWeb.HoofLive.Index do
       |> load()
 
   defp load(socket) do
-    ms = Hooves.measurements(socket.assigns.animal.timeline_events)
+    events = socket.assigns.animal.timeline_events
+    ms = Hooves.measurements(events)
+    soles = Hooves.soles(events)
     latest = Hooves.latest(ms)
-    assign(socket, measurements: ms, latest: latest, pairs: Hooves.pairs(latest))
+
+    history =
+      Enum.sort_by(ms ++ soles, &{&1.date, &1.inserted_at}, fn a, b -> a >= b end)
+
+    assign(socket,
+      measurements: ms,
+      soles: soles,
+      latest: latest,
+      latest_sole: Hooves.latest(soles),
+      pairs: Hooves.pairs(latest),
+      history: history
+    )
   end
 
   defp number(n) when is_number(n), do: Float.round(n * 1.0, 1)
@@ -210,4 +284,8 @@ defmodule RanchPhxWeb.HoofLive.Index do
   end
 
   defp number(_), do: nil
+
+  # Width ÷ length keeps two decimals (0.83, not 0.8).
+  defp ratio(n) when is_number(n) and n > 0 and n < 5, do: Float.round(n * 1.0, 2)
+  defp ratio(_), do: nil
 end
