@@ -380,6 +380,22 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 #measure-sheet .rx-sheet-foot { display: flex; gap: 10px; }
 #measure-sheet .rx-sheet-foot .rx-save { flex: 1; }
 .dt-delete { color: #dc2626; border: 1.5px solid color-mix(in srgb, #dc2626 35%, var(--border)); }
+.course .rx-pill.done { --c: #16a34a !important; }
+.cs-days { display: flex; gap: 6px; overflow-x: auto; padding: 4px 0 2px; }
+.cs-day { flex: 1 1 0; min-width: 52px; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px; border-radius: 12px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text2); font: inherit; cursor: pointer; min-height: 84px; }
+.cs-day:disabled { cursor: default; opacity: .6; }
+.cs-n { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; }
+.cs-d { font-size: 12px; font-weight: 600; }
+.cs-mark { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--border); display: inline-flex; align-items: center; justify-content: center; }
+.cs-mark [class^="hero-"] { width: 18px; height: 18px; }
+.cs-day.given { border-color: color-mix(in srgb, #16a34a 45%, var(--border)); background: color-mix(in srgb, #16a34a 8%, var(--surface)); color: #16a34a; }
+.cs-day.given .cs-mark { background: #16a34a; border-color: #16a34a; color: #fff; }
+.cs-day.today { border-color: #2563eb; color: #2563eb; box-shadow: 0 0 0 2px color-mix(in srgb, #2563eb 25%, transparent); }
+.cs-day.missed { border-color: color-mix(in srgb, #d97706 50%, var(--border)); color: #d97706; }
+.cs-today { width: 100%; min-height: 52px; margin-top: 10px; font-size: 16px; background: #2563eb; justify-content: center; }
+.cs-note { margin: 8px 0 0; font-size: 14px; font-weight: 600; }
+.cs-note.ok { color: #16a34a; } .cs-note.warn { color: #d97706; }
+.cs-mini { color: #16a34a !important; font-weight: 700; }
 .mh-read { display: block; margin-top: 6px; font-size: 16px; font-weight: 800; color: var(--mc); }
 .tr-prose { font-size: 16px; line-height: 1.6; color: var(--text); }
 .tr-prose p { margin: 0 0 10px; }
@@ -795,6 +811,57 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 
   <!-- ── OVERVIEW ─────────────────────────────────────────────────────────── -->
   <%= if @tab == "overview" do %>
+    <% today = Date.utc_today() %>
+    <div :for={c <- CareSchedule.active_courses(@animal.records, today)} class="rx-card course" id={"course-#{c.record.id}"}>
+      <div class="rx-head">
+        <span class="rx-ico" style="--c:#2563eb"><.icon name="hero-check-badge" /></span>
+        <h3>{c.record.title}</h3>
+        <span class={["rx-pill", c.finished? && "done"]} style="--c:#2563eb">{c.given} of {c.total} given</span>
+      </div>
+      <p :if={c.record.description} class="rx-sub">{c.record.description}</p>
+      <div class="cs-days">
+        <%= for {d, i} <- Enum.with_index(c.dates) do %>
+          <% given? = MapSet.member?(c.done, d) %>
+          <% state = cond do
+            given? -> "given"
+            d == today -> "today"
+            Date.compare(d, today) == :lt -> "missed"
+            true -> "later"
+          end %>
+          <button
+            type="button"
+            class={["cs-day", state]}
+            phx-click={@is_superuser && state != "later" && "course_toggle"}
+            phx-value-id={c.record.id}
+            phx-value-date={Date.to_iso8601(d)}
+            disabled={state == "later" or not @is_superuser}
+            aria-label={"Day #{i + 1}, #{Calendar.strftime(d, "%b %-d")}: #{state}"}
+            id={"course-#{c.record.id}-#{i}"}
+          >
+            <span class="cs-n">Day {i + 1}</span>
+            <span class="cs-mark">
+              <.icon :if={given?} name="hero-check" />
+            </span>
+            <span class="cs-d">{if d == today, do: "Today", else: Calendar.strftime(d, "%a %-d")}</span>
+          </button>
+        <% end %>
+      </div>
+      <button
+        :if={@is_superuser && c.today_i && !c.today_given?}
+        type="button"
+        class="btn btn-primary cs-today"
+        phx-click="course_toggle"
+        phx-value-id={c.record.id}
+        phx-value-date={Date.to_iso8601(today)}
+        id={"course-today-#{c.record.id}"}
+      >
+        <.icon name="hero-check" /> Today's dose given (day {c.today_i + 1} of {c.total})
+      </button>
+      <p :if={c.finished?} class="cs-note ok">All {c.total} doses given.</p>
+      <p :if={!c.finished? and c.missed > 0} class="cs-note warn">
+        {c.missed} earlier {if c.missed == 1, do: "day isn't", else: "days aren't"} checked. Tap a day if it was given.
+      </p>
+    </div>
     <% wt = @animal |> metric_points("weight") |> Insights.trend() %>
     <% ht = @animal |> metric_points("height") |> Insights.trend() %>
     <div :if={wt || ht || @is_superuser} class="rx-card growth" id="growth">
@@ -1045,6 +1112,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
           <div class="rx-due-main">
             <b>{r.title}</b>
             <small :if={r.description not in [nil, ""]}>{r.description}</small>
+            <small :if={(c = CareSchedule.course(r, today)) && c.given > 0} class="cs-mini">{c.given} of {c.total} given</small>
           </div>
           <span class="rx-plan-when">
             {Calendar.strftime(r.date, "%a %b %-d")}<small>{due_relative(Date.diff(r.date, today))}</small>

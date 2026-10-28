@@ -89,4 +89,26 @@ defmodule RanchPhx.CareScheduleTest do
     assert CareSchedule.suggested_due(presets, "vaccination", "Strangles", @today) == nil
     assert CareSchedule.suggested_due(presets, "health_cert", "Exam", @today) == nil
   end
+
+  test "a multi-day treatment reads as a course of days to tick off" do
+    r = %RanchPhx.Animals.Record{
+      id: 1,
+      date: ~D[2026-10-31],
+      description: "Panacur PowerPac · daily for 5 days, Oct 31 – Nov 4",
+      course_done: [~D[2026-10-31]]
+    }
+
+    c = CareSchedule.course(r, ~D[2026-11-01])
+    assert c.total == 5 and c.given == 1 and c.today_i == 1 and not c.today_given?
+    assert List.last(c.dates) == ~D[2026-11-04]
+    assert c.missed == 0
+
+    assert CareSchedule.course(%{r | description: "Quest gel"}, ~D[2026-11-01]) == nil
+
+    # Shown from 3 days before until a week after (while unfinished).
+    assert [_] = CareSchedule.active_courses([r], ~D[2026-10-28])
+    assert [] = CareSchedule.active_courses([r], ~D[2026-10-27])
+    assert [_] = CareSchedule.active_courses([r], ~D[2026-11-11])
+    assert [] = CareSchedule.active_courses([r], ~D[2026-11-12])
+  end
 end

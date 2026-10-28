@@ -119,6 +119,10 @@ defmodule RanchPhxWeb.AnimalLive.Index do
          weight: events |> Insights.weights(records) |> Insights.weight_trend(),
          height: events |> Insights.heights(records) |> Insights.trend(),
          care: Insights.care_alert(records, today),
+         course:
+           records
+           |> RanchPhx.Animals.CareSchedule.active_courses(today)
+           |> Enum.find(&(not &1.finished?)),
          training: Map.get(training, a.id)
        }}
     end)

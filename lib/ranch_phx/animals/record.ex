@@ -18,6 +18,8 @@ defmodule RanchPhx.Animals.Record do
     field :tags,          {:array, :string}, default: []
     field :created_by,    :string
     field :notes,         :string
+    # Days a multi-day treatment was given (see CareSchedule.course/1)
+    field :course_done,   {:array, :date}, default: []
 
     timestamps()
   end
@@ -65,7 +67,7 @@ defmodule RanchPhx.Animals.Record do
     |> cast(attrs, [
       :animal_id, :category, :record_type, :title, :description, :date,
       :next_due_date, :location, :person, :cost,
-      :tags, :created_by, :notes
+      :tags, :created_by, :notes, :course_done
     ])
     |> validate_required(@required)
     |> put_category()

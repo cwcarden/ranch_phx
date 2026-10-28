@@ -720,6 +720,23 @@ defmodule RanchPhxWeb.AnimalLive.Show do
   def handle_event("open_data", %{"metric" => metric}, socket) when metric in ~w(weight height),
     do: {:noreply, open_data(socket, metric)}
 
+  # Tick off (or untick) one day of a multi-day treatment.
+  def handle_event("course_toggle", %{"id" => id, "date" => date}, socket) do
+    %{animal: animal, is_superuser: su?} = socket.assigns
+
+    with true <- su?,
+         %{} = r <- Enum.find(animal.records, &(to_string(&1.id) == id)),
+         {:ok, d} <- Date.from_iso8601(date),
+         false <- Date.compare(d, Date.utc_today()) == :gt do
+      done = r.course_done || []
+      done = if d in done, do: List.delete(done, d), else: Enum.sort([d | done], Date)
+      {:ok, _} = Animals.update_record(r, %{course_done: done})
+      {:noreply, assign(socket, :animal, Animals.get_animal_with_pedigree!(animal.id))}
+    else
+      _ -> {:noreply, socket}
+    end
+  end
+
   def handle_event("close_data", _params, socket),
     do: {:noreply, assign(socket, data_metric: nil, data_pick: [], data_edit: false)}
 

@@ -447,4 +447,38 @@ defmodule RanchPhxWeb.AnimalRecordsTest do
              Animals.get_animal_with_pedigree!(animal.id).timeline_events
              |> Enum.filter(&(&1.event_type == "height"))
   end
+
+  test "tick off a Panacur course day by day, on the animal and its card",
+       %{conn: conn, animal: animal} do
+    start = Date.add(Date.utc_today(), -1)
+
+    {:ok, r} =
+      Animals.create_record(%{
+        "animal_id" => animal.id,
+        "record_type" => "deworming",
+        "title" => "Deworming",
+        "date" => start,
+        "description" => "Panacur PowerPac · daily for 5 days"
+      })
+
+    {:ok, home, _} = live(conn, ~p"/")
+    assert has_element?(home, "#card-course-#{animal.id}", "day 2 of 5 today")
+
+    {:ok, view, _} = live(conn, ~p"/animals/#{animal.id}")
+    assert has_element?(view, "#course-#{r.id}", "0 of 5 given")
+    assert has_element?(view, "#course-#{r.id}", "1 earlier day")
+
+    view |> element("#course-today-#{r.id}") |> render_click()
+    assert has_element?(view, "#course-#{r.id}", "1 of 5 given")
+    refute has_element?(view, "#course-today-#{r.id}")
+
+    view |> element("#course-#{r.id}-0") |> render_click()
+    assert has_element?(view, "#course-#{r.id}", "2 of 5 given")
+
+    # Later days can't be ticked yet.
+    assert has_element?(view, "#course-#{r.id}-4[disabled]")
+
+    {:ok, home, _} = live(conn, ~p"/")
+    assert has_element?(home, "#card-course-#{animal.id}", "2 of 5 given")
+  end
 end
