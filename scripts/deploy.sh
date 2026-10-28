@@ -5,6 +5,11 @@
 # =============================================================================
 set -e
 
+# One deploy at a time: if another is running (several merges at once), wait for it.
+exec 9>/tmp/ranch_phx_deploy.lock
+echo ">>> Waiting for any other deploy to finish..."
+flock 9
+
 APP_DIR="/opt/ranch_phx"
 RELEASE="$APP_DIR/_build/prod/rel/ranch_phx/bin/ranch_phx"
 ENV_FILE="$APP_DIR/.env"
