@@ -14,6 +14,8 @@
   .nt-dev:last-child { border-bottom: none; }
   .nt-dev span { flex: 1; min-width: 0; }
   .nt-dev small { display: block; color: var(--text3); }
+  .nt-today { display: flex; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 15px; line-height: 1.4; white-space: pre-line; }
+  .nt-today > b { flex: none; width: 64px; color: var(--brand); }
   .nt-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
   .nt-row:last-of-type { border-bottom: none; }
   .nt-row select { flex: none; min-height: 44px; border-radius: 10px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text); padding: 0 10px; font-size: 16px; }
@@ -97,6 +99,25 @@
           <div><b>This browser can't do notifications</b><span class="tr-muted">Use Safari on an iPhone or iPad, or Chrome or Safari on a computer.</span></div>
         </div>
     <% end %>
+  </div>
+
+  <div class="tr-card" style="margin-top:14px" id="push-today">
+    <h2 style="margin:0 0 8px">Today</h2>
+    <div class="nt-today">
+      <b>{hour_label(@settings.morning_hour)}</b>
+      <span :if={!@settings.morning_on} class="tr-muted">Morning reminder is off.</span>
+      <span :if={@settings.morning_on and !@today_morning} class="tr-muted">Nothing due, so no reminder today.</span>
+      <span :if={@today_morning}><b>{@today_morning.title}</b><br />{@today_morning.body}</span>
+    </div>
+    <div class="nt-today">
+      <b>{hour_label(@settings.evening_hour)}</b>
+      <span :if={!@settings.evening_on} class="tr-muted">Evening nudge is off.</span>
+      <span :if={@settings.evening_on and !@today_evening} class="tr-muted">No doses to check off, so no nudge.</span>
+      <span :if={@today_evening}><b>{@today_evening.title}</b><br />{@today_evening.body}</span>
+    </div>
+    <p class="tr-muted" style="margin:8px 0 0">
+      {if @last_sent, do: "Last reminder sent: #{sent_label(@last_sent)}.", else: "No reminder has been sent yet."}
+    </p>
   </div>
 
   <div class="tr-card" style="margin-top:14px" id="push-settings">

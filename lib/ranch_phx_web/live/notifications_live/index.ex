@@ -16,7 +16,21 @@ defmodule RanchPhxWeb.NotificationsLive.Index do
      |> assign(:endpoint, nil)
      |> assign(:devices, Push.devices(user))
      |> assign(:settings, Push.settings(user))
-     |> assign(:animals, RanchPhx.Animals.list_animals(status: "active"))}
+     |> assign(:animals, RanchPhx.Animals.list_animals(status: "active"))
+     |> preview()}
+  end
+
+  # What today's reminders would say with the current settings, and when one last went out.
+  defp preview(socket) do
+    user = socket.assigns.current_scope.user
+    s = socket.assigns.settings
+    rows = RanchPhx.Push.Reminders.rows()
+    today = RanchPhx.LocalTime.today()
+
+    socket
+    |> assign(:today_morning, s.morning_on && RanchPhx.Push.Reminders.morning(rows, today, s))
+    |> assign(:today_evening, s.evening_on && RanchPhx.Push.Reminders.evening(rows, today, s))
+    |> assign(:last_sent, Push.last_sent(user))
   end
 
   @impl true
@@ -58,7 +72,7 @@ defmodule RanchPhxWeb.NotificationsLive.Index do
   # Saved as soon as anything changes.
   def handle_event("save_settings", %{"s" => params}, socket) do
     case Push.update_settings(socket.assigns.current_scope.user, params) do
-      {:ok, settings} -> {:noreply, assign(socket, :settings, settings)}
+      {:ok, settings} -> {:noreply, socket |> assign(:settings, settings) |> preview()}
       {:error, _} -> {:noreply, put_flash(socket, :error, "Couldn't save that.")}
     end
   end
@@ -71,7 +85,7 @@ defmodule RanchPhxWeb.NotificationsLive.Index do
     {:ok, settings} =
       Push.update_settings(socket.assigns.current_scope.user, %{muted_animal_ids: muted})
 
-    {:noreply, assign(socket, :settings, settings)}
+    {:noreply, socket |> assign(:settings, settings) |> preview()}
   end
 
   # iOS doesn't show a banner for the app you're in, so this one waits: go to the Home
@@ -132,4 +146,19 @@ defmodule RanchPhxWeb.NotificationsLive.Index do
   def hour_label(12), do: "noon"
   def hour_label(h) when h < 12, do: "#{h} a.m."
   def hour_label(h), do: "#{h - 12} p.m."
+
+  @doc "\"Today 7:02 a.m. (morning)\" for the last reminder sent."
+  def sent_label({key, at}) do
+    local = DateTime.add(at, RanchPhx.LocalTime.offset(at), :second)
+    kind = key |> String.split(":") |> hd()
+
+    day =
+      case Date.diff(RanchPhx.LocalTime.today(), DateTime.to_date(local)) do
+        0 -> "Today"
+        1 -> "Yesterday"
+        _ -> Calendar.strftime(local, "%b %-d")
+      end
+
+    "#{day} #{Calendar.strftime(local, "%-I:%M %p")} (#{kind})"
+  end
 end

@@ -127,6 +127,17 @@ defmodule RanchPhx.Push do
     end)
   end
 
+  @doc "When this person's last morning or evening reminder went out, or nil."
+  def last_sent(%{id: user_id}) do
+    Repo.one(
+      from p in "push_sent",
+        where: like(p.key, ^"morning:#{user_id}:%") or like(p.key, ^"evening:#{user_id}:%"),
+        order_by: [desc: p.inserted_at],
+        select: {p.key, p.inserted_at},
+        limit: 1
+    )
+  end
+
   @doc "Marks `key` as sent; true the first time only (so a reminder goes out once)."
   def first_time?(key) do
     {n, _} =

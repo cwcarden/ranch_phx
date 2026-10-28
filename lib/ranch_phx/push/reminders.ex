@@ -74,7 +74,8 @@ defmodule RanchPhx.Push.Reminders do
   defp maybe_send(_key, _subs, nil), do: :nothing
   defp maybe_send(key, subs, msg), do: if(Push.first_time?(key), do: Push.notify(subs, msg))
 
-  defp rows do
+  @doc "Every active animal with its records: `[{animal, records}]`."
+  def rows do
     animals = Animals.list_animals(status: "active")
     inputs = animals |> Enum.map(& &1.id) |> Animals.insight_inputs()
     Enum.map(animals, &{&1, get_in(inputs, [&1.id, :records]) || []})
