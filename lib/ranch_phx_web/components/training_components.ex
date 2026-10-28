@@ -273,11 +273,23 @@ defmodule RanchPhxWeb.TrainingComponents do
   def section_head(assigns) do
     ~H"""
     <div class="tr-sec-head">
-      <span class={["tr-sec-ico", "sec-#{@kind}"]} aria-hidden="true">
-        <RanchPhxWeb.CoreComponents.icon name={@icon} />
-      </span>
-      <h2>{render_slot(@inner_block)}</h2>
+      <button
+        type="button"
+        class="tr-sec-toggle"
+        phx-click={
+          Phoenix.LiveView.JS.toggle_class("open", to: {:closest, ".tr-sec"})
+          |> Phoenix.LiveView.JS.dispatch("ranch:sec-toggled")
+        }
+      >
+        <span class={["tr-sec-ico", "sec-#{@kind}"]} aria-hidden="true">
+          <RanchPhxWeb.CoreComponents.icon name={@icon} />
+        </span>
+        <h2>{render_slot(@inner_block)}</h2>
+      </button>
       <div :if={@actions != []} class="tr-sec-actions">{render_slot(@actions)}</div>
+      <span class="tr-sec-chev" aria-hidden="true">
+        <RanchPhxWeb.CoreComponents.icon name="hero-chevron-down" />
+      </span>
     </div>
     """
   end
@@ -582,6 +594,14 @@ defmodule RanchPhxWeb.TrainingComponents do
 
       .tr-sec { border-top: 4px solid var(--sec); scroll-margin-top: calc(164px + env(safe-area-inset-top)); }
       .tr-sec-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; min-height: 40px; }
+      /* Sections fold up: tap the title to open or close (remembered on this device). */
+      .tr-sec-toggle { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; min-height: 44px; padding: 0; border: none; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+      .tr-sec-chev { flex: none; display: inline-flex; color: var(--text3); transition: transform .15s; }
+      .tr-sec-chev [class^="hero-"] { width: 20px; height: 20px; }
+      .tr-sec.open .tr-sec-chev, .tr-sec[data-force-open] .tr-sec-chev { transform: rotate(180deg); }
+      .tr-folds .tr-sec:not(.open):not([data-force-open]) > :not(.tr-sec-head) { display: none !important; }
+      .tr-folds .tr-sec:not(.open):not([data-force-open]) .tr-sec-head { margin-bottom: 0; }
+      .tr-folds .tr-sec:not(.open):not([data-force-open]) { padding-top: 12px; padding-bottom: 12px; }
       .tr-sec-head h2 { flex: 1; min-width: 0; }
       .tr-sec-ico { flex: none; width: 34px; height: 34px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; background: var(--sec-soft); color: var(--sec); }
       .tr-sec-ico [class^="hero-"] { width: 20px; height: 20px; }

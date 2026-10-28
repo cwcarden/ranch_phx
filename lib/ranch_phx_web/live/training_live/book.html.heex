@@ -2,7 +2,7 @@
 <.app_nav active={:training} />
 <.topbar back={~p"/training"} back_label="Training" title={@book.horse.name} />
 
-<div class="tr-wrap">
+<div class="tr-wrap tr-folds" id="book-sections" phx-hook="Sections">
   <div
     :if={Phoenix.Flash.get(@flash, :info)}
     class="tr-guard"
@@ -238,7 +238,7 @@
   </div>
 
   <%!-- Goals --%>
-  <div class="tr-card tr-sec sec-goals" id="goals">
+  <div class="tr-card tr-sec sec-goals" id="goals" data-force-open={@editing_goal && "1"}>
     <.section_head icon="hero-flag" kind="goals">
       Goals
       <:actions>
@@ -324,7 +324,7 @@
   </div>
 
   <%!-- Working on --%>
-  <div class="tr-card tr-sec sec-working" id="working-on">
+  <div class="tr-card tr-sec sec-working" id="working-on" data-force-open={@editing_issue && "1"}>
     <.section_head icon="hero-wrench-screwdriver" kind="working">
       Working on
       <:actions>
@@ -526,7 +526,7 @@
   />
 
   <%!-- Ask the TrAIner --%>
-  <div :if={@is_superuser} class="tr-card tr-sec sec-trainer" id="coach">
+  <div :if={@is_superuser} class="tr-card tr-sec sec-trainer" id="coach" data-force-open={(@coach_loading || @coach_error) && "1"}>
     <.section_head icon="hero-sparkles" kind="trainer">
       Ask the Tr<span class="tr-ai">AI</span>ner
       <:actions>
@@ -664,7 +664,7 @@
   </div>
 
   <%!-- Log a session --%>
-  <div :if={@is_superuser} class="tr-card tr-sec sec-log" id="log">
+  <div :if={@is_superuser} class="tr-card tr-sec sec-log" id="log" data-force-open={@editing && "1"}>
     <.section_head icon="hero-pencil-square" kind="log">
       {if @editing, do: "Edit session", else: "Log a session"}
       <:actions>
