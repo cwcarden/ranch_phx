@@ -1,5 +1,5 @@
 <.styles />
-<.app_nav active={:animals} detail />
+<.app_nav active={:animals} detail flash={@flash} />
 <.topbar back={~p"/animals/#{@animal.id}"} back_label={@animal.name} title="Hooves" />
 
 <style>

@@ -79,7 +79,16 @@ defmodule RanchPhxWeb.AnimalLive.Show do
      |> assign(:lightbox_url, nil)
      |> assign(:compare_pick, nil)
      |> assign(:compare_open, false)
-     |> allow_upload(:photo, accept: ~w(.jpg .jpeg .png .webp .gif .heic .heif), max_entries: 10, max_file_size: 20_000_000)
+     # Photos upload as soon as they're picked and save one by one. HEIC isn't listed, so
+     # the iPhone and iPad hand over JPEGs (they convert on the way out).
+     |> allow_upload(:photo,
+       accept: ~w(.jpg .jpeg .png .webp .gif),
+       max_entries: 40,
+       max_file_size: 30_000_000,
+       auto_upload: true,
+       progress: &handle_progress/3
+     )
+     |> assign(:photos_saved, 0)
      |> allow_upload(:document, accept: ~w(.pdf .doc .docx .jpg .jpeg .png .txt), max_entries: 5, max_file_size: 50_000_000)
      |> allow_upload(:scan, accept: ~w(.jpg .jpeg .png .webp .pdf), max_entries: 1, max_file_size: 25_000_000, auto_upload: true, progress: &handle_progress/3)
      |> allow_upload(:visit_doc, accept: ~w(.pdf .doc .docx .jpg .jpeg .png .heic .txt), max_entries: 5, max_file_size: 50_000_000)
@@ -207,46 +216,14 @@ defmodule RanchPhxWeb.AnimalLive.Show do
     {:noreply, assign(socket, :animal, animal)}
   end
 
+  # Older pages (or a slow phone) may still press the button: save whatever is done.
   def handle_event("upload_photos", _params, socket) do
-    animal_id = socket.assigns.animal.id
-    dir = Path.join([@uploads_dir, "animals", "#{animal_id}", "photos"])
-    File.mkdir_p!(dir)
+    socket =
+      Enum.reduce(socket.assigns.uploads.photo.entries, socket, fn entry, acc ->
+        if entry.done?, do: save_photo_entry(acc, entry), else: acc
+      end)
 
-    uploaded = consume_uploaded_entries(socket, :photo, fn %{path: tmp}, entry ->
-      orig_ext = entry.client_name |> Path.extname() |> String.downcase()
-      heic? = orig_ext in [".heic", ".heif"]
-      ext  = if heic?, do: ".jpg", else: orig_ext
-      name = "#{:crypto.strong_rand_bytes(8) |> Base.url_encode64(padding: false)}#{ext}"
-      dest = Path.join(dir, name)
-
-      ok? = if heic? do
-        heif = System.find_executable("heif-convert") || "/usr/bin/heif-convert"
-        case System.cmd(heif, [tmp, dest], stderr_to_stdout: true) do
-          {_, 0} -> true
-          {out, code} ->
-            require Logger
-            Logger.error("heif-convert failed (#{code}): #{out}")
-            false
-        end
-      else
-        File.cp!(tmp, dest)
-        true
-      end
-
-      if ok?, do: {:ok, "/uploads/animals/#{animal_id}/photos/#{name}"}, else: {:ok, nil}
-    end)
-
-    for url <- Enum.reject(uploaded, &is_nil/1) do
-      Animals.create_photo(%{animal_id: animal_id, url: url})
-    end
-
-    if length(uploaded) > 0 && is_nil(socket.assigns.animal.cover_photo_url) do
-      first_photo = Animals.list_photos(animal_id) |> List.first()
-      if first_photo, do: Animals.set_cover_photo(animal_id, first_photo.id)
-    end
-
-    animal = Animals.get_animal_with_pedigree!(animal_id)
-    {:noreply, assign(socket, :animal, animal)}
+    {:noreply, finish_photos(socket)}
   end
 
   def handle_event("set_cover", %{"id" => photo_id}, socket) do
@@ -988,9 +965,9 @@ defmodule RanchPhxWeb.AnimalLive.Show do
     {:noreply, push_navigate(socket, to: "/")}
   end
 
-  def error_to_string(:too_large),      do: "File too large"
-  def error_to_string(:not_accepted),   do: "File type not accepted"
-  def error_to_string(:too_many_files), do: "Too many files"
+  def error_to_string(:too_large),      do: "Too large (over 30 MB)"
+  def error_to_string(:not_accepted),   do: "Not a photo type the app takes (JPG, PNG, WebP, GIF)"
+  def error_to_string(:too_many_files), do: "That's more than 40 at once. Add the rest in a second batch."
   def error_to_string(_),               do: "Upload error"
 
   # ── Pedigree events ────────────────────────────────────────────────────────
@@ -1211,6 +1188,14 @@ defmodule RanchPhxWeb.AnimalLive.Show do
 
   # A scanned photo or PDF arrives: keep a copy for the animal's documents, then
   # have the AI read it in the background.
+  def handle_progress(:photo, entry, socket) do
+    if entry.done? do
+      {:noreply, socket |> save_photo_entry(entry) |> finish_photos()}
+    else
+      {:noreply, socket}
+    end
+  end
+
   # A photo drawn on in the markup tool: saved as a new photo beside the original.
   def handle_progress(:markup, entry, socket) do
     if entry.done? do
@@ -1684,6 +1669,67 @@ defmodule RanchPhxWeb.AnimalLive.Show do
       days < 60 -> "#{days} days apart"
       days < 730 -> "#{round(days / 30.4)} months apart"
       true -> "#{Float.round(days / 365.25, 1)} years apart"
+    end
+  end
+
+  # Saves one finished photo upload (converting HEIC if one arrives anyway).
+  defp save_photo_entry(socket, entry) do
+    animal_id = socket.assigns.animal.id
+    dir = Path.join([@uploads_dir, "animals", "#{animal_id}", "photos"])
+    File.mkdir_p!(dir)
+
+    url =
+      consume_uploaded_entry(socket, entry, fn %{path: tmp} ->
+        orig_ext = entry.client_name |> Path.extname() |> String.downcase()
+        heic? = orig_ext in [".heic", ".heif"]
+        ext = if heic? or orig_ext == "", do: ".jpg", else: orig_ext
+        name = "#{:crypto.strong_rand_bytes(8) |> Base.url_encode64(padding: false)}#{ext}"
+        dest = Path.join(dir, name)
+
+        ok? =
+          if heic? do
+            heif = System.find_executable("heif-convert") || "/usr/bin/heif-convert"
+
+            case System.cmd(heif, [tmp, dest], stderr_to_stdout: true) do
+              {_, 0} -> true
+              _ -> false
+            end
+          else
+            File.cp!(tmp, dest)
+            true
+          end
+
+        {:ok, if(ok?, do: "/uploads/animals/#{animal_id}/photos/#{name}")}
+      end)
+
+    if url do
+      Animals.create_photo(%{animal_id: animal_id, url: url})
+      update(socket, :photos_saved, &(&1 + 1))
+    else
+      put_flash(socket, :error, "Couldn't read #{entry.client_name}. Try a JPEG.")
+    end
+  end
+
+  # After the last photo lands: refresh the page, set a cover if there isn't one.
+  defp finish_photos(socket) do
+    animal_id = socket.assigns.animal.id
+    pending = Enum.count(socket.assigns.uploads.photo.entries, &(not &1.done?))
+    animal = Animals.get_animal_with_pedigree!(animal_id)
+
+    if is_nil(animal.cover_photo_url) and animal.photos != [] do
+      Animals.set_cover_photo(animal_id, List.last(animal.photos).id)
+    end
+
+    socket = assign(socket, :animal, Animals.get_animal_with_pedigree!(animal_id))
+
+    if pending == 0 and socket.assigns.photos_saved > 0 do
+      n = socket.assigns.photos_saved
+
+      socket
+      |> assign(:photos_saved, 0)
+      |> put_flash(:info, "Added #{n} #{if n == 1, do: "photo", else: "photos"}.")
+    else
+      socket
     end
   end
 end

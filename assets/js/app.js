@@ -246,6 +246,17 @@ Hooks.CompareSlider = {
   },
 }
 
+// Saved/error notices fade away on their own after a few seconds (or tap to close).
+Hooks.Toast = {
+  mounted() { this.arm() },
+  updated() { this.arm() },
+  arm() {
+    clearTimeout(this.t)
+    this.t = setTimeout(() => this.el.click(), 4000)
+  },
+  destroyed() { clearTimeout(this.t) },
+}
+
 Hooks.SaveOffline = {
   mounted() {
     this.updateLabel()
