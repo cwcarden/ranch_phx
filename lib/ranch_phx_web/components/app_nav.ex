@@ -7,7 +7,7 @@ defmodule RanchPhxWeb.AppNav do
   alias Phoenix.LiveView.JS
   import RanchPhxWeb.CoreComponents, only: [icon: 1]
 
-  attr :active, :atom, default: nil, doc: ":animals, :training, or nil"
+  attr :active, :atom, default: nil, doc: ":animals, :training, :evaluate, or nil"
 
   attr :flash, :map, default: nil, doc: "pass @flash to show saved/error notices as a toast"
 
@@ -32,6 +32,7 @@ defmodule RanchPhxWeb.AppNav do
       .an-theme [class^="hero-"] { width: 18px; height: 18px; }
       .an-bell { margin-right: -4px; }
       @media (max-width: 400px) { .an-tabs a { padding: 0 10px; font-size: 14px; } .an-bar { gap: 6px; } }
+      @media (max-width: 430px) { .an-tabs a [class^="hero-"] { display: none; } .an-tabs a { padding: 0 9px; } }
       @media (max-width: 480px) { .an-home .an-name { display: none; } .an-tabs a { padding: 0 12px; } }
       .an-toasts { position: fixed; left: 12px; right: 12px; bottom: calc(84px + env(safe-area-inset-bottom)); z-index: 500; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
       .an-toast { pointer-events: auto; display: inline-flex; align-items: center; gap: 10px; max-width: 520px; min-height: 48px; padding: 10px 16px; border-radius: 14px; border: none; font: inherit; font-size: 15px; font-weight: 600; text-align: left; color: #fff; box-shadow: 0 10px 30px rgba(0,0,0,.25); cursor: pointer; animation: an-toast-in .2s ease-out; }
@@ -81,6 +82,13 @@ defmodule RanchPhxWeb.AppNav do
           aria-current={@active == :training && "page"}
         >
           <.icon name="hero-academic-cap" /> Training
+        </a>
+        <a
+          href="/conformation"
+          class={@active == :evaluate && "on"}
+          aria-current={@active == :evaluate && "page"}
+        >
+          <.icon name="hero-viewfinder-circle" /> Evaluate
         </a>
       </div>
       <a href="/notifications" class="an-theme an-bell" aria-label="Notifications">

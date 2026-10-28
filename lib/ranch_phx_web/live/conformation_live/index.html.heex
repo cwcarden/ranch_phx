@@ -1,0 +1,301 @@
+<.styles />
+<.app_nav active={:evaluate} detail={@animal != nil} flash={@flash} />
+<.topbar
+  back={if @animal, do: ~p"/animals/#{@animal.id}", else: nil}
+  back_label={@animal && @animal.name}
+  title={if @animal, do: "#{@animal.name}: conformation", else: "Conformation"}
+/>
+
+<style>
+  .cf-who { display: grid; gap: 10px; margin: 6px 0 12px; }
+  .cf-who select, .cf-who input { min-height: 48px; border-radius: 12px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text); padding: 0 12px; font-size: 16px; width: 100%; }
+  .cf-go { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; }
+  .cf-go label { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 56px; border-radius: 14px; font-size: 17px; font-weight: 800; cursor: pointer; border: 1.5px solid var(--border); background: var(--surface); color: var(--text); }
+  .cf-go label.primary { background: #0f766e; border-color: #0f766e; color: #fff; }
+  [data-theme="dark"] .cf-go label.primary { color: #042f2e; background: #2dd4bf; border-color: #2dd4bf; }
+  .cf-go [class^="hero-"] { width: 22px; height: 22px; }
+  .cf-tips { margin: 0 0 14px; padding-left: 20px; list-style: disc; color: var(--text2); font-size: 15px; line-height: 1.5; }
+  .cf-row { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 0; border: none; border-bottom: 1px solid var(--border); background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+  .cf-row:last-child { border-bottom: none; }
+  .cf-row img { width: 84px; height: 64px; object-fit: cover; border-radius: 10px; flex: none; background: var(--surface2); }
+  .cf-row .cf-main { flex: 1; min-width: 0; }
+  .cf-row b { font-size: 16px; }
+  .cf-tag { display: inline-block; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; padding: 2px 8px; border-radius: 10px; background: color-mix(in srgb, #d97706 15%, var(--surface)); color: #b45309; margin-left: 6px; vertical-align: 2px; }
+  .cf-sub { font-size: 14px; color: var(--text2); }
+  .cf-when { font-size: 12px; color: var(--text3); }
+  .cf-view { position: fixed; inset: 0; z-index: 300; background: var(--bg, #f8fafc); display: flex; flex-direction: column; }
+  .cf-view-bar { display: flex; align-items: center; gap: 10px; padding: max(12px, env(safe-area-inset-top)) 14px 12px; background: var(--surface); border-bottom: 1px solid var(--border); }
+  .cf-view-bar b { font-size: 17px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cf-view-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 14px 14px calc(24px + env(safe-area-inset-bottom)); }
+  .cf-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 16px; max-width: 1200px; margin: 0 auto; }
+  @media (max-width: 820px) and (orientation: portrait), (max-width: 700px) { .cf-grid { grid-template-columns: 1fr; } }
+  .cf-photo img { width: 100%; border-radius: 12px; background: #111; display: block; }
+  .cf-sum { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .cf-sum li { display: grid; grid-template-columns: 20px 1fr; gap: 8px; font-size: 15px; line-height: 1.45; }
+  .cf-sum li::before { content: "•"; font-weight: 800; text-align: center; color: var(--text3); }
+  .cf-sum li.ok::before { content: "✓"; color: #16a34a; }
+  .cf-sum li.check::before { content: "!"; color: #d97706; }
+  .cf-nums { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
+  .cf-num { padding: 8px 12px; border-radius: 12px; background: var(--surface2); border: 1px solid var(--border); }
+  .cf-num span { display: block; font-size: 12px; color: var(--text2); }
+  .cf-num b { font-size: 18px; }
+  .cf-q { margin: 12px 0 4px; font-weight: 700; }
+  .cf-a { padding: 10px 12px; border-radius: 12px; background: var(--surface2); border: 1px solid var(--border); }
+  .cf-ask { display: flex; gap: 8px; margin-top: 10px; }
+  .cf-ask textarea { flex: 1; min-height: 52px; border-radius: 12px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text); padding: 10px 12px; font-size: 16px; font-family: inherit; resize: vertical; }
+  .cf-ai-btn { background: #0f766e; border-color: #0f766e; color: #fff; }
+  .cf-err { color: #dc2626; font-weight: 600; }
+  .cf-def { display: grid; gap: 10px; margin: 8px 0 0; }
+  .cf-def dt { font-weight: 800; }
+  .cf-def dd { margin: 2px 0 0; color: var(--text2); font-size: 15px; line-height: 1.45; }
+</style>
+
+<div class="tr-wrap">
+  <div :if={@is_superuser} class="tr-card" id="conf-new">
+    <h2 style="margin:0 0 4px">New evaluation</h2>
+    <form :if={!@animal} class="cf-who" phx-change="who" id="who-form">
+      <select name="who" aria-label="Which horse">
+        <option value="prospect" selected={@who == "prospect"}>
+          A prospect (not one of mine)
+        </option>
+        <option :for={h <- @horses} value={"animal:#{h.id}"} selected={@who == "animal:#{h.id}"}>
+          {h.name}
+        </option>
+      </select>
+      <input
+        :if={@who == "prospect"}
+        type="text"
+        name="prospect"
+        value={@prospect}
+        placeholder="Prospect's name, e.g. Sorrel colt at the Stanley sale"
+        maxlength="120"
+        phx-debounce="300"
+        autocomplete="off"
+      />
+    </form>
+    <ul class="cf-tips">
+      <li>Stand him square on level ground, head up and straight ahead.</li>
+      <li>
+        Stand back 15–20 feet, square to his side, camera level at mid-barrel. Whole horse in the photo.
+      </li>
+      <li>
+        Then place the dots, or let the AI place them and fix any that are off. Tap <b>?</b>
+        for what each dot is.
+      </li>
+    </ul>
+    <div
+      id="conf-tool"
+      phx-hook="HoofMeasure"
+      phx-update="ignore"
+      data-mode="body"
+      data-event="conf_measured"
+      data-upload="conf"
+      data-ai={if @ai_on, do: "1", else: "0"}
+    >
+      <div class="cf-go">
+        <label class="primary">
+          <.icon name="hero-camera" /> Take photo
+          <input type="file" accept="image/*" capture="environment" hidden data-hoof-photo />
+        </label>
+        <label>
+          <.icon name="hero-photo" /> Choose
+          <input type="file" accept="image/*" hidden data-hoof-photo />
+        </label>
+      </div>
+    </div>
+    <form id="conf-upload-form" phx-change="upload_change" style="display:none">
+      <.live_file_input upload={@uploads.conf} />
+    </form>
+  </div>
+
+  <div class="tr-card" id="conf-list" style="margin-top:14px">
+    <h2 style="margin:0 0 6px">{if @animal, do: "Evaluations", else: "All evaluations"}</h2>
+    <p :if={@evaluations == []} class="tr-muted">
+      None yet. Evaluate your own horses as they grow, or any prospect you're looking at.
+    </p>
+    <button
+      :for={e <- @evaluations}
+      type="button"
+      class="cf-row"
+      phx-click="view"
+      phx-value-id={e.id}
+      id={"conf-#{e.id}"}
+    >
+      <img :if={e.photo_url} src={e.photo_url} alt="" loading="lazy" />
+      <div class="cf-main">
+        <b>{RanchPhx.Conformations.who(e)}</b><span
+          :if={RanchPhx.Conformations.prospect?(e)}
+          class="cf-tag"
+        >Prospect</span>
+        <div class="cf-sub">{RanchPhx.Conformations.short(e)}</div>
+        <div class="cf-when">
+          {Calendar.strftime(e.date, "%b %-d, %Y")}<span :if={e.ai_notes}> · AI reviewed</span><span :if={
+            e.note
+          }>
+             ·  {e.note}
+          </span>
+        </div>
+      </div>
+    </button>
+  </div>
+
+  <details class="tr-card" id="conf-correct" style="margin-top:14px">
+    <summary style="cursor:pointer;font-size:18px;font-weight:700">What's correct?</summary>
+    <dl class="cf-def">
+      <div :for={{term, text} <- RanchPhx.Conformations.correct()}>
+        <dt>{term}</dt>
+        <dd>{text}</dd>
+      </div>
+    </dl>
+    <p class="tr-muted" style="font-size:13px;margin-top:10px">
+      A guide for comparing horses and watching one grow. Every horse is put together a little differently, and a vet should check soundness before you buy.
+    </p>
+  </details>
+</div>
+
+<div :if={@viewing} class="cf-view" id="conf-view">
+  <% e = @viewing %>
+  <% age = age_months(e, RanchPhx.LocalTime.today()) %>
+  <div class="cf-view-bar">
+    <b>{RanchPhx.Conformations.who(e)} · {Calendar.strftime(e.date, "%b %-d, %Y")}</b>
+    <button
+      :if={@is_superuser and e.original_url}
+      class="tr-btn tr-btn-small"
+      id="edit-lines"
+      phx-click={
+        JS.push("close_view")
+        |> JS.dispatch("ranch:hoof-draw",
+          to: "#conf-tool",
+          detail: %{
+            url: e.original_url,
+            view: "body",
+            id: e.id,
+            date: Date.to_iso8601(e.date),
+            points: e.points
+          }
+        )
+      }
+    >
+      Edit lines
+    </button>
+    <button
+      :if={@is_superuser}
+      class="tr-btn tr-btn-small"
+      phx-click="delete"
+      phx-value-id={e.id}
+      data-confirm="Delete this evaluation?"
+    >
+      Delete
+    </button>
+    <button class="tr-btn tr-btn-small" phx-click="close_view" id="close-view">Done</button>
+  </div>
+  <div class="cf-view-body">
+    <div class="cf-grid">
+      <div class="cf-photo">
+        <img :if={e.photo_url} src={e.photo_url} alt="Marked-up conformation photo" />
+        <p :if={e.note} class="tr-muted" style="margin-top:8px">{e.note}</p>
+      </div>
+      <div>
+        <div class="cf-nums" id="conf-nums">
+          <div :if={e.shoulder} class="cf-num">
+            <span>Shoulder</span><b>{RanchPhx.Conformations.fmt(e.shoulder)}°</b>
+          </div>
+          <div :if={e.hip} class="cf-num">
+            <span>Hip</span><b>{RanchPhx.Conformations.fmt(e.hip)}°</b>
+          </div>
+          <div :if={e.uphill} class="cf-num">
+            <span>{if e.uphill >= 0, do: "Uphill", else: "Croup-high"}</span><b>{RanchPhx.Conformations.fmt(abs(e.uphill))}%</b>
+          </div>
+          <div :if={e.length_ratio} class="cf-num">
+            <span>Length ÷ height</span><b>{e.length_ratio}</b>
+          </div>
+          <div :if={e.thirds} class="cf-num">
+            <span>Thirds</span><b>{Enum.join(e.thirds, "/")}</b>
+          </div>
+          <div :if={e.neck_ratio} class="cf-num">
+            <span>Neck ÷ back</span><b>{e.neck_ratio}</b>
+          </div>
+        </div>
+        <ul class="cf-sum" id="conf-summary">
+          <li :for={{st, text} <- RanchPhx.Conformations.summary(e, age)} class={st}>{text}</li>
+        </ul>
+
+        <div class="tr-card" style="margin-top:14px" id="conf-ai">
+          <h2 style="margin:0 0 6px">AI review</h2>
+          <%= cond do %>
+            <% @busy == :review -> %>
+              <p class="tr-muted">Looking over the photo and your lines…</p>
+            <% e.ai_notes -> %>
+              <div id="conf-review"><.coach_answer text={e.ai_notes} /></div>
+              <div style="display:flex;gap:10px;margin-top:8px">
+                <button
+                  class="tr-btn"
+                  id="share-review"
+                  phx-click={
+                    JS.dispatch("ranch:share",
+                      detail: %{
+                        from: "#conf-review",
+                        title: "#{RanchPhx.Conformations.who(e)} conformation"
+                      }
+                    )
+                  }
+                >
+                  <.icon name="hero-share" /> Share
+                </button>
+                <button :if={@ai_on} class="tr-btn" phx-click="review">Redo</button>
+              </div>
+            <% @ai_on -> %>
+              <p class="tr-muted">
+                What's good, what to watch, and what he's best suited for, from your adjusted lines.
+              </p>
+              <button
+                class="tr-btn tr-btn-primary cf-ai-btn"
+                style="width:100%"
+                phx-click="review"
+                id="ask-review"
+              >
+                <.icon name="hero-sparkles" /> AI review
+              </button>
+            <% true -> %>
+              <p class="tr-muted">The AI isn't set up on this server.</p>
+          <% end %>
+
+          <div :if={@ai_on} id="conf-chat" style="margin-top:14px">
+            <div :for={t <- e.ai_chat || []}>
+              <div class="cf-q">{t["q"]}</div>
+              <div class="cf-a"><.coach_answer text={t["a"]} /></div>
+            </div>
+            <div :if={match?({:ask, _}, @busy)}>
+              <div class="cf-q">{elem(@busy, 1)}</div>
+              <div class="cf-a tr-muted">Thinking…</div>
+            </div>
+            <form class="cf-ask" phx-submit="ask" id="ask-form">
+              <textarea
+                name="question"
+                placeholder="Ask about this horse, e.g. Would he make a heel horse? What should a vet check?"
+                rows="2"
+                maxlength="1000"
+              ></textarea>
+              <button
+                class="tr-btn tr-btn-primary cf-ai-btn"
+                type="submit"
+                disabled={@busy != nil}
+              >
+                Ask
+              </button>
+            </form>
+            <button
+              :if={(e.ai_chat || []) != []}
+              class="tr-link-btn"
+              phx-click="clear_chat"
+              data-confirm="Clear these questions?"
+            >
+              Clear questions
+            </button>
+          </div>
+          <p :if={@ai_error} class="cf-err">{@ai_error}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
