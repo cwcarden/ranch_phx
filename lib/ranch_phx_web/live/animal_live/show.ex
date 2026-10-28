@@ -1618,24 +1618,43 @@ defmodule RanchPhxWeb.AnimalLive.Show do
   registration and brand inspection, in that order.
   """
   def papers(animal) do
-    for {type, label} <- @paper_types,
+    for {type, _label} <- @paper_types,
         doc =
           animal.documents
           |> Enum.filter(&(paper_kind(&1) == type and is_binary(&1.file_url)))
           |> Enum.sort_by(&(&1.doc_date || NaiveDateTime.to_date(&1.inserted_at)), {:desc, Date})
           |> List.first(),
-        doc != nil do
-      %{
-        id: doc.id,
-        type: type,
-        label: label,
-        title: doc.title,
-        url: doc.file_url,
-        mime: doc.mime_type,
-        date: doc.doc_date && Date.to_iso8601(doc.doc_date)
-      }
-    end
+        doc != nil,
+        do: paper_meta(doc)
   end
+
+  @doc """
+  What a device needs to keep a document for offline use and label its tab:
+  its kind (coggins, health_cert, registration, brand_inspection or other), label and date.
+  """
+  def paper_meta(doc) do
+    kind = paper_kind(doc) || "other"
+
+    label =
+      case List.keyfind(@paper_types, kind, 0) do
+        {_, l} -> l
+        nil -> if doc.doc_type in [nil, ""], do: doc.title, else: doc.doc_type
+      end
+
+    %{
+      id: doc.id,
+      type: kind,
+      label: label,
+      title: doc.title,
+      url: doc.file_url,
+      mime: doc.mime_type,
+      date: doc.doc_date && Date.to_iso8601(doc.doc_date)
+    }
+  end
+
+  @doc "Every document with a file, as paper_meta, for refreshing what a device has saved."
+  def all_paper_meta(animal),
+    do: for(d <- animal.documents, is_binary(d.file_url), do: paper_meta(d))
 
   # Document types are names the ranch picks ("Coggins", "Health Certificate"), so
   # match on the words; untyped documents go by their title.

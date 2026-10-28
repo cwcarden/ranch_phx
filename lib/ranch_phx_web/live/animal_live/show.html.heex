@@ -765,6 +765,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       data-animal-id={@animal.id}
       data-animal-name={@animal.name}
       data-papers={Jason.encode!(papers)}
+      data-all={Jason.encode!(all_paper_meta(@animal))}
       title="Show papers"
     >
       <.icon name="hero-identification" />
@@ -2020,11 +2021,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
         end)
       end
 
-      offline_docs_json = Jason.encode!(
-        Enum.map(@animal.documents, fn d ->
-          %{id: d.id, animalId: @animal.id, animalName: @animal.name, title: d.title, docType: d.doc_type, url: d.file_url}
-        end)
-      )
+      offline_docs_json = Jason.encode!(all_paper_meta(@animal))
     %>
 
     <!-- Search bar -->
@@ -2039,6 +2036,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
                  style="padding:9px 12px 9px 36px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-size:14px;outline:none;width:100%"/>
         </div>
         <button id={"save-all-offline-#{@animal.id}"} phx-hook="SaveAllOffline" data-docs={offline_docs_json}
+                data-animal-id={@animal.id} data-animal-name={@animal.name}
                 style="background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--brand);font-size:13px;font-weight:600;padding:9px 14px;cursor:pointer;white-space:nowrap">
           Save All for Offline
         </button>
@@ -2101,8 +2099,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
             </div>
             <div class="doc-actions">
               <button id={"save-offline-#{doc.id}"} phx-hook="SaveOffline" class="doc-save-btn"
-                      data-url={doc.file_url} data-title={doc.title} data-doc-type={doc.doc_type || ""}
-                      data-animal-name={@animal.name} data-animal-id={@animal.id} data-doc-id={doc.id}>
+                      data-url={doc.file_url} data-meta={Jason.encode!(paper_meta(doc))}
+                      data-animal-name={@animal.name} data-animal-id={@animal.id}>
                 Save Offline
               </button>
               <a class="doc-link" href={doc.file_url} title={doc.title} onclick="openPdfViewer(event, this.href, this.title)">Open ↗</a>

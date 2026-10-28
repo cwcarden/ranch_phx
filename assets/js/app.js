@@ -57,6 +57,44 @@ function saveOfflineDocs(docs) {
   localStorage.setItem(OFFLINE_DOCS_KEY, JSON.stringify(docs))
 }
 
+// Papers the person took off this device on purpose, so the Papers button doesn't
+// put them back. Saving one again clears it.
+const OFFLINE_REMOVED_KEY = "gimelRanchOfflineRemoved"
+function loadRemoved() {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(OFFLINE_REMOVED_KEY) || "[]"))
+  } catch (e) {
+    return new Set()
+  }
+}
+function setRemoved(url, removed) {
+  const set = loadRemoved()
+  removed ? set.add(url) : set.delete(url)
+  localStorage.setItem(OFFLINE_REMOVED_KEY, JSON.stringify([...set]))
+}
+
+// One saved paper, from the server's paper_meta. `auto` marks the Papers button's own
+// pick (it may swap in a newer one); a paper saved by hand is kept as chosen.
+function offlineEntry(meta, animalId, animalName, auto) {
+  return {
+    id: String(meta.id), animalId: String(animalId), animalName, title: meta.title,
+    docType: meta.type, label: meta.label, docDate: meta.date, mime: meta.mime,
+    url: meta.url, auto: !!auto, cachedAt: Date.now()
+  }
+}
+
+async function cacheDoc(url) {
+  if (!("caches" in window)) return
+  const cache = await caches.open(DOCS_CACHE)
+  if (await cache.match(url)) return
+  const res = await fetch(url)
+  if (res.ok) await cache.put(url, res.clone())
+}
+
+async function uncacheDoc(url) {
+  if ("caches" in window) await (await caches.open(DOCS_CACHE)).delete(url)
+}
+
 function isDocSaved(url) {
   return loadOfflineDocs().some((d) => d.url === url)
 }
@@ -74,34 +112,43 @@ Hooks.ShowPapers = {
   async open() {
     const {animalId, animalName} = this.el.dataset
     const papers = JSON.parse(this.el.dataset.papers || "[]")
+    const all = JSON.parse(this.el.dataset.all || "[]")
     const label = this.el.querySelector(".btn-label")
     if (label) label.textContent = "Saving…"
 
+    const mine = (d) => String(d.animalId) === String(animalId)
+    const byId = new Map(all.map((m) => [String(m.id), m]))
+    const current = (d) => {
+      const m = byId.get(String(d.id))
+      return m && m.url === d.url ? m : null
+    }
+    const removed = loadRemoved()
     let docs = loadOfflineDocs()
-    const cache = "caches" in window ? await caches.open(DOCS_CACHE) : null
 
+    // Bring this horse's saved papers up to date: drop ones deleted in the app,
+    // refresh names and dates on the rest.
+    for (const d of docs.filter(mine)) {
+      if (!current(d)) await uncacheDoc(d.url).catch(() => {})
+    }
+    docs = docs
+      .filter((d) => !mine(d) || current(d))
+      .map((d) => (mine(d) ? {...offlineEntry(current(d), animalId, animalName, d.auto), cachedAt: d.cachedAt} : d))
+
+    // For each kind of paper: what you picked stays. Only a kind with nothing saved
+    // (or only an older automatic pick) gets the newest one, unless you removed it.
     for (const p of papers) {
+      const saved = docs.filter((d) => mine(d) && d.docType === p.type)
+      if (saved.some((d) => d.url === p.url) || saved.some((d) => !d.auto) || removed.has(p.url)) continue
       try {
-        if (cache && !(await cache.match(p.url))) {
-          const res = await fetch(p.url)
-          if (res.ok) await cache.put(p.url, res.clone())
-        }
+        await cacheDoc(p.url)
       } catch (e) {
         // No signal: whatever was saved before still opens.
+        if (saved.length) continue
       }
-      docs = docs.filter((d) => d.url !== p.url)
-      docs.push({
-        id: String(p.id), animalId: String(animalId), animalName, title: p.title,
-        docType: p.type, label: p.label, docDate: p.date, mime: p.mime, url: p.url, cachedAt: Date.now()
-      })
+      for (const old of saved) await uncacheDoc(old.url).catch(() => {})
+      docs = docs.filter((d) => !saved.includes(d))
+      docs.push(offlineEntry(p, animalId, animalName, true))
     }
-
-    // Older papers of the same kind for this horse are replaced by the current ones.
-    const current = new Set(papers.map((p) => p.url))
-    const kinds = new Set(papers.map((p) => p.type))
-    const stale = docs.filter((d) => String(d.animalId) === String(animalId) && kinds.has(d.docType) && !current.has(d.url))
-    docs = docs.filter((d) => !stale.includes(d))
-    if (cache) for (const d of stale) await cache.delete(d.url)
 
     saveOfflineDocs(docs)
     window.dispatchEvent(new Event("gimel:offline-docs-updated"))
@@ -329,32 +376,28 @@ Hooks.SaveOffline = {
   },
 
   async toggle() {
-    const {url, title, docType, animalName, animalId, docId} = this.el.dataset
+    const {url, animalName, animalId} = this.el.dataset
+    const meta = JSON.parse(this.el.dataset.meta || "{}")
 
     if (isDocSaved(url)) {
       saveOfflineDocs(loadOfflineDocs().filter((d) => d.url !== url))
-      if ("caches" in window) {
-        const cache = await caches.open(DOCS_CACHE)
-        await cache.delete(url)
-      }
+      setRemoved(url, true)
+      await uncacheDoc(url).catch(() => {})
       this.updateLabel()
+      window.dispatchEvent(new Event("gimel:offline-docs-updated"))
       return
     }
 
     this.el.textContent = "Saving…"
     try {
-      const res = await fetch(url)
-      if ("caches" in window) {
-        const cache = await caches.open(DOCS_CACHE)
-        await cache.put(url, res.clone())
-      }
-      const docs = loadOfflineDocs()
-      docs.push({id: docId, animalId, animalName, title, docType, url, cachedAt: Date.now()})
-      saveOfflineDocs(docs)
+      await cacheDoc(url)
+      saveOfflineDocs([...loadOfflineDocs().filter((d) => d.url !== url), offlineEntry(meta, animalId, animalName, false)])
+      setRemoved(url, false)
     } catch (e) {
       console.error("Failed to save document offline", e)
     }
     this.updateLabel()
+    window.dispatchEvent(new Event("gimel:offline-docs-updated"))
   },
 }
 
@@ -365,23 +408,17 @@ Hooks.SaveAllOffline = {
 
   async saveAll() {
     const docs = JSON.parse(this.el.dataset.docs || "[]")
+    const {animalId, animalName} = this.el.dataset
     this.el.textContent = `Saving 0/${docs.length}…`
     let done = 0
 
-    for (const doc of docs) {
-      if (!isDocSaved(doc.url)) {
-        try {
-          const res = await fetch(doc.url)
-          if ("caches" in window) {
-            const cache = await caches.open(DOCS_CACHE)
-            await cache.put(doc.url, res.clone())
-          }
-          const existing = loadOfflineDocs()
-          existing.push({...doc, cachedAt: Date.now()})
-          saveOfflineDocs(existing)
-        } catch (e) {
-          console.error("Failed to save document offline", doc.url, e)
-        }
+    for (const meta of docs) {
+      try {
+        await cacheDoc(meta.url)
+        saveOfflineDocs([...loadOfflineDocs().filter((d) => d.url !== meta.url), offlineEntry(meta, animalId, animalName, false)])
+        setRemoved(meta.url, false)
+      } catch (e) {
+        console.error("Failed to save document offline", meta.url, e)
       }
       done += 1
       this.el.textContent = `Saving ${done}/${docs.length}…`
