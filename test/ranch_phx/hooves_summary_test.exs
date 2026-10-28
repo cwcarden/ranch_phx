@@ -53,4 +53,13 @@ defmodule RanchPhx.HoovesSummaryTest do
     assert [%{id: 1}] = Hooves.measurements([side, sole])
     assert [%{id: 2, view: :sole}] = Hooves.soles([side, sole])
   end
+
+  test "the traced white line's side-to-side split" do
+    m = %{toe_share: 50.0, sides: 51.0, heels: 1.0, frog: 1.0, ratio: 1.0, area: 51.5}
+    assert Hooves.sole_ok?(m)
+    assert m |> Hooves.sole_summary() |> Enum.any?(&match?({:ok, "Sole area 51.5/48.5" <> _}, &1))
+
+    refute Hooves.sole_ok?(%{m | area: 57.0})
+    assert %{m | area: 57.0} |> Hooves.sole_summary() |> Enum.any?(&match?({:check, "Sole area 57/43" <> _}, &1))
+  end
 end
