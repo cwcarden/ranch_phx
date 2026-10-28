@@ -42,6 +42,9 @@
   .hf-view img { flex: 1; min-height: 0; width: 100%; object-fit: contain; }
   .hf-view-nums { color: #fff; padding: 10px 16px calc(14px + env(safe-area-inset-bottom)); font-size: 16px; text-align: center; }
   .hf-err { color: #dc2626; font-weight: 600; margin: 8px 0 0; }
+  .hf-notes-actions { display: flex; gap: 10px; margin-top: 8px; }
+  .hf-notes-actions .tr-btn-primary, .hf-ask { background: #0f766e; border-color: #0f766e; }
+  .hf-ask { width: 100%; }
 </style>
 
 <div class="tr-wrap">
@@ -89,6 +92,50 @@
           else: ", worth a look"}
       </span>
     </div>
+  </div>
+
+  <div
+    :if={@ai_on and @measurements != []}
+    class="tr-card"
+    id="farrier-notes"
+    style="margin-top:14px"
+  >
+    <h2 style="margin:0 0 4px">Farrier notes from the Tr<span class="tr-ai">AI</span>ner</h2>
+    <p :if={!@notes and !@notes_loading} class="tr-muted" style="margin-bottom:12px">
+      The TrAIner looks over the angles and photos and drafts a few notes and questions you can text your farrier.
+    </p>
+    <p :if={@notes_loading} class="tr-muted">Looking over the angles and photos…</p>
+    <%= case @notes do %>
+      <% {:ok, text} -> %>
+        <div id="notes-text"><.coach_answer text={text} /></div>
+        <div class="hf-notes-actions">
+          <button
+            type="button"
+            class="tr-btn tr-btn-primary"
+            id="share-notes"
+            phx-click={
+              JS.dispatch("ranch:share",
+                detail: %{from: "#notes-text", title: "#{@animal.name}'s hooves"}
+              )
+            }
+          >
+            <.icon name="hero-share" /> Share
+          </button>
+          <button type="button" class="tr-btn" phx-click="farrier_notes">Redo</button>
+        </div>
+      <% {:error, msg} -> %>
+        <p class="hf-err">{msg}</p>
+      <% nil -> %>
+    <% end %>
+    <button
+      :if={!@notes and !@notes_loading}
+      type="button"
+      class="tr-btn tr-btn-primary hf-ask"
+      id="ask-notes"
+      phx-click="farrier_notes"
+    >
+      <.icon name="hero-sparkles" /> Draft notes
+    </button>
   </div>
 
   <div :if={@is_superuser} class="tr-card" id="hoof-measure" style="margin-top:14px">

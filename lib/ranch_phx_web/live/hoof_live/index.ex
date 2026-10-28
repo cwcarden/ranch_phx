@@ -5,9 +5,10 @@ defmodule RanchPhxWeb.HoofLive.Index do
   the marked-up photo and the numbers are saved as a "hoof" timeline event.
   """
   use RanchPhxWeb, :live_view
-  import RanchPhxWeb.TrainingComponents, only: [styles: 1, topbar: 1]
+  import RanchPhxWeb.TrainingComponents, only: [styles: 1, topbar: 1, coach_answer: 1]
   alias RanchPhx.Animals
-  alias RanchPhx.Animals.Hooves
+  alias RanchPhx.Animals.{Hooves, HoofAI}
+  alias RanchPhx.Training.Coach
   alias RanchPhx.Accounts.Scope
 
   @uploads_dir Application.app_dir(:ranch_phx, "priv/static/uploads")
@@ -25,6 +26,9 @@ defmodule RanchPhxWeb.HoofLive.Index do
      |> assign(:pending, nil)
      |> assign(:error, nil)
      |> assign(:viewing, nil)
+     |> assign(:ai_on, Coach.configured?())
+     |> assign(:notes, nil)
+     |> assign(:notes_loading, false)
      |> load()
      |> allow_upload(:hoof,
        accept: ~w(.jpg .jpeg),
@@ -81,6 +85,19 @@ defmodule RanchPhxWeb.HoofLive.Index do
         }
 
         {:reply, %{ok: true}, assign(socket, pending: pending, error: nil)}
+    end
+  end
+
+  def handle_event("farrier_notes", _params, socket) do
+    %{animal: animal, measurements: ms, notes_loading: busy?} = socket.assigns
+
+    if busy? do
+      {:noreply, socket}
+    else
+      {:noreply,
+       socket
+       |> assign(notes_loading: true, notes: nil)
+       |> start_async(:notes, fn -> HoofAI.notes(animal, ms, Date.utc_today()) end)}
     end
   end
 
@@ -148,6 +165,20 @@ defmodule RanchPhxWeb.HoofLive.Index do
       {:noreply, socket}
     end
   end
+
+  @impl true
+  def handle_async(:notes, {:ok, {:ok, text}}, socket),
+    do: {:noreply, assign(socket, notes: {:ok, text}, notes_loading: false)}
+
+  def handle_async(:notes, {:ok, {:error, reason}}, socket),
+    do:
+      {:noreply,
+       assign(socket, notes: {:error, Coach.error_message(reason)}, notes_loading: false)}
+
+  def handle_async(:notes, {:exit, _}, socket),
+    do:
+      {:noreply,
+       assign(socket, notes: {:error, "Something went wrong. Try again."}, notes_loading: false)}
 
   defp reload(socket),
     do:
