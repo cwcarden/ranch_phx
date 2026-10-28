@@ -257,6 +257,78 @@ Hooks.Toast = {
   destroyed() { clearTimeout(this.t) },
 }
 
+// ── Native-feeling gestures (phone and iPad) ──
+// Swipe in from the left edge to go back: uses the page's own back link when there
+// is one (‹ Animals, ‹ Training), otherwise the browser history. Only in the
+// home-screen app; in Safari itself the browser's own back swipe does this.
+;(() => {
+  const standalone = window.navigator.standalone || window.matchMedia("(display-mode: standalone)").matches
+  if (!standalone) return
+  let start = null, arrow = null
+  const backLink = () => document.querySelector(".back-btn, .tr-back")
+  const sheetOpen = () => document.querySelector(".hm-editor, .pm-editor, .cmp-view, .show.open, .act-sheet[style*='flex'], .dlg-wrap, .lightbox")
+  document.addEventListener("touchstart", (e) => {
+    const t = e.touches[0]
+    if (e.touches.length !== 1 || t.clientX > 24 || sheetOpen()) return
+    if (!backLink() && history.length < 2) return
+    start = {x: t.clientX, y: t.clientY}
+    arrow = arrow || Object.assign(document.body.appendChild(document.createElement("div")), {className: "edge-back", textContent: "‹"})
+  }, {passive: true})
+  document.addEventListener("touchmove", (e) => {
+    if (!start) return
+    const t = e.touches[0], dx = t.clientX - start.x, dy = Math.abs(t.clientY - start.y)
+    if (dy > 60 && dy > dx) { start = null; arrow.style.opacity = 0; return }
+    const p = Math.min(dx / 100, 1)
+    arrow.style.opacity = p
+    arrow.style.transform = `translateX(${-50 + p * 70}px)`
+  }, {passive: true})
+  document.addEventListener("touchend", (e) => {
+    if (!start) return
+    const dx = e.changedTouches[0].clientX - start.x
+    start = null
+    arrow.style.opacity = 0
+    arrow.style.transform = "translateX(-50px)"
+    if (dx > 100) {
+      const link = backLink()
+      if (link) link.click(); else history.back()
+    }
+  }, {passive: true})
+})()
+
+// Swipe a sheet down by its top edge to close it (the ⋯ actions, the More tabs, forms).
+;(() => {
+  let drag = null
+  const closer = (sheet) =>
+    sheet.querySelector(".act-row.cancel, .dlg-header .btn-icon, [aria-label='Close']") ||
+    document.querySelector(".more-sheet-backdrop.open, #actions-backdrop")
+  document.addEventListener("touchstart", (e) => {
+    const grip = e.target.closest(".act-handle, .act-title, .more-sheet-handle, .dlg-header")
+    if (!grip || e.touches.length !== 1) return
+    const sheet = grip.closest(".act-sheet, .more-sheet, .dlg")
+    if (!sheet) return
+    drag = {sheet, y: e.touches[0].clientY, dy: 0}
+    sheet.style.transition = "none"
+  }, {passive: true})
+  document.addEventListener("touchmove", (e) => {
+    if (!drag) return
+    drag.dy = Math.max(0, e.touches[0].clientY - drag.y)
+    drag.sheet.style.transform = `translateY(${drag.dy}px)`
+  }, {passive: true})
+  document.addEventListener("touchend", () => {
+    if (!drag) return
+    const {sheet, dy} = drag
+    drag = null
+    sheet.style.transition = "transform .18s ease-out"
+    if (dy > 110) {
+      const c = closer(sheet)
+      sheet.style.transform = "translateY(100%)"
+      setTimeout(() => { if (c) c.click(); sheet.style.transform = ""; sheet.style.transition = "" }, 160)
+    } else {
+      sheet.style.transform = ""
+    }
+  }, {passive: true})
+})()
+
 Hooks.SaveOffline = {
   mounted() {
     this.updateLabel()

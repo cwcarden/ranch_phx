@@ -13,6 +13,18 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="theme-color" content="#8b5cf6" />
     <link phx-track-static rel="stylesheet" href={~p"/assets/css/app.css"} />
+    <style>
+      /* Feel like an app, not a web page, on the iPhone and iPad */
+      html { -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; }
+      button, [role="button"], a.btn, .btn, label.upload-zone { touch-action: manipulation; -webkit-user-select: none; user-select: none; }
+      @media (pointer: coarse) {
+        /* 16px or bigger stops the iPhone zooming in when a field is tapped */
+        input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea { font-size: max(16px, 1em) !important; }
+        button:active, [role="button"]:active, .btn:active, a.ci-row:active, .act-row:active, .as-row:active { filter: brightness(.93); }
+      }
+      /* Swipe from the left edge to go back */
+      .edge-back { position: fixed; top: 50%; left: 0; z-index: 1000; width: 44px; height: 44px; margin-top: -22px; border-radius: 50%; background: var(--surface, #fff); color: var(--brand, #8b5cf6); box-shadow: 0 4px 16px rgba(0,0,0,.25); display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 700; pointer-events: none; opacity: 0; transform: translateX(-50px); }
+    </style>
     <script defer phx-track-static type="text/javascript" src={~p"/assets/js/app.js"}>
     </script>
     <script>
