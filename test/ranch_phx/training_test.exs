@@ -34,7 +34,7 @@ defmodule RanchPhx.TrainingTest do
     book = book(horse())
 
     assert %{
-             stage: %{name: "Yearling groundwork & desensitizing"},
+             stage: %{name: "Saddle & pad"},
              next: %{name: "Saddling & ground driving"},
              months_to_next: 3
            } =
@@ -166,7 +166,7 @@ defmodule RanchPhx.TrainingTest do
       Training.guardrail_warnings(
         stage,
         %{minutes: 45, activities: [act("riding")]},
-        %{sessions: 4},
+        %{sessions: stage.max_sessions_per_week},
         gated
       )
 
