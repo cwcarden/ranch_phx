@@ -189,6 +189,37 @@ Hooks.ShowPapers = {
   }
 }
 
+// Training sections fold up. Which ones are open is remembered on this device
+// (all start closed). Jumping to a section, or tapping one of its buttons, opens it.
+Hooks.Sections = {
+  mounted() {
+    this.key = "ranch:open-sections"
+    let open = []
+    try { open = JSON.parse(localStorage.getItem(this.key) || "[]") } catch (e) {}
+    this.el.querySelectorAll(".tr-sec[id]").forEach((s) => {
+      if (open.includes(s.id)) this.js().addClass(s, "open")
+    })
+    this.el.addEventListener("ranch:sec-toggled", () => setTimeout(() => this.save(), 200))
+    this.el.addEventListener("click", (e) => {
+      const jump = e.target.closest("a[href^='#']")
+      const action = e.target.closest(".tr-sec-actions")
+      const sec = jump ? document.querySelector(jump.getAttribute("href")) : action && action.closest(".tr-sec")
+      if (sec && sec.classList.contains("tr-sec") && !sec.classList.contains("open")) {
+        this.js().addClass(sec, "open")
+        setTimeout(() => this.save(), 200)
+      }
+    })
+    // A link straight to a section (e.g. /training/1#log) opens it.
+    const target = location.hash && document.querySelector(location.hash)
+    if (target && target.classList.contains("tr-sec")) this.js().addClass(target, "open")
+  },
+
+  save() {
+    const ids = [...this.el.querySelectorAll(".tr-sec.open[id]")].map((s) => s.id)
+    try { localStorage.setItem(this.key, JSON.stringify(ids)) } catch (e) {}
+  },
+}
+
 Hooks.SaveOffline = {
   mounted() {
     this.updateLabel()
