@@ -24,6 +24,7 @@ import {Socket} from "phoenix"
 import {LiveSocket} from "phoenix_live_view"
 import topbar from "../vendor/topbar"
 import {HoofMeasure} from "./hoof_measure"
+import {PhotoMarkup} from "./photo_markup"
 
 const OFFLINE_DOCS_KEY = "gimelRanchOfflineDocs"
 const DOCS_CACHE = "ranch-docs-v1"
@@ -141,7 +142,7 @@ function isDocSaved(url) {
   return loadOfflineDocs().some((d) => d.url === url)
 }
 
-const Hooks = {HoofMeasure}
+const Hooks = {HoofMeasure, PhotoMarkup}
 
 // "Papers" on an animal: saves its current Coggins, health certificate, registration
 // and brand inspection on this device, then opens them full screen. Saved copies

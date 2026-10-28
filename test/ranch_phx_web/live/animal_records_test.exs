@@ -508,4 +508,23 @@ defmodule RanchPhxWeb.AnimalRecordsTest do
     view |> element("#compare-close") |> render_click()
     refute has_element?(view, "#compare-view")
   end
+
+  test "draw on a photo: saved as a new photo, the original kept", %{conn: conn, animal: animal} do
+    {:ok, _} = Animals.create_photo(%{"animal_id" => animal.id, "url" => "/uploads/a.jpg"})
+    {:ok, view, _} = live(conn, ~p"/animals/#{animal.id}?tab=photos")
+
+    render_hook(view, "markup_meta", %{"caption" => "Left side markings"})
+
+    view
+    |> file_input("#markup-upload-form", :markup, [
+      %{name: "markup.jpg", content: <<0xFF, 0xD8, 0xFF, 0xD9>>, type: "image/jpeg"}
+    ])
+    |> render_upload("markup.jpg")
+
+    photos = Animals.get_animal_with_pedigree!(animal.id).photos
+    assert length(photos) == 2
+    marked = Enum.find(photos, &("markup" in &1.tags))
+    assert marked.caption == "Left side markings"
+    File.rm(Path.join(Application.app_dir(:ranch_phx, "priv/static"), marked.url))
+  end
 end
