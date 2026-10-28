@@ -64,19 +64,27 @@
           <.icon name="hero-bell-slash" />
           <div><b>Notifications are blocked</b><span class="tr-muted">They were turned down for this app.</span></div>
         </div>
-        <p class="tr-muted">
-          On an iPhone or iPad: <b>Settings → Notifications → Gimel Ranch</b>, turn on Allow Notifications, then come back here.
+        <ol class="nt-steps">
+          <li>Open the iPhone or iPad <b>Settings</b> app → <b>Notifications</b>.</li>
+          <li>Find <b>Gimel Ranch</b> and turn on <b>Allow Notifications</b>.</li>
+          <li>Come back here and tap <b>Send a test</b>.</li>
+        </ol>
+        <p class="tr-muted" style="margin-top:8px">
+          If Gimel Ranch isn't in that list, remove the app from your Home Screen, add it again (steps below), and turn notifications on from inside it.
         </p>
       <% :needs_home_screen -> %>
         <div class="nt-state warn">
           <.icon name="hero-device-phone-mobile" />
-          <div><b>Add the app to your Home Screen first</b><span class="tr-muted">iPhone and iPad only allow notifications from Home Screen apps.</span></div>
+          <div><b>Open the app from your Home Screen</b><span class="tr-muted">iPhone and iPad only allow notifications for apps on the Home Screen, not Safari tabs.</span></div>
         </div>
         <ol class="nt-steps">
-          <li>In Safari, tap the <b>Share</b> button.</li>
-          <li>Tap <b>Add to Home Screen</b>, then <b>Add</b>.</li>
-          <li>Open <b>Gimel Ranch</b> from your Home Screen and come back to this page.</li>
+          <li>In Safari, on this site, tap the <b>Share</b> button (the square with the arrow), then <b>Add to Home Screen</b>.</li>
+          <li>Make sure <b>Open as Web App</b> is on, then tap <b>Add</b>.</li>
+          <li>Open <b>Gimel Ranch</b> from the new Home Screen icon, tap the bell, then <b>Turn on notifications</b> and <b>Allow</b>.</li>
         </ol>
+        <p class="tr-muted" style="margin-top:8px">
+          After that, Gimel Ranch shows up in Settings → Notifications like any other app.
+        </p>
       <% :unsupported -> %>
         <div class="nt-state warn">
           <.icon name="hero-exclamation-triangle" />
