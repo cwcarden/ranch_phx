@@ -603,9 +603,43 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   .rx-split > div > .rx-card:last-child { margin-bottom: 0; }
   .rx-split { margin-bottom: 14px; }
 }
+
+/* Wide screens: the animals list down the left, like Mail */
+.as-side { display: none; }
+@media (min-width: 1000px) {
+  .as-layout.has-side { display: grid; grid-template-columns: 280px minmax(0, 1fr); align-items: start; }
+  .as-layout.has-side .as-side { display: flex; flex-direction: column; position: sticky; top: calc(52px + env(safe-area-inset-top)); height: calc(100vh - 52px - env(safe-area-inset-top)); overflow-y: auto; border-right: 1px solid var(--border); background: var(--surface); }
+  .as-layout.has-side .bottom-nav { left: 280px; }
+  .as-layout.has-side .page-wrap { max-width: 1000px; }
+  .as-layout.has-side .back-btn, .as-layout.has-side .back-btn + span { display: none; }
+}
+/* Records in two columns: when one side has nothing to show, use the full width */
+.rx-split > div:not(:has(.rx-card)) { display: none; }
+.rx-split.one { grid-template-columns: 1fr !important; }
+.as-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 8px; }
+.as-all { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--text3); text-decoration: none; }
+.as-count { font-size: 12px; font-weight: 700; color: var(--text3); background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 1px 8px; }
+.as-list { display: flex; flex-direction: column; padding: 0 8px 16px; gap: 2px; }
+.as-row { display: flex; align-items: center; gap: 10px; min-height: 60px; padding: 8px 10px; border-radius: 12px; color: var(--text); text-decoration: none; }
+.as-row:active { background: var(--surface2); }
+.as-row.on { background: color-mix(in srgb, var(--brand) 12%, var(--surface)); }
+.as-row.on b { color: var(--brand); }
+.as-row.dim { opacity: .6; }
+.as-pic { flex: none; width: 42px; height: 42px; border-radius: 10px; overflow: hidden; background: var(--surface2); border: 1px solid var(--border); display: inline-flex; align-items: center; justify-content: center; font-weight: 800; color: var(--text3); }
+.as-pic img { width: 100%; height: 100%; object-fit: cover; }
+.as-main { display: flex; flex-direction: column; min-width: 0; }
+.as-main b { font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 4px; }
+.as-fav { width: 13px; height: 13px; color: #f59e0b; flex: none; }
+.as-main small { font-size: 12.5px; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.as-alert.over { color: #dc2626; font-weight: 700; }
+.as-alert.soon { color: #d97706; font-weight: 700; }
+.as-alert.now { color: #2563eb; font-weight: 700; }
 </style>
 
 <.app_nav active={:animals} />
+<div class={["as-layout", length(@side_rows) > 1 && "has-side"]}>
+<RanchPhxWeb.AnimalSidebar.animal_sidebar :if={length(@side_rows) > 1} rows={@side_rows} current={@animal.id} tab={@tab} />
+<div class="as-main-col">
 
 <!-- Top bar -->
 <div class="topbar">
@@ -1092,7 +1126,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     <% planned = CareSchedule.planned(@animal.records, today) %>
     <% attention = Enum.count(care, &(&1.days <= 30)) %>
 
-<div class="rx-split">
+<% left? = care != [] or planned != [] or (@ai_on and @animal.records != []) %>
+<div class={["rx-split", (!left? or !@is_superuser) && "one"]}>
 <div>
     <%!-- Last done & next due, for each kind of care --%>
     <div :if={care != [] or planned != []} class="rx-card" id="records-due">
@@ -3020,3 +3055,5 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     <img src={@lightbox_url} alt="Photo" phx-click="close_lightbox" style="cursor:zoom-out"/>
   </div>
 <% end %>
+</div>
+</div>
