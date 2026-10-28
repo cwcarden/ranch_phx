@@ -481,4 +481,31 @@ defmodule RanchPhxWeb.AnimalRecordsTest do
     {:ok, home, _} = live(conn, ~p"/")
     assert has_element?(home, "#card-course-#{animal.id}", "2 of 5 given")
   end
+
+  test "compare two photos, older one first", %{conn: conn, animal: animal} do
+    {:ok, newer} =
+      Animals.create_photo(%{
+        "animal_id" => animal.id,
+        "url" => "/uploads/b.jpg",
+        "taken_at" => ~D[2026-10-24]
+      })
+
+    {:ok, older} =
+      Animals.create_photo(%{
+        "animal_id" => animal.id,
+        "url" => "/uploads/a.jpg",
+        "taken_at" => ~D[2026-06-06]
+      })
+
+    {:ok, view, _} = live(conn, ~p"/animals/#{animal.id}?tab=photos")
+    view |> element("#compare-start") |> render_click()
+    view |> element("#photo-#{newer.id}") |> render_click()
+    refute has_element?(view, "#compare-view")
+    view |> element("#photo-#{older.id}") |> render_click()
+
+    assert has_element?(view, "#compare-view", "5 months apart")
+    assert has_element?(view, "#cmp-#{older.id}-#{newer.id}")
+    view |> element("#compare-close") |> render_click()
+    refute has_element?(view, "#compare-view")
+  end
 end
