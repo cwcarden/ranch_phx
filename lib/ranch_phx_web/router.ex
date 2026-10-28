@@ -30,6 +30,7 @@ defmodule RanchPhxWeb.Router do
       live "/training/lists",      TrainingLive.Lists, :index
       live "/training/:id",        TrainingLive.Book,  :show
       live "/voice",               VoiceLive.Index,    :index
+      live "/notifications",       NotificationsLive.Index, :index
     end
 
     get "/animals/:id/report", AnimalReportController, :show

@@ -329,6 +329,61 @@ Hooks.Toast = {
   }, {passive: true})
 })()
 
+// Notifications page: works out whether this device can get notifications, and turns
+// them on or off (asks permission, then subscribes with the app's key).
+Hooks.PushSetup = {
+  async mounted() {
+    this.el.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-push]")
+      if (b) b.dataset.push === "on" ? this.turnOn(b) : this.turnOff(b)
+    })
+    this.report()
+  },
+
+  async report() {
+    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+    const standalone = window.navigator.standalone || window.matchMedia("(display-mode: standalone)").matches
+    if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
+      return this.pushEvent("push_status", {state: ios && !standalone ? "needs_home_screen" : "unsupported"})
+    }
+    if (Notification.permission === "denied") return this.pushEvent("push_status", {state: "denied"})
+    const reg = await navigator.serviceWorker.ready
+    const sub = await reg.pushManager.getSubscription()
+    this.pushEvent("push_status", sub ? {state: "on", endpoint: sub.endpoint} : {state: "off"})
+  },
+
+  async turnOn(btn) {
+    btn.disabled = true
+    try {
+      const perm = await Notification.requestPermission()
+      if (perm !== "granted") return this.pushEvent("push_status", {state: perm === "denied" ? "denied" : "off"})
+      const reg = await navigator.serviceWorker.ready
+      const key = this.el.dataset.key.replace(/-/g, "+").replace(/_/g, "/")
+      const raw = Uint8Array.from(atob(key + "=".repeat((4 - key.length % 4) % 4)), (c) => c.charCodeAt(0))
+      const sub = await reg.pushManager.subscribe({userVisibleOnly: true, applicationServerKey: raw})
+      const device = /iPad/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) ? "iPad"
+        : /iPhone/.test(navigator.userAgent) ? "iPhone" : /Mac/.test(navigator.userAgent) ? "Mac" : "Computer"
+      this.pushEvent("push_subscribed", {...sub.toJSON(), device})
+    } catch (e) {
+      btn.disabled = false
+      alert("Couldn't turn on notifications: " + e.message)
+    }
+  },
+
+  async turnOff(btn) {
+    btn.disabled = true
+    const reg = await navigator.serviceWorker.ready
+    const sub = await reg.pushManager.getSubscription()
+    if (sub) {
+      const endpoint = sub.endpoint
+      await sub.unsubscribe()
+      this.pushEvent("push_unsubscribed", {endpoint})
+    } else {
+      this.pushEvent("push_status", {state: "off"})
+    }
+  },
+}
+
 Hooks.SaveOffline = {
   mounted() {
     this.updateLabel()

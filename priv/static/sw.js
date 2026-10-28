@@ -1,4 +1,4 @@
-const SHELL_CACHE = "ranch-shell-v6";
+const SHELL_CACHE = "ranch-shell-v7";
 const DOCS_CACHE = "ranch-docs-v1";
 const SHELL_ASSETS = [
   "/offline.html",
@@ -46,3 +46,31 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(caches.match(event.request).then((cached) => cached || fetch(event.request)));
   }
 });
+
+// Phone notifications (reminders): show them, and open the right page when tapped.
+self.addEventListener("push", (event) => {
+  let msg = {}
+  try { msg = event.data ? event.data.json() : {} } catch (e) { msg = {body: event.data && event.data.text()} }
+  event.waitUntil(
+    self.registration.showNotification(msg.title || "Gimel Ranch", {
+      body: msg.body || "",
+      tag: msg.tag,
+      icon: "/icons/icon-192.png",
+      badge: "/icons/icon-192.png",
+      data: {url: msg.url || "/"},
+    })
+  )
+})
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close()
+  const url = (event.notification.data && event.notification.data.url) || "/"
+  event.waitUntil(
+    self.clients.matchAll({type: "window", includeUncontrolled: true}).then((wins) => {
+      for (const w of wins) {
+        if ("focus" in w) { w.navigate(url); return w.focus() }
+      }
+      return self.clients.openWindow(url)
+    })
+  )
+})
