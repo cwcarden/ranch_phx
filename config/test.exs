@@ -46,3 +46,7 @@ config :swoosh, :api_client, false
 # The Coach calls a stub instead of the Claude API in tests.
 config :ranch_phx, :anthropic_api_key, "test-key"
 config :ranch_phx, :coach_req_options, plug: {Req.Test, RanchPhx.Training.Coach}, retry: false
+
+# Phone notifications: no reminder timer in tests; pushes go to a stub.
+config :ranch_phx, :push_reminders, false
+config :ranch_phx, :push_req_options, plug: {Req.Test, RanchPhx.Push}

@@ -29,6 +29,8 @@ defmodule RanchPhxWeb.AppNav do
       .an-tabs a.on { background: var(--brand); color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.15); }
       .an-theme { flex: none; width: 40px; height: 40px; border-radius: 50%; border: 1.5px solid var(--border); background: var(--surface); color: var(--text2); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
       .an-theme [class^="hero-"] { width: 18px; height: 18px; }
+      .an-bell { margin-right: -4px; }
+      @media (max-width: 400px) { .an-tabs a { padding: 0 10px; font-size: 14px; } .an-bar { gap: 6px; } }
       @media (max-width: 480px) { .an-home .an-name { display: none; } .an-tabs a { padding: 0 12px; } }
       .an-toasts { position: fixed; left: 12px; right: 12px; bottom: calc(84px + env(safe-area-inset-bottom)); z-index: 500; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
       .an-toast { pointer-events: auto; display: inline-flex; align-items: center; gap: 10px; max-width: 520px; min-height: 48px; padding: 10px 16px; border-radius: 14px; border: none; font: inherit; font-size: 15px; font-weight: 600; text-align: left; color: #fff; box-shadow: 0 10px 30px rgba(0,0,0,.25); cursor: pointer; animation: an-toast-in .2s ease-out; }
@@ -80,6 +82,9 @@ defmodule RanchPhxWeb.AppNav do
           <.icon name="hero-academic-cap" /> Training
         </a>
       </div>
+      <a href="/notifications" class="an-theme an-bell" aria-label="Notifications">
+        <.icon name="hero-bell" />
+      </a>
       <button
         type="button"
         class="an-theme"

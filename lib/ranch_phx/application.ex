@@ -14,7 +14,7 @@ defmodule RanchPhx.Application do
       {Phoenix.PubSub, name: RanchPhx.PubSub},
       {Finch, name: RanchPhx.Finch},
       RanchPhxWeb.Endpoint
-    ]
+    ] ++ if(Application.get_env(:ranch_phx, :push_reminders, true), do: [RanchPhx.Push.Reminders], else: [])
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options

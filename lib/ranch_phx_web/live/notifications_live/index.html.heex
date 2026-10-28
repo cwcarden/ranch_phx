@@ -1,0 +1,90 @@
+<.styles />
+<.app_nav active={:animals} detail flash={@flash} />
+<.topbar back={~p"/"} back_label="Animals" title="Notifications" />
+
+<style>
+  .nt-state { display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 14px; background: var(--surface2); border: 1px solid var(--border); margin-bottom: 14px; }
+  .nt-state [class^="hero-"] { width: 28px; height: 28px; flex: none; }
+  .nt-state b { display: block; font-size: 17px; }
+  .nt-state.on { background: color-mix(in srgb, #16a34a 10%, var(--surface)); border-color: color-mix(in srgb, #16a34a 35%, var(--border)); }
+  .nt-state.on [class^="hero-"] { color: #16a34a; }
+  .nt-state.warn [class^="hero-"] { color: #d97706; }
+  .nt-steps { list-style: decimal; padding-left: 22px; display: flex; flex-direction: column; gap: 8px; font-size: 15px; line-height: 1.45; margin: 8px 0 0; }
+  .nt-dev { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .nt-dev:last-child { border-bottom: none; }
+  .nt-dev span { flex: 1; min-width: 0; }
+  .nt-dev small { display: block; color: var(--text3); }
+  .nt-what { margin: 0; padding-left: 20px; list-style: disc; color: var(--text2); font-size: 15px; line-height: 1.5; display: grid; gap: 4px; }
+</style>
+
+<div class="tr-wrap">
+  <div class="tr-card" id="push-setup" phx-hook="PushSetup" data-key={@public_key} data-endpoint={@endpoint}>
+    <h2 style="margin:0 0 12px">This device</h2>
+
+    <%= case @state do %>
+      <% :checking -> %>
+        <p class="tr-muted">Checking…</p>
+      <% :on -> %>
+        <div class="nt-state on">
+          <.icon name="hero-bell-alert" />
+          <div><b>Notifications are on</b><span class="tr-muted">Reminders come to this device.</span></div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="tr-btn tr-btn-primary" phx-click="send_test" id="send-test">Send a test</button>
+          <button class="tr-btn" data-push="off" id="push-off">Turn off on this device</button>
+        </div>
+      <% :off -> %>
+        <div class="nt-state">
+          <.icon name="hero-bell" />
+          <div><b>Notifications are off</b><span class="tr-muted">Turn them on to get reminders here.</span></div>
+        </div>
+        <button class="tr-btn tr-btn-primary tr-btn-block" data-push="on" id="push-on">
+          <.icon name="hero-bell" /> Turn on notifications
+        </button>
+      <% :denied -> %>
+        <div class="nt-state warn">
+          <.icon name="hero-bell-slash" />
+          <div><b>Notifications are blocked</b><span class="tr-muted">They were turned down for this app.</span></div>
+        </div>
+        <p class="tr-muted">
+          On an iPhone or iPad: <b>Settings → Notifications → Gimel Ranch</b>, turn on Allow Notifications, then come back here.
+        </p>
+      <% :needs_home_screen -> %>
+        <div class="nt-state warn">
+          <.icon name="hero-device-phone-mobile" />
+          <div><b>Add the app to your Home Screen first</b><span class="tr-muted">iPhone and iPad only allow notifications from Home Screen apps.</span></div>
+        </div>
+        <ol class="nt-steps">
+          <li>In Safari, tap the <b>Share</b> button.</li>
+          <li>Tap <b>Add to Home Screen</b>, then <b>Add</b>.</li>
+          <li>Open <b>Gimel Ranch</b> from your Home Screen and come back to this page.</li>
+        </ol>
+      <% :unsupported -> %>
+        <div class="nt-state warn">
+          <.icon name="hero-exclamation-triangle" />
+          <div><b>This browser can't do notifications</b><span class="tr-muted">Use Safari on an iPhone or iPad, or Chrome or Safari on a computer.</span></div>
+        </div>
+    <% end %>
+  </div>
+
+  <div class="tr-card" style="margin-top:14px">
+    <h2 style="margin:0 0 8px">What you'll get</h2>
+    <ul class="nt-what">
+      <li><b>7 a.m.:</b> what's due today, like "Asher: Deworming, day 2 of 5" or "Coggins due tomorrow".</li>
+      <li><b>6 p.m.:</b> a nudge if a treatment dose isn't checked off yet.</li>
+      <li>Nothing on days when nothing's due. Tap a notification to open that horse.</li>
+    </ul>
+  </div>
+
+  <div :if={@devices != []} class="tr-card" style="margin-top:14px" id="push-devices">
+    <h2 style="margin:0 0 4px">Your devices</h2>
+    <div :for={d <- @devices} class="nt-dev">
+      <.icon name="hero-device-phone-mobile" />
+      <span>
+        {d.device || "A device"}
+        <small>Since {Calendar.strftime(d.inserted_at, "%b %-d, %Y")}{if d.endpoint == @endpoint, do: " · this one"}</small>
+      </span>
+      <button class="tr-btn tr-btn-small" phx-click="remove_device" phx-value-id={d.id} data-confirm="Stop notifications on this device?">Remove</button>
+    </div>
+  </div>
+</div>

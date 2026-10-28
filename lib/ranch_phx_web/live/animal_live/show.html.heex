@@ -812,6 +812,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   <a :if={@is_superuser} class="act-row" href={~p"/voice"}>
     <.icon name="hero-microphone" /> Siri voice log
   </a>
+  <a class="act-row" href={~p"/notifications"}>
+    <.icon name="hero-bell" /> Notifications
+  </a>
   <button class="act-row" phx-click={close_actions |> JS.dispatch("ranch:toggle-theme")}>
     <.icon name="hero-moon" /> Light or dark
   </button>
