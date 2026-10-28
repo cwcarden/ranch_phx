@@ -50,3 +50,7 @@ config :ranch_phx, :coach_req_options, plug: {Req.Test, RanchPhx.Training.Coach}
 # Phone notifications: no reminder timer in tests; pushes go to a stub.
 config :ranch_phx, :push_reminders, false
 config :ranch_phx, :push_req_options, plug: {Req.Test, RanchPhx.Push}
+
+# Off-site backup: no nightly runs in tests; R2 calls go to a stub.
+config :ranch_phx, :nightly_backup, false
+config :ranch_phx, :backup_req_options, plug: {Req.Test, RanchPhx.Backup.R2}, retry: false

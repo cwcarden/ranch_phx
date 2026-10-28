@@ -171,6 +171,7 @@ a.ci-row:active { background: var(--surface2); }
     <%= if @is_superuser do %>
       <a href="/admin/users" class="btn btn-ghost mobile-hide" style="font-size:13px">Users</a>
       <a href="/admin/settings" class="btn btn-ghost mobile-hide" style="font-size:13px">Settings</a>
+      <a href="/admin/backups" class="btn btn-ghost mobile-hide" style="font-size:13px">Backups</a>
     <% end %>
     <.link href={~p"/users/log-out"} method="delete" class="btn btn-ghost mobile-hide" style="font-size:13px">Log out</.link>
     <%= if @is_superuser do %>

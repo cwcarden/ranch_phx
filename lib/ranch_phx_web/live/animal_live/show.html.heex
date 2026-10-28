@@ -823,6 +823,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   </button>
   <div class="act-sep"></div>
   <a :if={@is_superuser} class="act-row quiet" href="/admin/settings"><.icon name="hero-cog-6-tooth" /> Settings</a>
+  <a :if={@is_superuser} class="act-row quiet" href="/admin/backups"><.icon name="hero-cloud-arrow-up" /> Backups</a>
   <a class="act-row quiet" href="https://portal.gimelranch.com"><.icon name="hero-home" /> Portal</a>
   <.link class="act-row quiet" href={~p"/users/log-out"} method="delete"><.icon name="hero-arrow-right-on-rectangle" /> Log out</.link>
   <button class="act-row cancel" phx-click={close_actions}>Close</button>

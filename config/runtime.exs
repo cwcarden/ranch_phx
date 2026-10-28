@@ -16,6 +16,15 @@ import Config
 #
 # Alternatively, you can use `mix phx.gen.release` to generate a `bin/server`
 # script that automatically sets the env var above.
+# Off-site backup to Cloudflare R2 (see RanchPhx.Backup). Set these four in /opt/ranch_phx/.env.
+if System.get_env("R2_BUCKET") do
+  config :ranch_phx, :backup,
+    account_id: System.get_env("R2_ACCOUNT_ID"),
+    access_key_id: System.get_env("R2_ACCESS_KEY_ID"),
+    secret_access_key: System.get_env("R2_SECRET_ACCESS_KEY"),
+    bucket: System.get_env("R2_BUCKET")
+end
+
 if System.get_env("PHX_SERVER") do
   config :ranch_phx, RanchPhxWeb.Endpoint, server: true
 end
