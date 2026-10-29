@@ -214,4 +214,40 @@
       </li>
     </ol>
   </div>
+
+  <div :if={@is_superuser} class="tr-card" id="ask-setup" style="margin-top:14px">
+    <h2 class="vl-h"><.icon name="hero-chat-bubble-left-right" /> Ask questions: "Hey Siri, Ranch ask"</h2>
+    <p class="tr-muted" style="margin:0 0 10px">
+      Ask about your animals out loud, like <i>"What were yesterday's training notes for Asher?"</i>
+      or <i>"When is Ruby's rabies due?"</i> Siri reads the answer from your records, training and notes.
+      It only reads; nothing is changed.
+    </p>
+    <ol class="vl-steps">
+      <li>
+        <b>Let it past Cloudflare.</b> In Zero Trust → Access → Applications, open
+        <b>Ranch Siri</b>, add a second public hostname: <code>ranch</code> · <code>gimelranch.com</code> /
+        <code>api/voice-ask</code>, and save.
+      </li>
+      <li>
+        <b>Copy the Ranch log Shortcut.</b> In the Shortcuts app, press and hold <b>Ranch log</b> →
+        <b>Duplicate</b>. Rename the copy <b>Ranch ask</b>.
+      </li>
+      <li>
+        In the copy, change the URL to:
+        <div class="vl-copy">
+          <input id="ask-url" type="text" readonly value={url(~p"/api/voice-ask")} />
+          <button
+            class="tr-btn tr-btn-small"
+            phx-click={JS.dispatch("ranch:copy", detail: %{from: "#ask-url"})}
+          >
+            Copy
+          </button>
+        </div>
+        Everything else (headers, the <code>text</code> field, reading <code>message</code>, Speak) stays the same.
+      </li>
+      <li>
+        <b>Try it:</b> say "Hey Siri, Ranch ask," then your question.
+      </li>
+    </ol>
+  </div>
 </div>

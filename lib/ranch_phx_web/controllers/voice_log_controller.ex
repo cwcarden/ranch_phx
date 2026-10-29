@@ -10,11 +10,10 @@ defmodule RanchPhxWeb.VoiceLogController do
   answers with a short `message` for Siri to read back.
   """
   use RanchPhxWeb, :controller
-  alias RanchPhx.{Accounts, VoiceNotes}
-  alias RanchPhx.Accounts.Scope
+  alias RanchPhx.VoiceNotes
 
   def create(conn, params) do
-    with {:ok, user} <- authorize(conn),
+    with {:ok, user} <- RanchPhxWeb.SiriAuth.authorize(conn),
          {:ok, notes} <- VoiceNotes.create_from_text(user, params["text"]) do
       json(conn, %{ok: true, message: reply(notes), review_url: url(~p"/voice")})
     else
@@ -30,16 +29,6 @@ defmodule RanchPhxWeb.VoiceLogController do
         conn
         |> put_status(422)
         |> json(%{ok: false, message: "I didn't catch anything to log."})
-    end
-  end
-
-  defp authorize(conn) do
-    with ["Bearer " <> token] <- get_req_header(conn, "authorization"),
-         %{} = user <- Accounts.get_user_by_api_token(String.trim(token)),
-         true <- Scope.superuser?(Scope.for_user(user)) do
-      {:ok, user}
-    else
-      _ -> {:error, :unauthorized}
     end
   end
 

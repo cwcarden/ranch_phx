@@ -60,6 +60,7 @@ defmodule RanchPhxWeb.Router do
     pipe_through :api
 
     post "/voice-log", VoiceLogController, :create
+    post "/voice-ask", VoiceAskController, :create
   end
 
   # Admin routes — superuser only
