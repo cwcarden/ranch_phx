@@ -807,6 +807,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   <a :if={@animal.kind == "horse"} class="act-row" href={training_href(@animal)}>
     <.icon name="hero-academic-cap" /> Training book
   </a>
+  <a class="act-row" href={~p"/animals/#{@animal.id}/notes"}>
+    <.icon name="hero-pencil-square" /> Notes
+  </a>
   <a :if={@animal.kind == "horse"} class="act-row" href={~p"/animals/#{@animal.id}/hooves"}>
     <.icon name="hero-camera" /> Hooves
   </a>
@@ -1089,6 +1092,18 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
           </div>
         </div>
       <% end %>
+    </a>
+    <% note = RanchPhx.Notes.latest(@animal.id) %>
+    <a :if={note || @is_superuser} class="rx-card hoof-card" id="notes-card" href={~p"/animals/#{@animal.id}/notes"}>
+      <div class="rx-head">
+        <span class="rx-ico" style="--c:#2563eb"><.icon name="hero-pencil-square" /></span>
+        <h3>Notes</h3>
+        <.icon name="hero-chevron-right" class="hc-go" />
+      </div>
+      <p :if={!note} class="rx-sub">Write notes by hand with the Pencil. The AI turns them into searchable text.</p>
+      <p :if={note} class="rx-sub">
+        <% c = RanchPhx.Notes.count(@animal.id) %>{c} {if c == 1, do: "page", else: "pages"} · latest {Calendar.strftime(note.date, "%b %-d")}{if note.title, do: ": #{note.title}"}
+      </p>
     </a>
     <% conf = if @animal.kind == "horse", do: List.first(RanchPhx.Conformations.list(animal_id: @animal.id)), else: :none %>
     <a :if={conf != :none and (conf || @is_superuser)} class="rx-card hoof-card" id="conformation-card" href={~p"/conformation?animal=#{@animal.id}"}>

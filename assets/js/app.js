@@ -26,6 +26,7 @@ import topbar from "../vendor/topbar"
 import {HoofMeasure} from "./hoof_measure"
 import {installDocViewer} from "./doc_viewer"
 import {PhotoMarkup} from "./photo_markup"
+import {NotePad} from "./note_pad"
 
 const OFFLINE_DOCS_KEY = "gimelRanchOfflineDocs"
 const DOCS_CACHE = "ranch-docs-v1"
@@ -122,7 +123,7 @@ function isDocSaved(url) {
   return loadOfflineDocs().some((d) => d.url === url)
 }
 
-const Hooks = {HoofMeasure, PhotoMarkup}
+const Hooks = {HoofMeasure, PhotoMarkup, NotePad}
 
 // "Papers" on an animal: saves its current Coggins, health certificate, registration
 // and brand inspection on this device, then opens them full screen. Saved copies
