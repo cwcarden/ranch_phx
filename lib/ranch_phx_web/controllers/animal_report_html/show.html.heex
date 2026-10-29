@@ -532,7 +532,7 @@
   <%!-- ── Footer ─────────────────────────────────────────────────────────── --%>
   <div style="margin-top:24pt;padding-top:8pt;border-top:1pt solid #ccc;font-size:8pt;color:#aaa;display:flex;justify-content:space-between">
     <span>Gimel Ranch <%= if @kind == "farrier", do: "Farrier", else: String.capitalize(@animal.kind || "Animal") %> Report — <%= @animal.name %></span>
-    <span>Generated <%= Calendar.strftime(@generated_at, "%B %d, %Y at %H:%M UTC") %></span>
+    <span>Generated <%= Calendar.strftime(@generated_at, "%B %-d, %Y at %-I:%M %p") %></span>
   </div>
 
 </div>
