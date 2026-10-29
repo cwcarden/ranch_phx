@@ -96,7 +96,7 @@ defmodule RanchPhxWeb.AnimalLive.Index do
 
   # Weight trend, the care item needing attention, and training this week, per animal.
   defp insights(animals) do
-    today = Date.utc_today()
+    today = RanchPhx.LocalTime.today()
     inputs = animals |> Enum.map(& &1.id) |> Animals.insight_inputs()
 
     training =

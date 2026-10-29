@@ -34,12 +34,12 @@ defmodule RanchPhxWeb.AppNav do
       @media (max-width: 400px) { .an-tabs a { padding: 0 8px !important; font-size: 14px; } .an-bar { gap: 6px; padding: 0 8px; } .an-theme { width: 36px; height: 36px; } }
       @media (max-width: 430px) { .an-tabs a [class^="hero-"] { display: none; } .an-tabs a { padding: 0 9px; } }
       @media (max-width: 480px) { .an-home .an-name { display: none; } .an-tabs a { padding: 0 12px; } }
-      .an-toasts { position: fixed; left: 12px; right: 12px; bottom: calc(84px + env(safe-area-inset-bottom)); z-index: 500; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
+      .an-toasts { position: fixed; left: 12px; right: 12px; top: calc(var(--an-h) + 64px + env(safe-area-inset-top)); z-index: 500; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
       .an-toast { pointer-events: auto; display: inline-flex; align-items: center; gap: 10px; max-width: 520px; min-height: 48px; padding: 10px 16px; border-radius: 14px; border: none; font: inherit; font-size: 15px; font-weight: 600; text-align: left; color: #fff; box-shadow: 0 10px 30px rgba(0,0,0,.25); cursor: pointer; animation: an-toast-in .2s ease-out; }
       .an-toast [class^="hero-"] { width: 20px; height: 20px; flex: none; }
       .an-info { background: #15803d; }
       .an-error { background: #b91c1c; }
-      @keyframes an-toast-in { from { transform: translateY(12px); opacity: 0; } to { transform: none; opacity: 1; } }
+      @keyframes an-toast-in { from { transform: translateY(-12px); opacity: 0; } to { transform: none; opacity: 1; } }
     </style>
     <style :if={@detail}>
       @media (max-width: 600px) {

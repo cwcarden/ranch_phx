@@ -125,8 +125,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .ped-del-btn:hover { background: #fee2e2; }
 
 /* Timeline */
-.timeline { position: relative; padding-left: 32px; }
-.timeline::before { content: ''; position: absolute; left: 12px; top: 0; bottom: 0; width: 2px; background: var(--border); }
+.tl-list { position: relative; padding-left: 32px; }
+.tl-list::before { content: ''; position: absolute; left: 12px; top: 0; bottom: 0; width: 2px; background: var(--border); }
 .tl-item { position: relative; margin-bottom: 20px; }
 .tl-dot { position: absolute; left: -26px; top: 4px; width: 12px; height: 12px; border-radius: 50%; background: var(--brand); border: 2px solid var(--surface); }
 .tl-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px 16px; }
@@ -250,7 +250,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .rx-row .rec-title { font-size: 16px; }
 .rx-row .rec-meta { font-size: 13px; }
 .rx-row .rec-type-badge { font-size: 12px; }
-.rx-row .rec-desc { font-size: 14px; }
+.rx-row .info-empty { font-size: 14px; color: var(--text2); }
+.info-add { display: block; margin-top: 8px; min-height: 40px; padding: 0; border: none; background: none; color: var(--brand); font: inherit; font-weight: 700; cursor: pointer; text-align: left; }
+.rec-desc { font-size: 14px; }
 .rx-doc { border-left: 4px solid var(--c); }
 .rx-doc-badge { color: var(--c); background: color-mix(in srgb, var(--c) 14%, transparent); font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 20px; }
 
@@ -482,10 +484,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .dlg-wrap { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; padding: 16px; }
 .dlg-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.5); backdrop-filter: blur(4px); }
 .dlg { position: relative; z-index: 1; background: var(--surface); border-radius: var(--radius); width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; box-shadow: 0 24px 80px rgba(0,0,0,.25); }
-.dlg-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px 16px; border-bottom: 1px solid var(--border); }
+.dlg-header { position: sticky; top: 0; z-index: 2; background: var(--surface); display: flex; align-items: center; justify-content: space-between; padding: 20px 24px 16px; border-bottom: 1px solid var(--border); }
 .dlg-header h2 { font-size: 17px; font-weight: 700; }
 .dlg-body { padding: 20px 24px; }
-.dlg-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+.dlg-footer { position: sticky; bottom: 0; z-index: 2; background: var(--surface); padding: 16px 24px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
 
 .form-field { margin-bottom: 16px; }
 .form-field label { display: block; font-size: 13px; font-weight: 600; color: var(--text2); margin-bottom: 5px; }
@@ -744,7 +746,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       </button>
     <% end %>
     <%= if @animal.kind == "horse" do %>
-      <a href={training_href(@animal)} class="btn btn-ghost phone-hide" style="font-size:13px">
+      <a href={training_href(@animal)} data-phx-link="redirect" data-phx-link-state="push" class="btn btn-ghost phone-hide" style="font-size:13px">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
         <span class="btn-label">Training</span>
       </a>
@@ -804,7 +806,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     <.icon name={if @animal.is_favorite, do: "hero-star-solid", else: "hero-star"} />
     {if @animal.is_favorite, do: "Remove from favorites", else: "Add to favorites"}
   </button>
-  <a :if={@animal.kind == "horse"} class="act-row" href={training_href(@animal)}>
+  <a :if={@animal.kind == "horse"} class="act-row" href={training_href(@animal)} data-phx-link="redirect" data-phx-link-state="push">
     <.icon name="hero-academic-cap" /> Training book
   </a>
   <a class="act-row" href={~p"/animals/#{@animal.id}/notes"} data-phx-link="redirect" data-phx-link-state="push">
@@ -977,14 +979,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 
   <!-- ── OVERVIEW ─────────────────────────────────────────────────────────── -->
   <%= if @tab == "overview" do %>
-    <% today = Date.utc_today() %>
+    <% today = RanchPhx.LocalTime.today() %>
     <div :for={c <- CareSchedule.active_courses(@animal.records, today)} class="rx-card course" id={"course-#{c.record.id}"}>
       <div class="rx-head">
         <span class="rx-ico" style="--c:#2563eb"><.icon name="hero-check-badge" /></span>
         <h3>{c.record.title}</h3>
         <span class={["rx-pill", c.finished? && "done"]} style="--c:#2563eb">{c.given} of {c.total} given</span>
       </div>
-      <p :if={c.record.description} class="rx-sub">{c.record.description}</p>
+      <p :if={c.record.description} class="rx-sub">{CareSchedule.describe(c.record.description, c.record.date)}</p>
       <div class="cs-days">
         <%= for {d, i} <- Enum.with_index(c.dates) do %>
           <% given? = MapSet.member?(c.done, d) %>
@@ -1118,8 +1120,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     <div class="overview-grid">
       <div class="info-card">
         <h3>Identity</h3>
-        <div class="info-rows">
-          <%= for {label, val} <- [
+        <% ident = for {label, val} <- [
             {"Registration", @animal.registration_number},
             {"Tattoo", @animal.tattoo},
             {"Freeze Brand", @animal.freeze_brand},
@@ -1127,7 +1128,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
             {"DNA ID", @animal.dna_id},
             {"Breeder", @animal.breeder},
             {"Location", @animal.location}
-          ], val && val != "" do %>
+          ], val && val != "", do: {label, val} %>
+        <p :if={ident == []} class="info-empty">
+          Nothing yet.
+          <button :if={@is_superuser} type="button" class="info-add" phx-click="open_edit">Add registration, microchip…</button>
+        </p>
+        <div class="info-rows">
+          <%= for {label, val} <- ident do %>
             <div class="info-row">
               <span class="info-row-label"><%= label %></span>
               <span class="info-row-val"><%= val %></span>
@@ -1137,6 +1144,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       </div>
       <div class="info-card">
         <h3>Physical</h3>
+        <p :if={!(@animal.color || @animal.markings || @animal.height_hh || @animal.weight_lbs || @animal.birth_date || @animal.death_date)} class="info-empty">
+          Nothing yet.
+          <button :if={@is_superuser} type="button" class="info-add" phx-click="open_edit">Add color, markings…</button>
+        </p>
         <div class="info-rows">
           <%= if @animal.color do %>
             <div class="info-row"><span class="info-row-label">Color</span><span class="info-row-val"><%= @animal.color %></span></div>
@@ -1293,7 +1304,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 
   <!-- ── RECORDS ──────────────────────────────────────────────────────────── -->
   <%= if @tab == "records" do %>
-    <% today = Date.utc_today() %>
+    <% today = RanchPhx.LocalTime.today() %>
     <% care = CareSchedule.status(@animal.records, today) %>
     <% planned = CareSchedule.planned(@animal.records, today) %>
     <% attention = Enum.count(care, &(&1.days <= 30)) %>
@@ -1723,7 +1734,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
                   </div>
                 <% end %>
                 <%= if record.description && record.description != "" do %>
-                  <div class="rec-desc"><%= record.description %></div>
+                  <div class="rec-desc"><%= CareSchedule.describe(record.description, record.date) %></div>
                 <% end %>
                 <%= if record.notes && record.notes != "" do %>
                   <div class="rec-desc" style="color:var(--text3);font-style:italic"><%= record.notes %></div>
@@ -1947,7 +1958,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
               <span style="font-weight:400;opacity:.5"><%= length(events) %> event<%= if length(events) != 1, do: "s" %></span>
             </div>
           <% end %>
-          <div class="timeline" style="margin-bottom:8px">
+          <div class="tl-list" style="margin-bottom:8px">
             <%= for event <- Enum.sort_by(events, fn e -> {e.event_date || ~D[0001-01-01], e.event_time || ~T[00:00:00]} end, :desc) do %>
               <div class="tl-item">
                 <div class="tl-dot"></div>
@@ -2789,7 +2800,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
           </label>
           <label class="rx-vfield">
             <span>Date measured</span>
-            <input type="date" name="measure[date]" value={@measure["date"]} max={Date.to_iso8601(Date.utc_today())} required />
+            <input type="date" name="measure[date]" value={@measure["date"]} max={Date.to_iso8601(RanchPhx.LocalTime.today())} required />
             <small :if={!@measure["event_id"]} class="rx-sub">Pick an earlier date to add an older measurement.</small>
           </label>
           <div class="rx-vfield">

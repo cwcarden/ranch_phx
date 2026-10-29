@@ -144,6 +144,27 @@ defmodule RanchPhx.Animals.CareSchedule do
   end
 
   @doc """
+  A treatment's description with its date range ("daily for 5 days, Oct 31 – Nov 4")
+  worked out from the record's own date, so it stays right when the date is changed.
+  """
+  def describe(nil, _date), do: nil
+
+  def describe(desc, %Date{} = start) when is_binary(desc) do
+    case Regex.run(~r/daily for (\d+) days/i, desc) do
+      [_, n] ->
+        n = String.to_integer(n)
+        stop = Date.add(start, max(n - 1, 0))
+        range = "#{Calendar.strftime(start, "%b %-d")} – #{Calendar.strftime(stop, "%b %-d")}"
+        Regex.replace(~r/(daily for \d+ days),\s*[A-Z][a-z]{2} \d{1,2}\s*[–-]\s*[A-Z][a-z]{2} \d{1,2}/iu, desc, "\\1, " <> range)
+
+      _ ->
+        desc
+    end
+  end
+
+  def describe(desc, _date), do: desc
+
+  @doc """
   A multi-day treatment, read from a record's description ("daily for 5 days"),
   starting on the record's date: `%{record, dates, done, given, total, today_i,
   today_given?, missed, finished?}`, or nil when the record isn't one.
