@@ -114,6 +114,7 @@ a.ci-row:active { background: var(--surface2); }
 .dlg-footer { position: sticky; bottom: 0; z-index: 2; background: var(--surface); padding: 16px 24px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; }
 .form-field { margin-bottom: 16px; }
 .form-field label { display: block; font-size: 13px; font-weight: 600; color: var(--text2); margin-bottom: 5px; }
+.card-reg { font-size: 12px; color: var(--text2); margin: -2px 0 4px; font-style: italic; }
 .form-field input, .form-field select, .form-field textarea { width: 100%; padding: 9px 12px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); background: var(--surface2); color: var(--text); font-size: 14px; outline: none; }
 .form-field input:focus, .form-field select:focus { border-color: var(--brand); }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
@@ -127,6 +128,7 @@ a.ci-row:active { background: var(--surface2); }
   .search-wrap input { min-height: 44px; font-size: 16px; }
   .animal-grid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
   .card-name { font-size: 17px; }
+  .card-reg { font-size: 13px; }
   .ci-row { min-height: 40px; font-size: 14px; }
 }
 @media (max-width: 1100px) {
@@ -264,7 +266,8 @@ a.ci-row:active { background: var(--surface2); }
               <span class="card-kind-badge"><%= animal.kind %></span>
             </div>
             <div class="card-body">
-              <div class="card-name"><%= animal.name %></div>
+              <div class="card-name"><%= RanchPhx.Animals.Animal.display_name(animal) %></div>
+              <div :if={RanchPhx.Animals.Animal.registered_name(animal)} class="card-reg"><%= RanchPhx.Animals.Animal.registered_name(animal) %></div>
               <div class="card-sub"><%= animal.breed %><%= if animal.breed && animal.color, do: " · " %><%= animal.color %></div>
               <div class="card-stats">
                 <div class="card-stat">
@@ -372,11 +375,15 @@ a.ci-row:active { background: var(--surface2); }
         <div class="dlg-body">
           <div class="form-row">
             <div class="form-field">
-              <label>Name *</label>
+              <label>Registered name *</label>
               <input type="text" name="animal[name]" value={@changeset.data.name} placeholder="e.g. Smart Little Lena" required/>
               <%= for err <- Keyword.get_values(@changeset.errors, :name) do %>
                 <div class="error-msg"><%= elem(err, 0) %></div>
               <% end %>
+            </div>
+            <div class="form-field">
+              <label>Barn name</label>
+              <input type="text" name="animal[barn_name]" value={@changeset.data.barn_name} placeholder="What you call him, e.g. Asher"/>
             </div>
             <div class="form-field">
               <label>Species *</label>

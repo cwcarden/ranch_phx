@@ -252,6 +252,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .rx-row .rec-type-badge { font-size: 12px; }
 .rx-row .info-empty { font-size: 14px; color: var(--text2); }
 .info-add { display: block; margin-top: 8px; min-height: 40px; padding: 0; border: none; background: none; color: var(--brand); font: inherit; font-weight: 700; cursor: pointer; text-align: left; }
+.hero-reg { font-size: 14px; color: var(--text2); margin: -2px 0 8px; }
 .rec-desc { font-size: 14px; }
 .rx-doc { border-left: 4px solid var(--c); }
 .rx-doc-badge { color: var(--c); background: color-mix(in srgb, var(--c) 14%, transparent); font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 20px; }
@@ -730,7 +731,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       <span class="back-label">Animals</span>
     </a>
     <span class="topbar-sep" style="color:var(--border)">|</span>
-    <span class="topbar-name"><%= @animal.name %></span>
+    <span class="topbar-name"><%= RanchPhx.Animals.Animal.display_name(@animal) %></span>
   </div>
   <div class="topbar-actions">
     <%= if @is_superuser do %>
@@ -869,7 +870,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       <% end %>
     </div>
     <div class="hero-info">
-      <h1 class="hero-name"><%= @animal.name %></h1>
+      <h1 class="hero-name"><%= RanchPhx.Animals.Animal.display_name(@animal) %></h1>
+      <div :if={RanchPhx.Animals.Animal.registered_name(@animal)} class="hero-reg">Registered: <%= RanchPhx.Animals.Animal.registered_name(@animal) %></div>
       <div class="hero-sub">
         <span class="badge badge-kind"><%= @animal.kind %></span>
         <span class={"badge badge-status-#{@animal.status}"}><%= String.capitalize(@animal.status) %></span>
@@ -2475,8 +2477,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
           <div class="section-divider">Basic Info</div>
           <div class="form-row">
             <div class="form-field">
-              <label>Name *</label>
+              <label>Registered name *</label>
               <input type="text" name="animal[name]" value={@animal.name} required/>
+            </div>
+            <div class="form-field">
+              <label>Barn name</label>
+              <input type="text" name="animal[barn_name]" value={@animal.barn_name} placeholder="What you call him, e.g. Asher"/>
             </div>
             <div class="form-field">
               <label>Species *</label>

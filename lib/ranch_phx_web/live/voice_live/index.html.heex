@@ -45,7 +45,7 @@
     <div :for={note <- @notes} class="vl-note" id={"note-#{note.id}"}>
       <div class="vl-when">
         <.icon name="hero-microphone" /> {said_at(note.inserted_at)}
-        <span :if={note.animal}>· <span class="vl-animal">{note.animal.name}</span></span>
+        <span :if={note.animal}>· <span class="vl-animal">{RanchPhx.Animals.Animal.display_name(note.animal)}</span></span>
       </div>
       <div class="vl-text">"{note.text}"</div>
 

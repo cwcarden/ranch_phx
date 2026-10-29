@@ -44,7 +44,7 @@ defmodule RanchPhxWeb.VoiceLogController do
   end
 
   defp reply(notes) do
-    case notes |> Enum.map(& &1.animal) |> Enum.reject(&is_nil/1) |> Enum.map(& &1.name) do
+    case notes |> Enum.map(& &1.animal) |> Enum.reject(&is_nil/1) |> Enum.map(&RanchPhx.Animals.Animal.display_name/1) do
       [] ->
         "Saved. Pick the animal when you review it in the ranch app."
 

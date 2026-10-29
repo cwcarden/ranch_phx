@@ -113,4 +113,14 @@ defmodule RanchPhxWeb.VoiceLogTest do
     refute has_element?(again, "#new-key")
     assert render(again) =~ "Key made"
   end
+
+  test "a horse's barn name finds him: \"Asher\" is Gimels Soldier Cat", %{user: user} do
+    {:ok, cat} = Animals.create_animal(%{name: "Gimels Soldier Cat", barn_name: "Smitty", kind: "horse"})
+    key = Accounts.create_api_token(user)
+
+    resp = siri(key, %{text: "Trimmed Smitty's fronts, forty five dollars"}) |> json_response(200)
+    assert resp["message"] =~ "Saved for Smitty"
+    assert [%{animal_id: id}] = VoiceNotes.list_pending()
+    assert id == cat.id
+  end
 end
