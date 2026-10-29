@@ -261,6 +261,9 @@ const CSS = `
 .hm-help svg { display: block; max-width: 320px; margin: 4px 0 6px; }
 .hm-q { width: 46px; padding: 0; font-size: 20px; }
 .hm-ai { border-color: #f87171; color: #fecaca; }
+.hm-note { position: absolute; top: 10px; left: 10px; z-index: 4; max-width: min(520px, 70%); display: flex; gap: 8px; align-items: flex-start; padding: 10px 12px; border-radius: 12px; background: rgba(17,24,39,.88); color: #f1f5f9; font-size: 14px; line-height: 1.4; box-shadow: 0 4px 14px rgba(0,0,0,.35); }
+.hm-note button { flex: none; width: 32px; height: 32px; border-radius: 50%; border: 1px solid rgba(255,255,255,.3); background: none; color: #fff; font-size: 18px; cursor: pointer; }
+.hm-step span { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .hm-read .ln { display: block; font-size: 14px; font-weight: 700; }
 .hm-read .ln.ok { color: #4ade80; } .hm-read .ln.check { color: #fbbf24; }
 .hm-foot input[type=text] { min-height: 46px; border-radius: 12px; border: 1.5px solid rgba(255,255,255,.25); background: #111827; color: #fff; padding: 0 12px; font: inherit; flex: 1; min-width: 160px; }
@@ -391,7 +394,7 @@ export const HoofMeasure = {
         <button class="hm-btn" data-undo>Undo</button>
         <button class="hm-btn" data-cancel>Cancel</button>
       </div>
-      <div class="hm-stage"><canvas></canvas><div class="hm-help" data-helppanel hidden></div></div>
+      <div class="hm-stage"><canvas></canvas><div class="hm-note" data-note-box hidden><span></span><button aria-label="Close note">×</button></div><div class="hm-help" data-helppanel hidden></div></div>
       <div class="hm-foot">
         <div class="hm-read" data-read></div>
         <input type="date" data-date value="${opts.date || iso}" max="${iso}" aria-label="Date measured">
@@ -423,6 +426,14 @@ export const HoofMeasure = {
     this.canvas.addEventListener("pointercancel", (e) => this.up(e))
     this.canvas.addEventListener("pointerleave", () => { if (this.hover) { this.hover = null; this.draw() } })
     window.addEventListener("resize", this.onResize)
+    // The photo area changes size when the text above it wraps (or the iPad turns).
+    // Re-measure then, or the photo stretches and the Pencil lands off its dot.
+    if (window.ResizeObserver) {
+      this.ro = new ResizeObserver(() => this.layout())
+      this.ro.observe(ed.querySelector(".hm-stage"))
+    }
+    const box = ed.querySelector("[data-note-box]")
+    box.querySelector("button").onclick = () => { box.hidden = true }
 
     this.img = new Image()
     this.img.onerror = () => { this.say("Couldn't open that photo. Try another.") }
@@ -487,6 +498,7 @@ export const HoofMeasure = {
     clearTimeout(this.saveTimer)
     if (!this.ed) return
     window.removeEventListener("resize", this.onResize)
+    if (this.ro) { this.ro.disconnect(); this.ro = null }
     this.ed.remove()
     this.ed = null
     document.body.style.overflow = ""
@@ -779,8 +791,11 @@ export const HoofMeasure = {
       if (pts.length === st.n) { this.points[st.key] = pts; this.skipped.delete(st.key) }
     }
     this.refresh()
-    const note = reply.note ? ` <i>${String(reply.note).replace(/[<>&]/g, "")}</i>` : ""
-    this.say("AI placed the dots. Check each one and drag any that are off, then Save." + note)
+    this.say("AI placed the dots. Check each one and drag any that are off, then Save.")
+    // The AI's comments on the photo go in a small box over it, so the bar above
+    // keeps its size.
+    const box = this.ed.querySelector("[data-note-box]")
+    if (reply.note) { box.querySelector("span").textContent = reply.note; box.hidden = false } else box.hidden = true
   },
 
   paintSole(c, map, k) {
