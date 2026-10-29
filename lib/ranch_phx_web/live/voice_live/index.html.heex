@@ -51,12 +51,22 @@
 
       <%= if note.animal do %>
         <div :if={@is_superuser} class="vl-actions">
+          <% book_id = @books[note.animal_id] %>
+          <% training? = book_id && RanchPhxWeb.VoiceLive.Index.training?(note.text) %>
           <a
-            class="tr-btn tr-btn-primary"
+            :if={book_id}
+            class={["tr-btn", training? && "tr-btn-primary"]}
+            href={~p"/training/#{book_id}?voice=#{note.id}"} data-phx-link="redirect" data-phx-link-state="push"
+            id={"train-#{note.id}"}
+          >
+            <.icon name="hero-academic-cap" /> Training session
+          </a>
+          <a
+            class={["tr-btn", !training? && "tr-btn-primary"]}
             href={~p"/animals/#{note.animal_id}?voice=#{note.id}"} data-phx-link="redirect" data-phx-link-state="push"
             id={"review-#{note.id}"}
           >
-            <.icon name="hero-check-circle" /> Check &amp; save
+            <.icon name="hero-check-circle" /> {if book_id, do: "Care records", else: "Check & save"}
           </a>
           <button
             class="tr-btn"
