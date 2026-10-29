@@ -752,3 +752,9 @@ if (process.env.NODE_ENV === "development") {
 document.addEventListener("click", (e) => {
   document.querySelectorAll("details.more-menu[open]").forEach((d) => { if (!d.contains(e.target)) d.open = false })
 })
+
+// A photo that's missing on the server shows as an empty box, not a broken-image icon.
+document.addEventListener("error", (e) => {
+  const img = e.target
+  if (img && img.tagName === "IMG" && !img.dataset.keepBroken) img.classList.add("img-missing")
+}, true)
