@@ -471,6 +471,22 @@ defmodule RanchPhxWeb.AnimalLive.Show do
 
   def handle_event("close_visit", _params, socket), do: {:noreply, assign(socket, :visit, nil)}
 
+  # A Siri note that isn't care records: mark it handled so it leaves the voice log.
+  def handle_event("voice_note_done", _params, socket) do
+    case socket.assigns.voice_note do
+      nil ->
+        {:noreply, socket}
+
+      note ->
+        RanchPhx.VoiceNotes.mark(note, "done")
+
+        {:noreply,
+         socket
+         |> assign(voice_note: nil, rec_voice_error: nil, rec_voice_text: "")
+         |> put_flash(:info, "Marked handled. It's off the voice log.")}
+    end
+  end
+
   def handle_event("visit_change", %{"visit" => params} = payload, socket) do
     {:noreply,
      assign(socket, :visit, merge_visit(socket.assigns.visit, params, payload["_target"]))}
@@ -1133,7 +1149,11 @@ defmodule RanchPhxWeb.AnimalLive.Show do
       {:noreply,
        assign(socket,
          rec_voice_loading: false,
-         rec_voice_error: "Couldn't pick out any records. Try naming what was done."
+         rec_voice_error:
+           if(socket.assigns.voice_note,
+             do: "This doesn't sound like a care record (a vaccine, deworming, trim…). Nothing was saved.",
+             else: "Couldn't pick out any records. Try naming what was done."
+           )
        )}
 
   def handle_async(:rec_draft, {:ok, {:ok, drafts}}, socket),

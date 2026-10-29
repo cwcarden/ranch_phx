@@ -778,3 +778,11 @@ document.addEventListener("error", (e) => {
   }, true)
   window.addEventListener("phx:page-loading-stop", () => { clearTimeout(pending); pending = null })
 })()
+
+// The server asks to bring a section into view (e.g. the training log, opened from a Siri note).
+window.addEventListener("phx:ranch:scroll-to", (e) => {
+  setTimeout(() => {
+    const el = document.getElementById(e.detail.id)
+    if (el) el.scrollIntoView({behavior: "smooth", block: "start"})
+  }, 150)
+})

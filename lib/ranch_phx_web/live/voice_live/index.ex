@@ -64,7 +64,32 @@ defmodule RanchPhxWeb.VoiceLive.Index do
     {:noreply, assign(socket, new_key: nil, key_made: nil)}
   end
 
-  defp load(socket), do: assign(socket, :notes, VoiceNotes.list_pending())
+  defp load(socket) do
+    notes = VoiceNotes.list_pending()
+
+    books =
+      notes
+      |> Enum.map(& &1.animal_id)
+      |> Enum.reject(&is_nil/1)
+      |> Enum.uniq()
+      |> Map.new(fn id -> {id, RanchPhx.Training.active_book_for_animal(id)} end)
+      |> Map.reject(fn {_, b} -> is_nil(b) end)
+      |> Map.new(fn {id, b} -> {id, b.id} end)
+
+    assign(socket, notes: notes, books: books)
+  end
+
+  @doc false
+  # Sounds like a training session rather than vet/farrier care.
+  def training?(text) do
+    t = String.downcase(text || "")
+
+    Regex.match?(
+      ~r/\b(train|trained|training|worked (with|on)|round ?pen|lung|longe|saddl|sack|groundwork|ground work|ponied|ponying|tied|tie him|lead|picking up|pick up|feet|foot|desensitiz|spray bottle|bridle|ride|rode|riding|backed|trailer|load)/,
+      t
+    ) and
+      not Regex.match?(~r/\b(vaccin|shot|deworm|panacur|quest|coggins|vet|farrier|trim|shod|shoes|float|dental|bute|banamine)/, t)
+  end
 
   @doc "\"Today 3:12 PM\", \"Yesterday 7:05 AM\" or \"Oct 20, 7:05 AM\", in ranch time."
   def said_at(%DateTime{} = dt) do

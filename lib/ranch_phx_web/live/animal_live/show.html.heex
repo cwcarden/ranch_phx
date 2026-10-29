@@ -1568,6 +1568,15 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
           </button>
           <span :if={@rec_voice_error} class="rx-err">{@rec_voice_error}</span>
         </div>
+        <div :if={@voice_note && @rec_voice_error} class="rx-voice-actions" id="voice-note-other">
+          <% book = RanchPhx.Training.active_book_for_animal(@animal.id) %>
+          <a :if={book} class="btn btn-primary btn-sm" href={~p"/training/#{book.id}?voice=#{@voice_note.id}"} data-phx-link="redirect" data-phx-link-state="push">
+            <.icon name="hero-academic-cap" /> Save as a training session
+          </a>
+          <button type="button" class="btn btn-ghost btn-sm" phx-click="voice_note_done" id="voice-note-done">
+            Mark handled
+          </button>
+        </div>
       </form>
     </div>
 

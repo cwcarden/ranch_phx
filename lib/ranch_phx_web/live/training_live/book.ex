@@ -20,6 +20,7 @@ defmodule RanchPhxWeb.TrainingLive.Book do
     {:ok,
      socket
      |> assign(:page_title, "#{book.horse.name} · Training")
+     |> assign(:siri_note, nil)
      |> assign(:book, book)
      |> assign(:today, today)
      |> assign(:minute_chips, @minute_chips)
@@ -66,6 +67,25 @@ defmodule RanchPhxWeb.TrainingLive.Book do
   end
 
   @impl true
+  # From the Siri voice log: fill the log form from what was said, to check and save.
+  def handle_params(%{"voice" => id}, _uri, socket) do
+    note = connected?(socket) && socket.assigns.is_superuser && RanchPhx.VoiceNotes.get(id)
+    current = socket.assigns.siri_note
+
+    case note do
+      %{status: "pending", animal_id: animal_id} = note when animal_id == socket.assigns.book.horse.animal_id ->
+        if current && current.id == note.id do
+          {:noreply, socket}
+        else
+          {:noreply, socket} = handle_event("voice_fill", %{"spoken" => note.text}, assign(socket, :siri_note, note))
+          {:noreply, push_event(socket, "ranch:scroll-to", %{id: "log"})}
+        end
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
   def handle_params(_params, _uri, socket), do: {:noreply, socket}
 
   # ── Log form ────────────────────────────────────────────────────────────────
@@ -87,12 +107,19 @@ defmodule RanchPhxWeb.TrainingLive.Book do
            Training.save_session(to_attrs(params, socket.assigns.book.id, socket.assigns.issues)) do
       save_session_photos(socket, session)
       save_spoken_extras(socket, params)
+      siri = socket.assigns.siri_note
+      if siri, do: RanchPhx.VoiceNotes.mark(siri, "done")
 
       {:noreply,
        socket
+       |> assign(:siri_note, nil)
        |> put_flash(
          :info,
-         if(socket.assigns.editing, do: "Session updated", else: "Session saved")
+         cond do
+           socket.assigns.editing -> "Session updated"
+           siri -> "Session saved from your Siri note"
+           true -> "Session saved"
+         end
        )
        |> reset_form(params["date"])
        |> load()}

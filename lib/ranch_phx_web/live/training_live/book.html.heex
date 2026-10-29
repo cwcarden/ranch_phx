@@ -664,7 +664,7 @@
   </div>
 
   <%!-- Log a session --%>
-  <div :if={@is_superuser} class="tr-card tr-sec sec-log" id="log" data-force-open={@editing && "1"}>
+  <div :if={@is_superuser} class="tr-card tr-sec sec-log" id="log" data-force-open={(@editing || @siri_note) && "1"}>
     <.section_head icon="hero-pencil-square" kind="log">
       {if @editing, do: "Edit session", else: "Log a session"}
       <:actions>
