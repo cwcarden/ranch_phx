@@ -290,6 +290,16 @@ defmodule RanchPhx.Accounts do
   end
 
   @doc """
+  A one-time sign-in link token for a user, for an admin to send them by text or
+  email themselves (this server doesn't send email). Good once, for 15 minutes.
+  """
+  def login_link_token(%User{} = user) do
+    {encoded_token, user_token} = UserToken.build_email_token(user, "login")
+    Repo.insert!(user_token)
+    encoded_token
+  end
+
+  @doc """
   Delivers the magic link login instructions to the given user.
   """
   def deliver_login_instructions(%User{} = user, magic_link_url_fun)

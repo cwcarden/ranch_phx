@@ -141,6 +141,9 @@
 
     let snap = null, meta = null, queue = [], current = null, tab = "overview"
     try { current = +localStorage.getItem("barn:animal") || null; tab = localStorage.getItem("barn:tab") || "overview" } catch (e) {}
+    // Opened in place of an animal's page (no signal): show that animal.
+    { const m = location.pathname.match(/^\/animals\/(\d+)/) || location.search.match(/[?&]animal=(\d+)/)
+      if (m) { current = +m[1]; if (/\/hooves|\/notes/.test(location.pathname)) tab = /notes/.test(location.pathname) ? "notes" : tab } }
 
     function toast(text) { const t = $("toast"); t.textContent = text; t.classList.add("show"); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 2600) }
 

@@ -169,6 +169,7 @@ defmodule RanchPhxWeb.AnimalLive.Index do
         <a :if={@su} href="/admin/backups" data-phx-link="redirect" data-phx-link-state="push">
           <.icon name="hero-cloud-arrow-up" /> Backups
         </a>
+        <a href="/users/settings"><.icon name="hero-key" /> Password</a>
         <a href="https://portal.gimelranch.com"><.icon name="hero-home" /> Portal</a>
         <.link href={~p"/users/log-out"} method="delete">
           <.icon name="hero-arrow-right-start-on-rectangle" /> Log out
