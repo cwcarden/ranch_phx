@@ -31,7 +31,7 @@ defmodule RanchPhxWeb.AppNav do
       .an-theme { flex: none; width: 40px; height: 40px; border-radius: 50%; border: 1.5px solid var(--border); background: var(--surface); color: var(--text2); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
       .an-theme [class^="hero-"] { width: 18px; height: 18px; }
       .an-bell { margin-right: -4px; }
-      @media (max-width: 400px) { .an-tabs a { padding: 0 10px; font-size: 14px; } .an-bar { gap: 6px; } }
+      @media (max-width: 400px) { .an-tabs a { padding: 0 8px !important; font-size: 14px; } .an-bar { gap: 6px; padding: 0 8px; } .an-theme { width: 36px; height: 36px; } }
       @media (max-width: 430px) { .an-tabs a [class^="hero-"] { display: none; } .an-tabs a { padding: 0 9px; } }
       @media (max-width: 480px) { .an-home .an-name { display: none; } .an-tabs a { padding: 0 12px; } }
       .an-toasts { position: fixed; left: 12px; right: 12px; bottom: calc(84px + env(safe-area-inset-bottom)); z-index: 500; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
@@ -69,29 +69,29 @@ defmodule RanchPhxWeb.AppNav do
       </button>
     </div>
     <nav class="an-bar" id="app-nav" aria-label="Main">
-      <a href="/" class="an-home" aria-label="Gimel Ranch home">
+      <a href="/" data-phx-link="redirect" data-phx-link-state="push" class="an-home" aria-label="Gimel Ranch home">
         <span class="an-mark" aria-hidden="true"></span><span class="an-name">Gimel Ranch</span>
       </a>
       <div class="an-tabs">
-        <a href="/" class={@active == :animals && "on"} aria-current={@active == :animals && "page"}>
+        <a href="/" data-phx-link="redirect" data-phx-link-state="push" class={@active == :animals && "on"} aria-current={@active == :animals && "page"}>
           <.icon name="hero-squares-2x2" /> Animals
         </a>
         <a
-          href="/training"
+          href="/training" data-phx-link="redirect" data-phx-link-state="push"
           class={@active == :training && "on"}
           aria-current={@active == :training && "page"}
         >
           <.icon name="hero-academic-cap" /> Training
         </a>
         <a
-          href="/conformation"
+          href="/conformation" data-phx-link="redirect" data-phx-link-state="push"
           class={@active == :evaluate && "on"}
           aria-current={@active == :evaluate && "page"}
         >
           <.icon name="hero-viewfinder-circle" /> Evaluate
         </a>
       </div>
-      <a href="/notifications" class="an-theme an-bell" aria-label="Notifications">
+      <a href="/notifications" data-phx-link="redirect" data-phx-link-state="push" class="an-theme an-bell" aria-label="Notifications">
         <.icon name="hero-bell" />
       </a>
       <button

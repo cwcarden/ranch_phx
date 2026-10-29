@@ -46,7 +46,7 @@ defmodule RanchPhxWeb.AnimalSidebar do
     ~H"""
     <aside class="as-side" aria-label="Animals">
       <div class="as-head">
-        <a href="/" class="as-all">All animals</a>
+        <a href="/" data-phx-link="redirect" data-phx-link-state="push" class="as-all">All animals</a>
         <span class="as-count">{length(@rows)}</span>
       </div>
       <nav class="as-list">

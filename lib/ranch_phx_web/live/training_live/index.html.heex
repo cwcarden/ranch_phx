@@ -12,7 +12,7 @@
   <a
     :for={c <- @cards}
     class="tr-card tr-horse"
-    href={~p"/training/#{c.book.id}"}
+    href={~p"/training/#{c.book.id}"} data-phx-link="redirect" data-phx-link-state="push"
     id={"book-#{c.book.id}"}
   >
     <div class="tr-horse-head">

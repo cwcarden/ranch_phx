@@ -24,7 +24,7 @@ import {Socket} from "phoenix"
 import {LiveSocket} from "phoenix_live_view"
 import topbar from "../vendor/topbar"
 import {HoofMeasure} from "./hoof_measure"
-import {installDocViewer} from "./doc_viewer"
+import {installDocViewer, closeDoc} from "./doc_viewer"
 import {PhotoMarkup} from "./photo_markup"
 import {NotePad} from "./note_pad"
 
@@ -617,7 +617,11 @@ const liveSocket = new LiveSocket("/live", Socket, {
 
 // Show progress bar on live navigation and form submits
 topbar.config({barColors: {0: "#29d"}, shadowColor: "rgba(0, 0, 0, .3)"})
-window.addEventListener("phx:page-loading-start", _info => topbar.show(300))
+// Moving to another page inside the app (no full reload) closes an open document.
+window.addEventListener("phx:page-loading-start", info => {
+  topbar.show(300)
+  if (info.detail && info.detail.kind === "redirect") { try { closeDoc() } catch (e) {} }
+})
 window.addEventListener("phx:page-loading-stop", _info => topbar.hide())
 
 // connect if there are any LiveViews on the page
@@ -743,3 +747,8 @@ if (process.env.NODE_ENV === "development") {
   })
 }
 
+
+// Tapping anywhere outside an open ⋯ menu closes it.
+document.addEventListener("click", (e) => {
+  document.querySelectorAll("details.more-menu[open]").forEach((d) => { if (!d.contains(e.target)) d.open = false })
+})

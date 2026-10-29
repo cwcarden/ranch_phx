@@ -721,7 +721,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 <!-- Top bar -->
 <div class="topbar">
   <div class="topbar-left">
-    <a class="back-btn" href="/">
+    <a class="back-btn" href="/" data-phx-link="redirect" data-phx-link-state="push">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
         <polyline points="15 18 9 12 15 6"/>
       </svg>
@@ -772,7 +772,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       <span class="btn-label">Papers</span>
     </button>
     <%= if @is_superuser do %>
-      <a href="/admin/settings" class="btn btn-ghost mobile-hide" style="font-size:13px">Settings</a>
+      <a href="/admin/settings" data-phx-link="redirect" data-phx-link-state="push" class="btn btn-ghost mobile-hide" style="font-size:13px">Settings</a>
     <% end %>
     <a href="https://portal.gimelranch.com" class="btn btn-ghost mobile-hide" style="font-size:13px;display:inline-flex;align-items:center;gap:5px" title="Back to Portal">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
@@ -807,30 +807,30 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   <a :if={@animal.kind == "horse"} class="act-row" href={training_href(@animal)}>
     <.icon name="hero-academic-cap" /> Training book
   </a>
-  <a class="act-row" href={~p"/animals/#{@animal.id}/notes"}>
+  <a class="act-row" href={~p"/animals/#{@animal.id}/notes"} data-phx-link="redirect" data-phx-link-state="push">
     <.icon name="hero-pencil-square" /> Notes
   </a>
-  <a :if={@animal.kind == "horse"} class="act-row" href={~p"/animals/#{@animal.id}/hooves"}>
+  <a :if={@animal.kind == "horse"} class="act-row" href={~p"/animals/#{@animal.id}/hooves"} data-phx-link="redirect" data-phx-link-state="push">
     <.icon name="hero-camera" /> Hooves
   </a>
-  <a :if={@animal.kind == "horse"} class="act-row" href={~p"/conformation?animal=#{@animal.id}"}>
+  <a :if={@animal.kind == "horse"} class="act-row" href={~p"/conformation?animal=#{@animal.id}"} data-phx-link="redirect" data-phx-link-state="push">
     <.icon name="hero-viewfinder-circle" /> Conformation
   </a>
   <button class="act-row" phx-click={close_actions |> JS.push("open_report")}>
     <.icon name="hero-document-text" /> Report / PDF
   </button>
-  <a :if={@is_superuser} class="act-row" href={~p"/voice"}>
+  <a :if={@is_superuser} class="act-row" href={~p"/voice"} data-phx-link="redirect" data-phx-link-state="push">
     <.icon name="hero-microphone" /> Siri voice log
   </a>
-  <a class="act-row" href={~p"/notifications"}>
+  <a class="act-row" href={~p"/notifications"} data-phx-link="redirect" data-phx-link-state="push">
     <.icon name="hero-bell" /> Notifications
   </a>
   <button class="act-row" phx-click={close_actions |> JS.dispatch("ranch:toggle-theme")}>
     <.icon name="hero-moon" /> Light or dark
   </button>
   <div class="act-sep"></div>
-  <a :if={@is_superuser} class="act-row quiet" href="/admin/settings"><.icon name="hero-cog-6-tooth" /> Settings</a>
-  <a :if={@is_superuser} class="act-row quiet" href="/admin/backups"><.icon name="hero-cloud-arrow-up" /> Backups</a>
+  <a :if={@is_superuser} class="act-row quiet" href="/admin/settings" data-phx-link="redirect" data-phx-link-state="push"><.icon name="hero-cog-6-tooth" /> Settings</a>
+  <a :if={@is_superuser} class="act-row quiet" href="/admin/backups" data-phx-link="redirect" data-phx-link-state="push"><.icon name="hero-cloud-arrow-up" /> Backups</a>
   <a class="act-row quiet" href="https://portal.gimelranch.com"><.icon name="hero-home" /> Portal</a>
   <.link class="act-row quiet" href={~p"/users/log-out"} method="delete"><.icon name="hero-arrow-right-on-rectangle" /> Log out</.link>
   <button class="act-row cancel" phx-click={close_actions}>Close</button>
@@ -1073,7 +1073,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       <p :if={wt || ht} class="rx-sub gr-foot">Tap weight or height for the chart, every entry, and comparisons.</p>
     </div>
     <% hooves = if @animal.kind == "horse", do: RanchPhx.Animals.Hooves.latest(RanchPhx.Animals.Hooves.measurements(@animal.timeline_events)), else: nil %>
-    <a :if={hooves && (hooves != %{} or @is_superuser)} class="rx-card hoof-card" id="hooves" href={~p"/animals/#{@animal.id}/hooves"}>
+    <a :if={hooves && (hooves != %{} or @is_superuser)} class="rx-card hoof-card" id="hooves" href={~p"/animals/#{@animal.id}/hooves"} data-phx-link="redirect" data-phx-link-state="push">
       <div class="rx-head">
         <span class="rx-ico" style="--c:#0f766e"><.icon name="hero-camera" /></span>
         <h3>Hooves</h3>
@@ -1094,7 +1094,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       <% end %>
     </a>
     <% note = RanchPhx.Notes.latest(@animal.id) %>
-    <a :if={note || @is_superuser} class="rx-card hoof-card" id="notes-card" href={~p"/animals/#{@animal.id}/notes"}>
+    <a :if={note || @is_superuser} class="rx-card hoof-card" id="notes-card" href={~p"/animals/#{@animal.id}/notes"} data-phx-link="redirect" data-phx-link-state="push">
       <div class="rx-head">
         <span class="rx-ico" style="--c:#2563eb"><.icon name="hero-pencil-square" /></span>
         <h3>Notes</h3>
@@ -1106,7 +1106,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       </p>
     </a>
     <% conf = if @animal.kind == "horse", do: List.first(RanchPhx.Conformations.list(animal_id: @animal.id)), else: :none %>
-    <a :if={conf != :none and (conf || @is_superuser)} class="rx-card hoof-card" id="conformation-card" href={~p"/conformation?animal=#{@animal.id}"}>
+    <a :if={conf != :none and (conf || @is_superuser)} class="rx-card hoof-card" id="conformation-card" href={~p"/conformation?animal=#{@animal.id}"} data-phx-link="redirect" data-phx-link-state="push">
       <div class="rx-head">
         <span class="rx-ico" style="--c:#7c3aed"><.icon name="hero-viewfinder-circle" /></span>
         <h3>Conformation</h3>
@@ -1165,13 +1165,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
             <%= if @animal.sire do %>
               <div class="info-row">
                 <span class="info-row-label" style="color:#3b82f6;font-weight:700">Sire</span>
-                <a href={"/animals/#{@animal.sire.id}"} class="info-row-val" style="color:var(--brand);text-decoration:none;font-weight:700"><%= @animal.sire.name %></a>
+                <a href={"/animals/#{@animal.sire.id}"} data-phx-link="redirect" data-phx-link-state="push" class="info-row-val" style="color:var(--brand);text-decoration:none;font-weight:700"><%= @animal.sire.name %></a>
               </div>
             <% end %>
             <%= if @animal.dam do %>
               <div class="info-row">
                 <span class="info-row-label" style="color:#ec4899;font-weight:700">Dam</span>
-                <a href={"/animals/#{@animal.dam.id}"} class="info-row-val" style="color:var(--brand);text-decoration:none;font-weight:700"><%= @animal.dam.name %></a>
+                <a href={"/animals/#{@animal.dam.id}"} data-phx-link="redirect" data-phx-link-state="push" class="info-row-val" style="color:var(--brand);text-decoration:none;font-weight:700"><%= @animal.dam.name %></a>
               </div>
             <% end %>
           </div>
