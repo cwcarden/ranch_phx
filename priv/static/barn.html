@@ -236,6 +236,7 @@
       const tr = a.training ? a.training.sessions.map((s) => `<div class="row"><b>${esc(s.activities.filter(Boolean).join(", ") || "Session")}</b> <span class="when">· ${s.minutes ? s.minutes + " min" : ""}</span><div class="when">${fmt(s.date)}</div>${s.note ? `<p>${esc(s.note)}</p>` : ""}</div>`).join("") : ""
       return (q ? `<div class="card"><h3>Waiting to send</h3>${q}</div>` : "") +
         (tr ? `<div class="card"><h3>Training</h3>${tr}</div>` : "") +
+        ((a.pages || []).length ? `<div class="card"><h3>Handwritten</h3><div class="photos">${a.pages.map((p) => `<figure><img src="${esc(p.page)}" alt="" loading="lazy" style="aspect-ratio:3/4;object-position:top;background:#fffdf7"><figcaption><b>${esc(p.title || p.topic)}</b> · ${fmt(p.date)}${p.text ? `<br>${esc(p.text.slice(0, 120))}` : ""}</figcaption></figure>`).join("")}</div></div>` : "") +
         `<div class="card"><h3>Notes</h3>${log || `<div class="when">No notes yet.</div>`}</div>`
     }
 

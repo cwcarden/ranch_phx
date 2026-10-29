@@ -142,6 +142,17 @@ defmodule RanchPhx.Barn do
                 }
               end)
           },
+      pages:
+        Enum.map(
+          RanchPhx.Notes.list(a.id),
+          &%{
+            date: &1.date,
+            topic: RanchPhx.Notes.topic_label(&1.topic),
+            title: &1.title,
+            text: &1.text,
+            page: &1.page_url
+          }
+        ),
       documents:
         Enum.map(
           a.documents,
@@ -154,7 +165,8 @@ defmodule RanchPhx.Barn do
   def media_urls(%{animals: animals}) do
     animals
     |> Enum.flat_map(fn a ->
-      [a.cover | Enum.map(a.photos, & &1.url)] ++ Enum.map(Map.values(a.hooves), & &1.photo)
+      [a.cover | Enum.map(a.photos, & &1.url)] ++
+        Enum.map(Map.values(a.hooves), & &1.photo) ++ Enum.map(a.pages, & &1.page)
     end)
     |> Enum.filter(&(is_binary(&1) and String.starts_with?(&1, "/uploads/")))
     |> Enum.uniq()

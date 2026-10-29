@@ -1,4 +1,4 @@
-const SHELL_CACHE = "ranch-shell-v12";
+const SHELL_CACHE = "ranch-shell-v13";
 const DOCS_CACHE = "ranch-docs-v1";
 // Photos kept for Barn mode (see barn.js); refreshed while online.
 const BARN_MEDIA = "ranch-barn-media-v1";

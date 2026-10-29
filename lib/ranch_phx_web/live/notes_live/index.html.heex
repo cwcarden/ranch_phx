@@ -1,0 +1,194 @@
+<.styles />
+<.app_nav active={:animals} detail flash={@flash} />
+<.topbar back={~p"/animals/#{@animal.id}"} back_label={@animal.name} title="Notes" />
+
+<style>
+  .nl-new { width: 100%; min-height: 56px; font-size: 18px; background: #0f766e; border-color: #0f766e; }
+  .nl-filter { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 12px 0 4px; }
+  .nl-filter input[type=search] { flex: 1; min-width: 180px; min-height: 46px; border-radius: 12px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text); padding: 0 12px; font-size: 16px; }
+  .nl-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .nl-chip { min-height: 40px; padding: 0 14px; border-radius: 20px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text); font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+  .nl-chip.on { background: var(--brand); border-color: var(--brand); color: #fff; }
+  .nl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-top: 12px; }
+  .nl-card { text-align: left; padding: 0; border-radius: 14px; border: 1px solid var(--border); background: var(--surface); overflow: hidden; cursor: pointer; color: var(--text); font: inherit; display: flex; flex-direction: column; }
+  .nl-card img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; object-position: top; background: #fffdf7; border-bottom: 1px solid var(--border); display: block; }
+  .nl-card .nl-body { padding: 10px 12px; }
+  .nl-card b { font-size: 15px; display: block; }
+  .nl-when { font-size: 12px; color: var(--text3); margin-top: 2px; }
+  .nl-snip { font-size: 13px; color: var(--text2); margin-top: 4px; line-height: 1.35; }
+  .nl-topic { display: inline-block; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--brand); }
+  .nl-view { position: fixed; inset: 0; z-index: 300; background: var(--surface2); display: flex; flex-direction: column; }
+  .nl-view-bar { display: flex; align-items: center; gap: 8px; padding: max(12px, env(safe-area-inset-top)) 12px 12px; background: var(--surface); border-bottom: 1px solid var(--border); }
+  .nl-view-bar b { flex: 1; min-width: 0; font-size: 17px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .nl-view-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 14px 14px 30px; }
+  .nl-cols { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 16px; max-width: 1200px; margin: 0 auto; }
+  @media (max-width: 820px) and (orientation: portrait), (max-width: 700px) { .nl-cols { grid-template-columns: 1fr; } }
+  .nl-page { width: 100%; border-radius: 6px; box-shadow: 0 2px 14px rgba(0,0,0,.15); background: #fffdf7; display: block; }
+  .nl-text { white-space: pre-line; font-size: 16px; line-height: 1.5; }
+  .nl-text-edit textarea { width: 100%; min-height: 260px; border-radius: 12px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text); padding: 12px; font-size: 16px; font-family: inherit; line-height: 1.5; }
+</style>
+
+<div class="tr-wrap">
+  <div
+    id="note-pad"
+    phx-hook="NotePad"
+    phx-update="ignore"
+    data-topics={Jason.encode!(Enum.map(RanchPhx.Notes.topics(), &Tuple.to_list/1))}
+  >
+  </div>
+  <form id="note-upload-form" phx-change="upload_change" style="display:none">
+    <.live_file_input upload={@uploads.page} />
+  </form>
+
+  <button
+    :if={@is_superuser}
+    class="tr-btn tr-btn-primary nl-new"
+    id="new-page"
+    phx-click={
+      JS.dispatch("ranch:note-open",
+        to: "#note-pad",
+        detail: %{topic: if(@topic == "all", do: "general", else: @topic)}
+      )
+    }
+  >
+    <.icon name="hero-pencil-square" /> New page
+  </button>
+
+  <form class="nl-filter" phx-change="filter" id="note-filter" onsubmit="return false">
+    <input
+      type="search"
+      name="q"
+      value={@q}
+      placeholder="Search your notes"
+      phx-debounce="300"
+      autocomplete="off"
+    />
+  </form>
+  <div class="nl-chips" id="note-topics">
+    <button class={["nl-chip", @topic == "all" && "on"]} phx-click="filter" phx-value-topic="all">
+      All
+    </button>
+    <button
+      :for={{t, label} <- RanchPhx.Notes.topics()}
+      class={["nl-chip", @topic == t && "on"]}
+      phx-click="filter"
+      phx-value-topic={t}
+    >
+      {label}
+    </button>
+  </div>
+
+  <p :if={@notes == []} class="tr-muted" style="margin-top:16px">
+    {if @q != "" or @topic != "all",
+      do: "No notes match.",
+      else: "No notes yet. Tap New page and write with the Pencil."}
+  </p>
+
+  <div class="nl-grid" id="notes">
+    <button
+      :for={n <- @notes}
+      class="nl-card"
+      phx-click="view"
+      phx-value-id={n.id}
+      id={"note-#{n.id}"}
+    >
+      <img :if={n.page_url} src={n.page_url} alt="" loading="lazy" />
+      <div class="nl-body">
+        <span class="nl-topic">{RanchPhx.Notes.topic_label(n.topic)}</span>
+        <b>{n.title || Calendar.strftime(n.date, "%b %-d, %Y")}</b>
+        <div :if={n.title} class="nl-when">{Calendar.strftime(n.date, "%b %-d, %Y")}</div>
+        <div :if={n.text} class="nl-snip">{snippet(n.text)}</div>
+        <div :if={!n.text and MapSet.member?(@reading, n.id)} class="nl-snip">
+          Reading the handwriting…
+        </div>
+      </div>
+    </button>
+  </div>
+</div>
+
+<div :if={@viewing} class="nl-view" id="note-view">
+  <% n = @viewing %>
+  <div class="nl-view-bar">
+    <b>
+      {n.title || RanchPhx.Notes.topic_label(n.topic)} · {Calendar.strftime(n.date, "%b %-d, %Y")}
+    </b>
+    <button
+      :if={@is_superuser}
+      class="tr-btn tr-btn-small"
+      id="write-more"
+      phx-click={
+        JS.push("close_view")
+        |> JS.dispatch("ranch:note-open",
+          to: "#note-pad",
+          detail: %{
+            id: n.id,
+            strokes_url: n.strokes_url,
+            date: Date.to_iso8601(n.date),
+            topic: n.topic,
+            title: n.title
+          }
+        )
+      }
+    >
+      <.icon name="hero-pencil" /> Write
+    </button>
+    <button
+      class="tr-btn tr-btn-small"
+      phx-click={
+        JS.dispatch("ranch:share",
+          detail: %{from: "#note-text", title: n.title || "#{@animal.name} note"}
+        )
+      }
+    >
+      <.icon name="hero-share" />
+    </button>
+    <button
+      :if={@is_superuser}
+      class="tr-btn tr-btn-small"
+      phx-click="delete"
+      phx-value-id={n.id}
+      data-confirm="Delete this page?"
+    >
+      Delete
+    </button>
+    <button class="tr-btn tr-btn-small" phx-click="close_view" id="close-note">Done</button>
+  </div>
+  <div class="nl-view-body">
+    <div class="nl-cols">
+      <img :if={n.page_url} class="nl-page" src={n.page_url} alt="Handwritten page" />
+      <div class="tr-card">
+        <h2 style="margin:0 0 6px">As text</h2>
+        <%= cond do %>
+          <% @editing_text -> %>
+            <form class="nl-text-edit" phx-submit="save_text" id="text-form">
+              <textarea name="text">{n.text}</textarea>
+              <div style="display:flex;gap:8px;margin-top:8px">
+                <button class="tr-btn tr-btn-primary" type="submit">Save</button>
+                <button class="tr-btn" type="button" phx-click="view" phx-value-id={n.id}>
+                  Cancel
+                </button>
+              </div>
+            </form>
+          <% MapSet.member?(@reading, n.id) -> %>
+            <p class="tr-muted">The AI is reading your handwriting…</p>
+          <% n.text && n.text != "" -> %>
+            <div class="nl-text" id="note-text">{n.text}</div>
+          <% true -> %>
+            <p class="tr-muted" id="note-text">No text yet.</p>
+        <% end %>
+        <div
+          :if={!@editing_text and @is_superuser}
+          style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap"
+        >
+          <button class="tr-btn" phx-click="edit_text" id="edit-text">
+            {if n.text && n.text != "", do: "Fix the text", else: "Type it in"}
+          </button>
+          <button :if={@ai_on} class="tr-btn" phx-click="read_again">Read it again</button>
+        </div>
+        <p class="tr-muted" style="font-size:13px;margin-top:10px">
+          The text is what search looks through. Fix anything the AI misread.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
