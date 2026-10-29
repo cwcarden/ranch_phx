@@ -44,7 +44,18 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 5px; }
 .status-confirmed { background: #22c55e; }
 .status-pending { background: #f59e0b; }
-@media (max-width: 600px) { .add-form { grid-template-columns: 1fr; } }
+.link-url { width: 100%; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 8px; background: var(--surface2); color: var(--text); font-size: 13px; }
+.link-card { margin-bottom: 20px; border-color: var(--brand) !important; }
+@media (max-width: 600px) {
+  .add-form { grid-template-columns: 1fr; }
+  .signed-in { display: none; }
+  .user-table thead { display: none; }
+  .user-table, .user-table tbody, .user-table tr, .user-table td { display: block; width: 100%; }
+  .user-table tr { padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .user-table tr:last-child { border-bottom: none; }
+  .user-table td { padding: 4px 0; border: none !important; text-align: left !important; }
+  .user-table td > div[style*="justify-content:flex-end"] { justify-content: flex-start !important; margin-top: 6px; }
+}
 </style>
 
 <.app_nav />
@@ -60,7 +71,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     <span style="color:var(--border)">|</span>
     <span class="topbar-title">User Management</span>
   </div>
-  <div style="font-size:13px;color:var(--text2)">
+  <div class="signed-in" style="font-size:13px;color:var(--text2)">
     Signed in as <strong><%= @current_scope.user.email %></strong>
   </div>
 </div>
@@ -68,6 +79,20 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 <div class="page-wrap">
   <div class="section-title">Users</div>
   <p class="section-sub">Manage who has access to Gimel Ranch records. Superusers have full access; viewers are read-only.</p>
+
+  <div :if={@link} class="card link-card" id="sign-in-link">
+    <h3>Sign-in link for {@link.email}</h3>
+    <p class="section-sub" style="margin:6px 0 10px">
+      Send this by text or email. It works once, for 15 minutes. After signing in they can set a password under ⋯ → Password.
+    </p>
+    <input id="sign-in-url" class="link-url" readonly value={@link.url} />
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+      <button type="button" class="btn btn-primary btn-sm" phx-click={JS.dispatch("ranch:copy", detail: %{from: "#sign-in-url"})}>Copy</button>
+      <button type="button" class="btn btn-ghost btn-sm" phx-click={JS.dispatch("ranch:share", detail: %{from: "#sign-in-url-text", title: "Gimel Ranch sign-in"})}>Share</button>
+      <button type="button" class="btn btn-ghost btn-sm" phx-click="close_link">Done</button>
+    </div>
+    <span id="sign-in-url-text" hidden>{@link.url}</span>
+  </div>
 
   <!-- User list -->
   <div class="card">
@@ -114,9 +139,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
                       Make Viewer
                     </button>
                   <% end %>
+                  <button class="btn btn-ghost btn-sm" phx-click="sign_in_link" phx-value-id={user.id}>
+                    Sign-in link
+                  </button>
                   <button class="btn btn-danger btn-sm"
                           phx-click="delete_user" phx-value-id={user.id}
-                          onclick="return confirm('Remove this user? They will lose access immediately.')">
+                          data-confirm="Remove this user? They will lose access immediately.">
                     Remove
                   </button>
                 </div>
@@ -132,7 +160,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   <div class="card">
     <h3>Add a user</h3>
     <p style="font-size:13px;color:var(--text2);margin-bottom:16px">
-      Enter their email address and assign a role. They'll log in by requesting a magic link at <strong>/users/log-in</strong>.
+      Enter their email address and assign a role. Then tap <strong>Sign-in link</strong> next to them and text it to them.
     </p>
     <form phx-submit="add_user">
       <div class="add-form">

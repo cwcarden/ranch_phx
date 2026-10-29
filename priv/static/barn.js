@@ -63,8 +63,9 @@
   // ── Keeping the copy ──
   async function refresh() {
     const body = await api("/api/barn/snapshot")
-    await set("snapshot", body.snapshot)
+    // Who can add (meta) goes in first: a copy is never left without it.
     await set("meta", {refreshed: Date.now(), can_edit: body.can_edit})
+    await set("snapshot", body.snapshot)
     emit()
     keepPhotos(body.media || []).catch(() => {})
     return body.snapshot

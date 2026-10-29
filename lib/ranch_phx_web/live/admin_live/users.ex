@@ -9,7 +9,8 @@ defmodule RanchPhxWeb.AdminLive.Users do
      |> assign(:users, Accounts.list_users())
      |> assign(:new_email, "")
      |> assign(:new_role, "viewer")
-     |> assign(:error, nil)}
+     |> assign(:error, nil)
+     |> assign(:link, nil)}
   end
 
   @impl true
@@ -31,6 +32,19 @@ defmodule RanchPhxWeb.AdminLive.Users do
         {:noreply, assign(socket, :error, msg)}
     end
   end
+
+  def handle_event("sign_in_link", %{"id" => id}, socket) do
+    user = Enum.find(socket.assigns.users, &("#{&1.id}" == id))
+
+    if user do
+      token = Accounts.login_link_token(user)
+      {:noreply, assign(socket, :link, %{id: user.id, email: user.email, url: link_url(socket, token)})}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("close_link", _, socket), do: {:noreply, assign(socket, :link, nil)}
 
   def handle_event("set_role", %{"id" => id, "role" => role}, socket) do
     user = Accounts.get_user!(String.to_integer(id))
@@ -57,6 +71,19 @@ defmodule RanchPhxWeb.AdminLive.Users do
        socket
        |> assign(:users, Accounts.list_users())
        |> put_flash(:info, "User removed.")}
+    end
+  end
+
+  # The address the app was opened at (ranch.gimelranch.com), not a configured host.
+  defp link_url(socket, token) do
+    case socket.host_uri do
+      %URI{host: host} = uri when is_binary(host) ->
+        local? = host in ["localhost", "127.0.0.1"]
+        uri = if local?, do: uri, else: %URI{uri | scheme: "https", port: 443}
+        URI.to_string(%URI{uri | path: "/users/log-in/#{token}", query: nil, fragment: nil})
+
+      _ ->
+        url(~p"/users/log-in/#{token}")
     end
   end
 end

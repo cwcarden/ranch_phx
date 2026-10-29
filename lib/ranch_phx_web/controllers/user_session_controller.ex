@@ -33,6 +33,14 @@ defmodule RanchPhxWeb.UserSessionController do
   end
 
   # email + password login
+  # No password typed: say so, rather than a puzzling "invalid" (this server sends no
+  # email, so new people sign in with a link from Users in the ⋯ menu).
+  def create(conn, %{"user" => %{"email" => _, "password" => ""} = user_params}) do
+    conn
+    |> put_flash(:error, "Type your password. New here? Ask for a sign-in link.")
+    |> render(:new, form: Phoenix.Component.to_form(user_params, as: "user"))
+  end
+
   def create(conn, %{"user" => %{"email" => email, "password" => password} = user_params}) do
     if user = Accounts.get_user_by_email_and_password(email, password) do
       conn

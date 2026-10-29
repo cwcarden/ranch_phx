@@ -35,34 +35,20 @@ defmodule RanchPhxWeb.Layouts do
 
   def app(assigns) do
     ~H"""
-    <header class="navbar px-4 sm:px-6 lg:px-8">
-      <div class="flex-1">
-        <a href="/" class="flex-1 flex w-fit items-center gap-2">
-          <img src={~p"/images/logo.svg"} width="36" />
-          <span class="text-sm font-semibold">v{Application.spec(:phoenix, :vsn)}</span>
-        </a>
-      </div>
-      <div class="flex-none">
-        <ul class="flex flex-column px-1 space-x-4 items-center">
-          <li>
-            <a href="https://phoenixframework.org/" class="btn btn-ghost">Website</a>
-          </li>
-          <li>
-            <a href="https://github.com/phoenixframework/phoenix" class="btn btn-ghost">GitHub</a>
-          </li>
-          <li>
-            <.theme_toggle />
-          </li>
-          <li>
-            <a href="https://hexdocs.pm/phoenix/overview.html" class="btn btn-primary">
-              Get Started <span aria-hidden="true">&rarr;</span>
-            </a>
-          </li>
-        </ul>
-      </div>
+    <style>
+      .ranch-auth { --color-primary: #8b5cf6; --color-primary-content: #fff; }
+      .ranch-auth-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; padding-top: calc(10px + env(safe-area-inset-top)); border-bottom: 1px solid var(--color-base-300); }
+      .ranch-auth-home { display: inline-flex; align-items: center; gap: 8px; color: #8b5cf6; font-size: 17px; font-weight: 800; text-decoration: none; }
+      .ranch-auth-mark { width: 28px; height: 28px; background: currentColor; -webkit-mask: url(/images/brand-mark.png) center / contain no-repeat; mask: url(/images/brand-mark.png) center / contain no-repeat; }
+    </style>
+    <header class="ranch-auth ranch-auth-bar">
+      <a href="/" class="ranch-auth-home">
+        <span class="ranch-auth-mark" aria-hidden="true"></span> Gimel Ranch
+      </a>
+      <a :if={@current_scope} href="/" class="btn btn-ghost btn-sm">Back to the app</a>
     </header>
 
-    <main class="px-4 py-20 sm:px-6 lg:px-8">
+    <main class="ranch-auth px-4 py-10 sm:px-6 lg:px-8">
       <div class="mx-auto max-w-2xl space-y-4">
         {render_slot(@inner_block)}
       </div>

@@ -758,3 +758,23 @@ document.addEventListener("error", (e) => {
   const img = e.target
   if (img && img.tagName === "IMG" && !img.dataset.keepBroken) img.classList.add("img-missing")
 }, true)
+
+// Page switches inside the app ride the open connection. With no signal (or a
+// connection that's silently gone), fall back to a normal page load so the
+// offline copy and Barn mode take over instead of a spinner that never ends.
+;(() => {
+  let pending = null
+  document.addEventListener("click", (e) => {
+    const a = e.target.closest && e.target.closest("a[data-phx-link]")
+    if (!a || e.defaultPrevented || e.metaKey || e.ctrlKey || e.shiftKey || e.button > 0) return
+    const href = a.href
+    if (navigator.onLine === false) {
+      e.preventDefault(); e.stopImmediatePropagation()
+      window.location.href = href
+      return
+    }
+    clearTimeout(pending)
+    pending = setTimeout(() => { window.location.href = href }, 6000)
+  }, true)
+  window.addEventListener("phx:page-loading-stop", () => { clearTimeout(pending); pending = null })
+})()

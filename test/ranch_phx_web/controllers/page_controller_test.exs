@@ -1,8 +1,8 @@
 defmodule RanchPhxWeb.PageControllerTest do
   use RanchPhxWeb.ConnCase
 
-  test "GET /", %{conn: conn} do
+  test "GET / sends visitors who aren't signed in to the sign-in page", %{conn: conn} do
     conn = get(conn, ~p"/")
-    assert html_response(conn, 200) =~ "Peace of mind from prototype to production"
+    assert redirected_to(conn) == ~p"/users/log-in"
   end
 end
