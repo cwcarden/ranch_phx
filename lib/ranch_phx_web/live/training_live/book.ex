@@ -105,8 +105,9 @@ defmodule RanchPhxWeb.TrainingLive.Book do
 
       {:error, changeset} ->
         errors =
-          Enum.map(changeset.errors, fn {field, {msg, _}} ->
-            "#{Phoenix.Naming.humanize(field)} #{msg}"
+          Enum.map(changeset.errors, fn
+            {:activities, {"pick at least one", _}} -> "Pick at least one activity."
+            {field, {msg, _}} -> "#{Phoenix.Naming.humanize(field)} #{msg}"
           end)
 
         {:noreply, socket |> assign(:params, params) |> assign(:errors, errors)}

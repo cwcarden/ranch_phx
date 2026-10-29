@@ -6,6 +6,10 @@ defmodule RanchPhxWeb.AnimalReportController do
   def show(conn, %{"id" => id} = params) do
     animal = Animals.get_animal_with_pedigree!(id)
 
+    # A bare link (no choices) shows everything.
+    any? = Enum.any?(~w(profile photos pedigree timeline records expenses documents weight hooves), &(params[&1] == "1"))
+    params = if any?, do: params, else: Map.merge(params, Map.new(~w(profile photos pedigree timeline records expenses documents weight hooves), &{&1, "1"}))
+
     sections = %{
       profile:   params["profile"] == "1",
       photos:    params["photos"] == "1",
@@ -97,7 +101,7 @@ defmodule RanchPhxWeb.AnimalReportController do
         expense_grand_total: expense_grand_total,
         date_from: date_from,
         date_to: date_to,
-        generated_at: DateTime.utc_now(),
+        generated_at: RanchPhx.LocalTime.now(),
         report_title: report_title(animal, params["kind"]),
         kind: params["kind"],
         hooves: hooves,
