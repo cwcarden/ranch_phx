@@ -339,6 +339,6 @@ defmodule RanchPhx.Animals do
   defp filter_search(query, nil), do: query
   defp filter_search(query, ""), do: query
   defp filter_search(query, q) do
-    where(query, [a], ilike(a.name, ^"%#{q}%") or ilike(a.registration_number, ^"%#{q}%"))
+    where(query, [a], ilike(a.name, ^"%#{q}%") or ilike(a.barn_name, ^"%#{q}%") or ilike(a.registration_number, ^"%#{q}%"))
   end
 end

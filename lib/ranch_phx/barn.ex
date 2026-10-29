@@ -50,7 +50,7 @@ defmodule RanchPhx.Barn do
 
     %{
       id: a.id,
-      name: a.name,
+      name: RanchPhx.Animals.Animal.display_name(a),
       kind: a.kind,
       sex: a.sex,
       breed: a.breed,

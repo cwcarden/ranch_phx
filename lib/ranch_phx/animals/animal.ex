@@ -4,6 +4,8 @@ defmodule RanchPhx.Animals.Animal do
 
   schema "animals" do
     field :name,                :string
+    # What he's called around the barn ("Asher" for Gimels Soldier Cat): shown first, and what Siri listens for.
+    field :barn_name,           :string
     field :kind,                :string   # horse | cattle | dog
     field :sex,                 :string
     field :status,              :string, default: "active"
@@ -52,10 +54,21 @@ defmodule RanchPhx.Animals.Animal do
   @statuses ~w(active retired sold deceased)
   @required ~w(name kind)a
 
+  @doc "The name to show first: the barn name when there is one, else the registered name."
+  def display_name(%{barn_name: b} = a) when is_binary(b) and b != "", do: String.trim(b) |> then(&if(&1 == "", do: a.name, else: &1))
+  def display_name(%{name: name}), do: name
+
+  @doc "The registered name, when it's shown under a different barn name; else nil."
+  def registered_name(%{barn_name: b, name: name}) when is_binary(b) and b != "" do
+    if String.trim(b) in ["", name], do: nil, else: name
+  end
+
+  def registered_name(_), do: nil
+
   def changeset(animal, attrs) do
     animal
     |> cast(attrs, [
-      :name, :kind, :sex, :status, :owned,
+      :name, :barn_name, :kind, :sex, :status, :owned,
       :registration_number, :tattoo, :freeze_brand, :microchip, :dna_id,
       :breed, :color, :markings, :height_hh, :weight_lbs,
       :birth_date, :death_date,

@@ -41,7 +41,8 @@ defmodule RanchPhx.VoiceNotes do
   end
 
   @doc """
-  Animals named in `text`: by full name, or by first name when only one animal has it.
+  Animals named in `text`: by full name, barn name ("Asher"), or by first name when
+  only one animal has it.
   Active animals win over retired, sold or deceased ones with the same name.
   """
   def match_animals(text, animals) do
@@ -55,7 +56,7 @@ defmodule RanchPhx.VoiceNotes do
 
     animals
     |> Enum.filter(fn a ->
-      has?.(a.name) or
+      has?.(a.name) or (is_binary(Map.get(a, :barn_name)) and has?.(a.barn_name)) or
         (firsts[first_name(a)] == 1 and String.length(first_name(a)) >= 3 and has?.(first_name(a)))
     end)
     |> prefer_active()

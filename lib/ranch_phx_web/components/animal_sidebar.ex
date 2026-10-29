@@ -59,11 +59,11 @@ defmodule RanchPhxWeb.AnimalSidebar do
         >
           <span class="as-pic">
             <img :if={a.cover_photo_url} src={a.cover_photo_url} alt="" loading="lazy" />
-            <span :if={!a.cover_photo_url}>{String.first(a.name || "?")}</span>
+            <span :if={!a.cover_photo_url}>{String.first(RanchPhx.Animals.Animal.display_name(a) || "?")}</span>
           </span>
           <span class="as-main">
             <b>
-              {a.name}<.icon :if={a.is_favorite} name="hero-star-solid" class="as-fav" />
+              {RanchPhx.Animals.Animal.display_name(a)}<.icon :if={a.is_favorite} name="hero-star-solid" class="as-fav" />
             </b>
             <small :if={!alert}>
               {[
