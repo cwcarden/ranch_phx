@@ -543,7 +543,9 @@ export const HoofMeasure = {
   refresh() {
     const st = this.step()
     const n = st ? this.points[st.key].length : 0
-    if (st) {
+    if (this.drag && this.drag.label) {
+      this.say(this.drag.label)
+    } else if (st) {
       this.say(`<i style="color:${st.trace ? "#e2e8f0" : st.color}">${st.label}${st.n > 1 && n ? " · 2nd dot" : ""}:</i> ${st.say}`)
     } else {
       this.say("Drag any dot to fine-tune, then Save.")
@@ -884,25 +886,79 @@ export const HoofMeasure = {
       this.draw()
       return
     }
-    let best = null, bestD = e.pointerType === "pen" ? 22 : 34
     // While a line still needs dots, a tap adds one (the wall's second dot often sits
-    // right on the ground's toe dot). Once every line is in, a touch grabs the nearest dot.
-    for (const s of current ? [] : this.steps.filter((x) => !x.trace)) {
-      this.points[s.key].forEach((p, i) => {
-        const q = this.toScreen(p)
-        const d = Math.hypot(q.x - at.x, q.y - at.y)
-        if (d < bestD) { best = {key: s.key, i}; bestD = d }
-      })
+    // right on the ground's toe dot). Once every line is in, a touch grabs a dot. While an
+    // optional step (the poll, the pastern) waits, dragging a dot still moves it, and a
+    // plain tap on it places the optional dot there instead.
+    const pickable = !current || current.optional
+    const radius = e.pointerType === "pen" ? 22 : 34
+    const cands = []
+    if (pickable) {
+      for (const s of this.steps.filter((x) => !x.trace)) {
+        this.points[s.key].forEach((p, i) => {
+          const q = this.toScreen(p)
+          const d = Math.hypot(q.x - at.x, q.y - at.y)
+          if (d < radius) cands.push({key: s.key, i, d})
+        })
+      }
+      cands.sort((a, b) => a.d - b.d)
     }
+    let best = null
+    if (cands.length) {
+      // Dots on top of each other: tapping the same spot again picks the next one under it.
+      const last = this.lastPick
+      if (last && cands.length > 1 && Date.now() - last.t < 5000 && Math.hypot(last.at.x - at.x, last.at.y - at.y) < 28) {
+        const k = cands.findIndex((c) => c.key === last.key && c.i === last.i)
+        best = cands[(k + 1) % cands.length]
+      } else {
+        best = cands[0]
+      }
+    }
+    // Conformation: the withers and croup drop lines can be grabbed anywhere along them.
+    if (!best && pickable && this.mode === "body") best = this.dropLineAt(at, radius)
+    let added = false
     if (!best) {
       const s = current
       if (!s) return
       this.points[s.key].push(this.toImage(at.x, at.y))
       best = {key: s.key, i: this.points[s.key].length - 1}
+      added = true
     }
-    this.drag = {...best, at, id: e.pointerId}
+    // The dot moves by however far you drag, rather than jumping under the Pencil tip.
+    const p = this.points[best.key][best.i], ip = this.toImage(at.x, at.y)
+    this.drag = {key: best.key, i: best.i, at, id: e.pointerId, off: added ? {x: 0, y: 0} : {x: p.x - ip.x, y: p.y - ip.y}}
+    this.lastPick = {key: best.key, i: best.i, at, t: Date.now()}
+    if (!added && current) this.drag.pending = {key: current.key, pt: ip}
+    if (!added) {
+      const st = this.steps.find((x) => x.key === best.key)
+      this.drag.label = `<i style="color:${st.color}">Moving: ${st.label}${st.n > 1 ? (best.i ? " (2nd dot)" : " (1st dot)") : ""}</i>` +
+        (cands.length > 1 ? " · Another dot is under this one. Tap here again to move that one instead." : "")
+      this.drag.multi = cands.length > 1
+    }
     this.canvas.setPointerCapture(e.pointerId)
     this.refresh()
+  },
+
+  // The dashed line from the withers (or croup) down to the ground: grabbing it moves its dot.
+  dropLineAt(at, radius) {
+    const g = this.points.ground
+    if (!g || g.length < 2) return null
+    const G0 = this.toScreen(g[0]), G1 = this.toScreen(g[1])
+    const gx = G1.x - G0.x, gy = G1.y - G0.y, gl = gx * gx + gy * gy
+    if (!gl) return null
+    let best = null, bestD = radius
+    for (const key of ["withers", "croup"]) {
+      const pt = this.points[key] && this.points[key][0]
+      if (!pt) continue
+      const A = this.toScreen(pt)
+      const t = ((A.x - G0.x) * gx + (A.y - G0.y) * gy) / gl
+      const B = {x: G0.x + t * gx, y: G0.y + t * gy}
+      const vx = B.x - A.x, vy = B.y - A.y, vl = vx * vx + vy * vy || 1
+      const u = Math.max(0, Math.min(1, ((at.x - A.x) * vx + (at.y - A.y) * vy) / vl))
+      const d = Math.hypot(A.x + u * vx - at.x, A.y + u * vy - at.y)
+      if (d < bestD) { bestD = d; best = {key, i: 0} }
+    }
+    return best
   },
 
   move(e) {
@@ -921,8 +977,16 @@ export const HoofMeasure = {
     if (!this.drag || e.pointerId !== this.drag.id) return
     e.preventDefault()
     const at = this.pos(e)
+    if (this.drag.pending) {
+      if (Math.hypot(at.x - this.drag.at.x, at.y - this.drag.at.y) < 8) return
+      this.drag.pending = null
+    }
     this.drag.at = at
-    this.points[this.drag.key][this.drag.i] = this.toImage(at.x, at.y)
+    const ip = this.toImage(at.x, at.y), off = this.drag.off || {x: 0, y: 0}
+    this.points[this.drag.key][this.drag.i] = {
+      x: Math.max(0, Math.min(this.img.naturalWidth, ip.x + off.x)),
+      y: Math.max(0, Math.min(this.img.naturalHeight, ip.y + off.y)),
+    }
     this.refresh()
   },
 
@@ -940,8 +1004,16 @@ export const HoofMeasure = {
       return
     }
     if (!this.drag || e.pointerId !== this.drag.id) return
+    const multi = this.drag.multi && !this.drag.pending, pending = this.drag.pending
     this.drag = null
+    if (pending) {
+      this.lastPick = null
+      this.points[pending.key].push(pending.pt)
+      this.refresh()
+      return
+    }
     this.refresh()
+    if (multi) this.say("Another dot was under that one. Tap the same spot again to move it instead.")
   },
 
   // ── Saving ──
