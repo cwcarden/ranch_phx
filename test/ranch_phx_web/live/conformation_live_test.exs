@@ -15,13 +15,20 @@ defmodule RanchPhxWeb.ConformationLiveTest do
     {:ok, horse} =
       Animals.create_animal(%{name: "Asher", kind: "horse", birth_date: ~D[2025-05-10]})
 
+    # Remove only the photos these tests saved (the folder also holds real ones in dev).
+    before = MapSet.new(File.ls!(conf_dir()))
+
     on_exit(fn ->
-      File.rm_rf(
-        Path.join(Application.app_dir(:ranch_phx, "priv/static"), "uploads/conformation")
-      )
+      for f <- File.ls!(conf_dir()), f not in before, do: File.rm(Path.join(conf_dir(), f))
     end)
 
     %{calls: calls, horse: horse}
+  end
+
+  defp conf_dir do
+    dir = Path.join(Application.app_dir(:ranch_phx, "priv/static"), "uploads/conformation")
+    File.mkdir_p!(dir)
+    dir
   end
 
   defp stub_claude(calls, reply) do
