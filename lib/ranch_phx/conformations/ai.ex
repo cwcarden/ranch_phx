@@ -18,9 +18,14 @@ defmodule RanchPhx.Conformations.AI do
   width (x, 0 = left) and height (y, 0 = top).
 
   - withers: the top of the withers, the highest point of the back above the shoulders.
-  - shoulder: two points. First the top of the shoulder blade (a few inches below and
-    behind the top of the withers, at the upper end of the blade's ridge), then the point
-    of the shoulder (the bony front of the chest, where the neck meets the front leg).
+  - shoulder: two points along the shoulder blade (scapula). First its top: the upper
+    end of the blade, a hand or so below and slightly behind the top of the withers,
+    on the line of the blade's spine (the ridge you can see or feel running down the
+    shoulder). Then the point of the shoulder: the bony point at the front of the chest,
+    in front of and above the elbow, where the front of the neck meets the chest. The
+    top point is always behind (toward the tail) the point of the shoulder, so the line
+    slopes down and forward. On most horses it's 45–60° to the ground; if yours comes out
+    steeper than about 65° or flatter than 35°, look again before answering.
   - hip: the point of the hip, the bony knob at the front top of the hindquarters.
   - buttock: the point of the buttock, the rearmost point of the hindquarters.
   - croup: the highest point of the croup (top of the rump).
@@ -29,7 +34,7 @@ defmodule RanchPhx.Conformations.AI do
     hooves.
 
   If the horse isn't standing broadside, a landmark is hidden, or the photo is too
-  unclear, say so in note and leave that point null. Never invent a horse. Always answer
+  unclear, say so in note (one or two short sentences) and leave that point null. Never invent a horse. Always answer
   by calling place_landmarks.
   """
 
