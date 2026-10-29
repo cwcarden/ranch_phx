@@ -53,7 +53,7 @@
         <div :if={@is_superuser} class="vl-actions">
           <a
             class="tr-btn tr-btn-primary"
-            href={~p"/animals/#{note.animal_id}?voice=#{note.id}"}
+            href={~p"/animals/#{note.animal_id}?voice=#{note.id}"} data-phx-link="redirect" data-phx-link-state="push"
             id={"review-#{note.id}"}
           >
             <.icon name="hero-check-circle" /> Check &amp; save

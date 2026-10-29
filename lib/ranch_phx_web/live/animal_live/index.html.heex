@@ -44,7 +44,9 @@ html { background: var(--surface2); }
 .search-wrap input { width: 100%; padding: 9px 12px 9px 36px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font-size: 14px; outline: none; }
 .search-wrap input:focus { border-color: var(--brand); }
 .search-wrap svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text3); }
-.filter-pill { display: flex; gap: 6px; }
+.filter-pill { display: flex; gap: 6px; max-width: 100%; overflow-x: auto; scrollbar-width: none; -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 18px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 18px), transparent); padding-right: 18px; }
+.filter-pill::-webkit-scrollbar { display: none; }
+.filter-pill .filter-btn { flex: none; }
 .filter-btn { padding: 7px 14px; border-radius: 20px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text2); font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s; }
 .filter-btn.active, .filter-btn:hover { border-color: var(--brand); color: var(--brand); background: var(--brand-soft); }
 
@@ -127,9 +129,22 @@ a.ci-row:active { background: var(--surface2); }
   .card-name { font-size: 17px; }
   .ci-row { min-height: 40px; font-size: 14px; }
 }
-@media (pointer: coarse) and (max-width: 1100px) {
+@media (max-width: 1100px) {
   .mobile-hide { display: none !important; }
 }
+
+/* The ⋯ menu: only where the top bar's own links are hidden */
+.more-menu { display: none; position: relative; }
+.more-menu > summary { list-style: none; cursor: pointer; }
+.more-menu > summary::-webkit-details-marker { display: none; }
+.more-btn [class^="hero-"] { width: 24px; height: 24px; }
+.more-pop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 200; min-width: 220px; padding: 6px; border-radius: 14px; background: var(--surface); border: 1px solid var(--border); box-shadow: 0 12px 32px rgba(0,0,0,.18); display: flex; flex-direction: column; }
+.more-pop a { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border-radius: 10px; color: var(--text); font-size: 15px; font-weight: 600; text-decoration: none; }
+.more-pop a:hover { background: var(--surface2); }
+.more-pop a [class^="hero-"] { width: 20px; height: 20px; color: var(--text2); }
+.more-who { padding: 8px 12px 6px; font-size: 12px; color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 1100px) { .more-bar { display: block; } }
+@media (max-width: 600px) { .more-bar { display: none; } .more-phone { display: block; } .search-wrap { min-width: 0; } .filter-bar { flex-wrap: wrap; } .filter-bar > .search-wrap { flex: 1 1 0; } .more-phone { flex: none; } .more-phone .more-btn { padding: 0 8px; } .filter-bar > .filter-pill { flex: 1 0 100%; } }
 
 /* Phones: no second bar under the main one; a round + button adds an animal */
 .add-fab { display: none; }
@@ -169,13 +184,14 @@ a.ci-row:active { background: var(--surface2); }
     </a>
     <span class="mobile-hide" style="font-size:13px;color:var(--text2);padding:0 4px"><%= @current_scope.user.email %></span>
     <%= if @is_superuser do %>
-      <a href="/admin/users" class="btn btn-ghost mobile-hide" style="font-size:13px">Users</a>
-      <a href="/admin/settings" class="btn btn-ghost mobile-hide" style="font-size:13px">Settings</a>
-      <a href="/admin/backups" class="btn btn-ghost mobile-hide" style="font-size:13px">Backups</a>
+      <a href="/admin/users" data-phx-link="redirect" data-phx-link-state="push" class="btn btn-ghost mobile-hide" style="font-size:13px">Users</a>
+      <a href="/admin/settings" data-phx-link="redirect" data-phx-link-state="push" class="btn btn-ghost mobile-hide" style="font-size:13px">Settings</a>
+      <a href="/admin/backups" data-phx-link="redirect" data-phx-link-state="push" class="btn btn-ghost mobile-hide" style="font-size:13px">Backups</a>
     <% end %>
     <.link href={~p"/users/log-out"} method="delete" class="btn btn-ghost mobile-hide" style="font-size:13px">Log out</.link>
+    <.more_menu where="bar" email={@current_scope.user.email} su={@is_superuser} />
     <%= if @is_superuser do %>
-      <a href={~p"/voice"} class="btn btn-ghost voice-btn" id="voice-link" aria-label="Siri voice log" title="Siri voice log">
+      <a href={~p"/voice"} data-phx-link="redirect" data-phx-link-state="push" class="btn btn-ghost voice-btn" id="voice-link" aria-label="Siri voice log" title="Siri voice log">
         <.icon name="hero-microphone" />
         <span :if={@voice_count > 0} class="voice-dot">{@voice_count}</span>
       </a>
@@ -203,6 +219,7 @@ a.ci-row:active { background: var(--surface2); }
         <input type="text" name="search" value={@search} placeholder="Search by name or registration…" phx-debounce="300"/>
       </form>
     </div>
+    <.more_menu where="phone" email={@current_scope.user.email} su={@is_superuser} />
     <div class="filter-pill">
       <button class={"filter-btn #{if @filter_kind == "", do: "active"}"} phx-click="filter" phx-value-kind="">All</button>
       <button class={"filter-btn #{if @filter_kind == "horse", do: "active"}"} phx-click="filter" phx-value-kind="horse">Horses</button>
@@ -232,7 +249,7 @@ a.ci-row:active { background: var(--surface2); }
     <div class="animal-grid">
       <%= for animal <- @animals do %>
         <div class="animal-card">
-          <a class="animal-card-link" href={"/animals/#{animal.id}"}>
+          <a class="animal-card-link" href={"/animals/#{animal.id}"} data-phx-link="redirect" data-phx-link-state="push">
             <div class="card-photo">
               <%= if animal.cover_photo_url do %>
                 <img src={animal.cover_photo_url} alt={animal.name}/>
@@ -275,7 +292,7 @@ a.ci-row:active { background: var(--surface2); }
               <% ins = @insights[animal.id] %>
               <% spark = ins && ins.weight && Insights.sparkline(ins.weight.points, 72, 22) %>
               <div :if={ins && (ins.weight || ins.height || ins.course || ins.care || ins.training)} class="card-insights">
-                <a :if={ins.weight} class="ci-row" href={"/animals/#{animal.id}?data=weight"} aria-label={"#{animal.name}'s weight history"}>
+                <a :if={ins.weight} class="ci-row" href={"/animals/#{animal.id}?data=weight"} data-phx-link="redirect" data-phx-link-state="push" aria-label={"#{animal.name}'s weight history"}>
                   <.icon name="hero-scale" class="ci-ico" />
                   <span class="ci-main">
                     <b>{ins.weight.latest} lb</b><span
@@ -287,7 +304,7 @@ a.ci-row:active { background: var(--surface2); }
                     <polyline points={spark} fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                   </svg>
                 </a>
-                <a :if={ins.height} class="ci-row ht" href={"/animals/#{animal.id}?data=height"} aria-label={"#{animal.name}'s height history"}>
+                <a :if={ins.height} class="ci-row ht" href={"/animals/#{animal.id}?data=height"} data-phx-link="redirect" data-phx-link-state="push" aria-label={"#{animal.name}'s height history"}>
                   <.icon name="hero-arrows-up-down" class="ci-ico" />
                   <span class="ci-main">
                     <b>{Insights.hands(ins.height.latest)} hh</b><span
@@ -300,7 +317,7 @@ a.ci-row:active { background: var(--surface2); }
                     <polyline points={hspark} fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                   </svg>
                 </a>
-                <a :if={ins.course} class={["ci-row course", ins.course.today_i && !ins.course.today_given? && "now"]} href={"/animals/#{animal.id}"} id={"card-course-#{animal.id}"}>
+                <a :if={ins.course} class={["ci-row course", ins.course.today_i && !ins.course.today_given? && "now"]} href={"/animals/#{animal.id}"} data-phx-link="redirect" data-phx-link-state="push" id={"card-course-#{animal.id}"}>
                   <.icon name="hero-check-badge" class="ci-ico" />
                   <span class="ci-main">
                     {ins.course.record.title}
@@ -308,7 +325,7 @@ a.ci-row:active { background: var(--surface2); }
                     <b :if={!(ins.course.today_i && !ins.course.today_given?)}>{ins.course.given} of {ins.course.total} given</b>
                   </span>
                 </a>
-                <a :if={ins.care} class={["ci-row", if(ins.care.days < 0, do: "over", else: "soon")]} href={"/animals/#{animal.id}?tab=records"}>
+                <a :if={ins.care} class={["ci-row", if(ins.care.days < 0, do: "over", else: "soon")]} href={"/animals/#{animal.id}?tab=records"} data-phx-link="redirect" data-phx-link-state="push">
                   <.icon name="hero-bell-alert" class="ci-ico" />
                   <span class="ci-main">{ins.care.record.title} <b>{due_short(ins.care.days)}</b></span>
                 </a>
@@ -429,10 +446,3 @@ a.ci-row:active { background: var(--surface2); }
   </div>
 <% end %>
 
-<script>
-function toggleTheme() {
-  const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-  document.documentElement.setAttribute('data-theme', next);
-  localStorage.setItem('phx:theme', next);
-}
-</script>

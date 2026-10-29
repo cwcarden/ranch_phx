@@ -212,7 +212,7 @@
           <p :if={@book.horse.owner} class="tr-muted">Owner: {@book.horse.owner}</p>
           <a
             :if={@book.horse.animal_id}
-            href={~p"/animals/#{@book.horse.animal_id}"}
+            href={~p"/animals/#{@book.horse.animal_id}"} data-phx-link="redirect" data-phx-link-state="push"
             class="tr-muted"
             style="color:var(--brand)"
           >
@@ -671,7 +671,7 @@
         <button :if={@editing} class="tr-link-btn" phx-click="cancel_edit">Cancel</button>
         <a
           :if={!@editing}
-          href={~p"/training/lists?back=#{@book.id}"}
+          href={~p"/training/lists?back=#{@book.id}"} data-phx-link="redirect" data-phx-link-state="push"
           class="tr-link-btn"
           style="text-decoration:none;display:inline-flex;align-items:center;gap:4px"
           aria-label="Customize lists"

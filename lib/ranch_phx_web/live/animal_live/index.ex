@@ -145,4 +145,36 @@ defmodule RanchPhxWeb.AnimalLive.Index do
   def due_short(days) when days < 0, do: "#{-days}d overdue"
   def due_short(0), do: "due today"
   def due_short(days), do: "due in #{days}d"
+
+  # Everything the top bar hides on phones and iPads (Users, Settings, Backups, Portal,
+  # Log out), in one menu.
+  attr :where, :string, required: true
+  attr :email, :string, required: true
+  attr :su, :boolean, default: false
+
+  def more_menu(assigns) do
+    ~H"""
+    <details class={["more-menu", "more-#{@where}"]} id={"more-menu-#{@where}"} phx-update="ignore">
+      <summary class="btn btn-ghost more-btn" aria-label="More: settings, users, backups, log out">
+        <.icon name="hero-ellipsis-horizontal-circle" />
+      </summary>
+      <div class="more-pop">
+        <div class="more-who">{@email}</div>
+        <a :if={@su} href="/admin/users" data-phx-link="redirect" data-phx-link-state="push">
+          <.icon name="hero-users" /> Users
+        </a>
+        <a :if={@su} href="/admin/settings" data-phx-link="redirect" data-phx-link-state="push">
+          <.icon name="hero-cog-6-tooth" /> Settings
+        </a>
+        <a :if={@su} href="/admin/backups" data-phx-link="redirect" data-phx-link-state="push">
+          <.icon name="hero-cloud-arrow-up" /> Backups
+        </a>
+        <a href="https://portal.gimelranch.com"><.icon name="hero-home" /> Portal</a>
+        <.link href={~p"/users/log-out"} method="delete">
+          <.icon name="hero-arrow-right-start-on-rectangle" /> Log out
+        </.link>
+      </div>
+    </details>
+    """
+  end
 end
