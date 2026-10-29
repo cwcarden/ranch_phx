@@ -143,7 +143,7 @@ defmodule RanchPhxWeb.HoofLive.Index do
       {:noreply,
        socket
        |> assign(notes_loading: true, notes: nil)
-       |> start_async(:notes, fn -> HoofAI.notes(animal, ms, Date.utc_today()) end)}
+       |> start_async(:notes, fn -> HoofAI.notes(animal, ms, RanchPhx.LocalTime.today()) end)}
     end
   end
 
@@ -328,8 +328,8 @@ defmodule RanchPhxWeb.HoofLive.Index do
 
   defp past_date(value) do
     case Date.from_iso8601(to_string(value)) do
-      {:ok, d} -> if Date.compare(d, Date.utc_today()) == :gt, do: Date.utc_today(), else: d
-      _ -> Date.utc_today()
+      {:ok, d} -> if Date.compare(d, RanchPhx.LocalTime.today()) == :gt, do: RanchPhx.LocalTime.today(), else: d
+      _ -> RanchPhx.LocalTime.today()
     end
   end
 

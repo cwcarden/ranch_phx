@@ -53,7 +53,7 @@ defmodule RanchPhxWeb.AnimalLive.Show do
      |> assign(:record_types_by_cat, Animals.list_record_types_by_category())
      |> assign(:type_label_map, Animals.record_type_label_map())
      |> assign(:categories, Record.categories())
-     |> assign(:exp_year, Integer.to_string(Date.utc_today().year))
+     |> assign(:exp_year, Integer.to_string(RanchPhx.LocalTime.today().year))
      |> assign(:exp_search, "")
      |> assign(:report_modal, false)
      |> assign(:doc_search, "")
@@ -456,7 +456,7 @@ defmodule RanchPhxWeb.AnimalLive.Show do
   def handle_event("start_visit", _params, socket) do
     %{presets: presets, quick_selected: sel} = socket.assigns
     picked = for id <- sel, p = Enum.find(presets, &(&1.id == id)), do: p
-    today = Date.utc_today()
+    today = RanchPhx.LocalTime.today()
 
     visit = %{
       "date" => Date.to_iso8601(today),
@@ -588,7 +588,7 @@ defmodule RanchPhxWeb.AnimalLive.Show do
         {:noreply, socket}
 
       r ->
-        today = Date.utc_today()
+        today = RanchPhx.LocalTime.today()
         gap = r.next_due_date && Date.diff(r.next_due_date, r.date)
 
         draft = %Record{
@@ -620,7 +620,7 @@ defmodule RanchPhxWeb.AnimalLive.Show do
     {:noreply,
      assign(socket, :measure, %{
        "metric" => metric,
-       "date" => Date.to_iso8601(Date.utc_today()),
+       "date" => Date.to_iso8601(RanchPhx.LocalTime.today()),
        "value" => "",
        "method" => method,
        "note" => "",
@@ -709,7 +709,7 @@ defmodule RanchPhxWeb.AnimalLive.Show do
     with true <- su?,
          %{} = r <- Enum.find(animal.records, &(to_string(&1.id) == id)),
          {:ok, d} <- Date.from_iso8601(date),
-         false <- Date.compare(d, Date.utc_today()) == :gt do
+         false <- Date.compare(d, RanchPhx.LocalTime.today()) == :gt do
       done = r.course_done || []
       done = if d in done, do: List.delete(done, d), else: Enum.sort([d | done], Date)
       {:ok, _} = Animals.update_record(r, %{course_done: done})
@@ -800,7 +800,7 @@ defmodule RanchPhxWeb.AnimalLive.Show do
      socket
      |> assign(:summary_loading, true)
      |> start_async(:rec_summary, fn ->
-       RecordsAI.summarize(animal, animal.records, animal.documents, Date.utc_today())
+       RecordsAI.summarize(animal, animal.records, animal.documents, RanchPhx.LocalTime.today())
      end)}
   end
 
@@ -1218,7 +1218,7 @@ defmodule RanchPhxWeb.AnimalLive.Show do
           "url" => url,
           "caption" => if(caption in [nil, ""], do: "Marked up", else: caption),
           "tags" => ["markup"],
-          "taken_at" => Date.utc_today()
+          "taken_at" => RanchPhx.LocalTime.today()
         })
 
       {:noreply,
@@ -1266,7 +1266,7 @@ defmodule RanchPhxWeb.AnimalLive.Show do
             animal,
             file.binary,
             file.mime,
-            Date.utc_today(),
+            RanchPhx.LocalTime.today(),
             types,
             presets
           ), attach}
@@ -1486,7 +1486,7 @@ defmodule RanchPhxWeb.AnimalLive.Show do
     socket
     |> assign(rec_voice_text: text, rec_voice_loading: true, rec_voice_error: nil)
     |> start_async(:rec_draft, fn ->
-      RecordsAI.draft(animal, text, Date.utc_today(), types, presets)
+      RecordsAI.draft(animal, text, RanchPhx.LocalTime.today(), types, presets)
     end)
   end
 

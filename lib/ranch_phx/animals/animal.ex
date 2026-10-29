@@ -81,7 +81,7 @@ defmodule RanchPhx.Animals.Animal do
 
   def age_label(%__MODULE__{birth_date: nil}), do: nil
   def age_label(%__MODULE__{birth_date: dob}) do
-    today = Date.utc_today()
+    today = RanchPhx.LocalTime.today()
     years = today.year - dob.year - (if {today.month, today.day} < {dob.month, dob.day}, do: 1, else: 0)
     cond do
       years >= 2 -> "#{years} yrs"

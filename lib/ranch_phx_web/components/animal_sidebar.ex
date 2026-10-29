@@ -12,7 +12,7 @@ defmodule RanchPhxWeb.AnimalSidebar do
   @doc "The sidebar rows: `%{animal, alert: {:over | :soon | :now, text} | nil}`."
   def rows do
     animals = Animals.list_animals()
-    today = Date.utc_today()
+    today = RanchPhx.LocalTime.today()
     inputs = animals |> Enum.map(& &1.id) |> Animals.insight_inputs()
 
     animals

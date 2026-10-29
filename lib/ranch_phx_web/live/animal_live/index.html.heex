@@ -108,10 +108,10 @@ a.ci-row:active { background: var(--surface2); }
 .dlg-wrap { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; padding: 16px; }
 .dlg-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.5); backdrop-filter: blur(4px); }
 .dlg { position: relative; z-index: 1; background: var(--surface); border-radius: var(--radius); width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; box-shadow: 0 24px 80px rgba(0,0,0,.25); }
-.dlg-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px 16px; border-bottom: 1px solid var(--border); }
+.dlg-header { position: sticky; top: 0; z-index: 2; background: var(--surface); display: flex; align-items: center; justify-content: space-between; padding: 20px 24px 16px; border-bottom: 1px solid var(--border); }
 .dlg-header h2 { font-size: 17px; font-weight: 700; }
 .dlg-body { padding: 20px 24px; }
-.dlg-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; }
+.dlg-footer { position: sticky; bottom: 0; z-index: 2; background: var(--surface); padding: 16px 24px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; }
 .form-field { margin-bottom: 16px; }
 .form-field label { display: block; font-size: 13px; font-weight: 600; color: var(--text2); margin-bottom: 5px; }
 .form-field input, .form-field select, .form-field textarea { width: 100%; padding: 9px 12px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); background: var(--surface2); color: var(--text); font-size: 14px; outline: none; }
@@ -333,7 +333,7 @@ a.ci-row:active { background: var(--surface2); }
                   <.icon name="hero-academic-cap" class="ci-ico" />
                   <span class="ci-main">
                     <%= if ins.training.last do %>
-                      Trained {days_ago(ins.training.last, Date.utc_today())} · {ins.training.week.sessions} this week
+                      Trained {days_ago(ins.training.last, RanchPhx.LocalTime.today())} · {ins.training.week.sessions} this week
                     <% else %>
                       In training · no sessions yet
                     <% end %>

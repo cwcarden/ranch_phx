@@ -34,7 +34,7 @@ defmodule RanchPhx.Training do
   def today(offset) when is_integer(offset),
     do: DateTime.utc_now() |> DateTime.add(-offset * 60) |> DateTime.to_date()
 
-  def today(_), do: Date.utc_today()
+  def today(_), do: RanchPhx.LocalTime.today()
 
   @doc "Whole months between foaling and `date`."
   def age_in_months(nil, _date), do: nil
