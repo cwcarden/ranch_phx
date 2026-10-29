@@ -9,6 +9,7 @@ defmodule RanchPhxWeb.VoiceAskTest do
 
   setup do
     Req.Test.set_req_test_to_shared()
+    RanchPhx.RanchAsk.Memory.forget_all()
 
     {:ok, cat} =
       Animals.create_animal(%{name: "Gimels Soldier Cat", barn_name: "Asher", kind: "horse"})
@@ -81,5 +82,34 @@ defmodule RanchPhxWeb.VoiceAskTest do
     resp = siri(key, %{text: "When is Asher's Coggins due?"}) |> json_response(200)
     assert resp["ok"] == false
     assert resp["message"] =~ "couldn't get an answer"
+  end
+
+  test "a follow-up keeps the thread and the horse, and both land in Ask the TrAIner", %{user: user, cat: cat} do
+    key = Accounts.create_api_token(user)
+    test_pid = self()
+
+    Req.Test.stub(Coach, fn conn ->
+      {:ok, body, conn} = Plug.Conn.read_body(conn)
+      send(test_pid, {:asked, Jason.decode!(body)})
+      Req.Test.json(conn, %{"content" => [%{"type" => "text", "text" => "Try short sessions with a lead rope tap."}]})
+    end)
+
+    siri(key, %{text: "Asher keeps pulling his left hind away, what should I try?"}) |> json_response(200)
+    assert_received {:asked, %{"messages" => [_first]}}
+
+    siri(key, %{text: "What if that doesn't work?"}) |> json_response(200)
+    assert_received {:asked, %{"messages" => [q1, a1, q2]}}
+    assert q1["content"] =~ "pulling his left hind"
+    assert a1["role"] == "assistant"
+    assert q2["content"] =~ "Follow-up: What if that doesn't work?"
+    # Still about Asher, though he wasn't named the second time.
+    assert q2["content"] =~ "Round pen, left lead sticky"
+
+    book = Training.active_book_for_animal(cat.id)
+    [root | _] = msgs = Training.Coach.recent_threads(book.id)
+    assert length(msgs) == 1
+    assert root.checked == ["Asked through Siri"]
+    assert [_, follow] = Training.Coach.thread_messages(book.id, root.id)
+    assert follow.question == "What if that doesn't work?"
   end
 end
