@@ -13,6 +13,7 @@ defmodule RanchPhx.Application do
       {DNSCluster, query: Application.get_env(:ranch_phx, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: RanchPhx.PubSub},
       {Finch, name: RanchPhx.Finch},
+      RanchPhx.RanchAsk.Memory,
       RanchPhxWeb.Endpoint
     ] ++ if(Application.get_env(:ranch_phx, :push_reminders, true), do: [RanchPhx.Push.Reminders], else: []) ++
       if(Application.get_env(:ranch_phx, :nightly_backup, true), do: [RanchPhx.Backup.Nightly], else: [])

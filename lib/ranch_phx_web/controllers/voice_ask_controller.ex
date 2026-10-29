@@ -13,8 +13,8 @@ defmodule RanchPhxWeb.VoiceAskController do
   alias RanchPhxWeb.SiriAuth
 
   def create(conn, params) do
-    with {:ok, _user} <- SiriAuth.authorize(conn),
-         {:ok, text} <- RanchAsk.answer(params["text"]) do
+    with {:ok, user} <- SiriAuth.authorize(conn),
+         {:ok, text} <- RanchAsk.answer(params["text"], RanchPhx.LocalTime.today(), user.id) do
       json(conn, %{ok: true, message: text})
     else
       {:error, :unauthorized} ->
