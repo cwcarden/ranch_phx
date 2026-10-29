@@ -123,4 +123,22 @@ defmodule RanchPhxWeb.VoiceLogTest do
     assert [%{animal_id: id}] = VoiceNotes.list_pending()
     assert id == cat.id
   end
+
+  test "saving one note's records leaves the others waiting", %{conn: conn, user: user, asher: asher} do
+    key = Accounts.create_api_token(user)
+    for t <- ["Dewormed Asher", "Trimmed Asher", "Asher weighed 800"], do: siri(key, %{text: t})
+    [n3, n2, n1] = VoiceNotes.list_pending()
+
+    Req.Test.stub(Coach, fn conn ->
+      Req.Test.json(conn, %{"content" => [%{"type" => "tool_use", "id" => "t1", "name" => "add_records",
+        "input" => %{"records" => [%{"record_type" => "deworming", "title" => "Deworming", "date" => nil,
+          "next_due_date" => nil, "person" => nil, "location" => nil, "cost" => nil, "description" => nil}]}}]})
+    end)
+
+    {:ok, view, _} = live(conn, ~p"/animals/#{asher.id}?voice=#{n1.id}")
+    render_async(view)
+    view |> form("#visit-form") |> render_submit()
+
+    assert VoiceNotes.list_pending() |> Enum.map(& &1.id) |> Enum.sort() == Enum.sort([n2.id, n3.id])
+  end
 end
