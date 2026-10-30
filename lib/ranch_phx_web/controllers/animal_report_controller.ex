@@ -112,6 +112,87 @@ defmodule RanchPhxWeb.AnimalReportController do
       )
   end
 
+  # ── Health record ──────────────────────────────────────────────────────────
+  # One page you can hand a vet, buyer or show office: who the animal is, what's
+  # current or due, and every vaccine, test, dewormer, medication and vet visit.
+
+  @health_groups [
+    {"Vaccinations", ~w(vaccination)},
+    {"Coggins & lab tests", ~w(coggins lab_test)},
+    {"Health certificates", ~w(health_cert travel_health_cert)},
+    {"Deworming", ~w(deworming)},
+    {"Medications & treatments", ~w(medication)},
+    {"Vet exams, dental, injuries & surgery", ~w(vet_visit dental_float injury surgery)}
+  ]
+
+  def health(conn, %{"id" => id} = params) do
+    alias RanchPhx.Animals.CareSchedule
+    animal = Animals.get_animal_with_pedigree!(id)
+    today = RanchPhx.LocalTime.today()
+    from = parse_date(params["from"])
+    to = parse_date(params["to"])
+    grouped_types = @health_groups |> Enum.flat_map(&elem(&1, 1))
+
+    health =
+      Enum.filter(animal.records, fn r ->
+        (r.category == "health" or r.record_type in grouped_types) and
+          Date.compare(r.date, today) != :gt and date_in_range?(r.date, from, to)
+      end)
+
+    groups =
+      (@health_groups ++ [{"Other health", nil}])
+      |> Enum.map(fn
+        {title, nil} -> {title, Enum.reject(health, &(&1.record_type in grouped_types))}
+        {title, types} -> {title, Enum.filter(health, &(&1.record_type in types))}
+      end)
+      |> Enum.map(fn {t, rows} -> {t, Enum.sort_by(rows, &{Date.to_gregorian_days(&1.date), &1.id}, :desc)} end)
+      |> Enum.reject(fn {_, rows} -> rows == [] end)
+
+    status =
+      animal.records
+      |> Enum.filter(&(&1.category in ["health", "hoof_care"] or &1.record_type in grouped_types))
+      |> CareSchedule.status(today)
+      |> Enum.sort_by(& &1.days)
+
+    hoof =
+      animal.records
+      |> Enum.filter(&(&1.category == "hoof_care" and Date.compare(&1.date, today) != :gt and date_in_range?(&1.date, from, to)))
+      |> Enum.sort_by(&{Date.to_gregorian_days(&1.date), &1.id}, :desc)
+      |> Enum.take(8)
+
+    docs =
+      animal.documents
+      |> Enum.filter(fn d ->
+        t = String.downcase("#{d.doc_type} #{d.title}")
+        String.contains?(t, ["coggins", "health", "vet", "vaccin", "cvi", "lab", "rabies"])
+      end)
+      |> Enum.sort_by(&(&1.doc_date || ~D[1900-01-01]), {:desc, Date})
+
+    weights =
+      animal.timeline_events
+      |> RanchPhx.Animals.Insights.weights(animal.records)
+      |> Enum.sort_by(&elem(&1, 0), {:desc, Date})
+      |> Enum.take(6)
+
+    conn
+    |> put_root_layout(false)
+    |> put_layout(html: {RanchPhxWeb.Layouts, :print})
+    |> render(:health,
+      animal: animal,
+      today: today,
+      date_from: from,
+      date_to: to,
+      generated_at: RanchPhx.LocalTime.now(),
+      report_title: "#{RanchPhx.Animals.Animal.display_name(animal)} health record",
+      groups: groups,
+      status: status,
+      hoof: hoof,
+      docs: docs,
+      weights: weights,
+      type_label_map: Animals.record_type_label_map()
+    )
+  end
+
   # The PDF is named "<title> report.pdf", so this one saves as "Asher farrier report.pdf".
   defp report_title(animal, "farrier"), do: "#{animal.name} farrier"
   defp report_title(animal, _), do: animal.name
