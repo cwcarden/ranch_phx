@@ -7,7 +7,7 @@ defmodule RanchPhx.Repo.Migrations.AddVoiceCuesToStages do
   # The set: cluck = walk on (later, trot), kiss = lope (once riding),
   # whoa = stop (said once), back = back up, easy = slow down / settle,
   # stand = stay put, over = move away, foot = pick up a hoof,
-  # load = into the trailer, whistle = come to me, good = right answer.
+  # step up = into the trailer, whistle = come to me, good = right answer.
   #
   # Items are only appended when missing, so this is safe to run again.
   # (focus is varchar(255)[], so every item stays under 255 characters.)
@@ -17,11 +17,13 @@ defmodule RanchPhx.Repo.Migrations.AddVoiceCuesToStages do
   @items [
     {"Yearling groundwork & desensitizing",
      [
-       "Voice cues: cluck = walk on, whoa = stop (say it once), back = back up, stand = stay put, over = move away, foot = pick up a hoof, load = trailer, whistle = come, good = right answer"
+       "Voice cues: cluck = walk on, whoa = stop (say it once), back = back up, easy = slow down or settle (longe line, or when he's quick or worried), whistle = come to me",
+       "Handling cues: stand = stay put (tying, saddling, mounting, ground tying), over = move his hip or shoulder away, foot = pick up a hoof (say it right before you ask), step up = into the trailer",
+       "Say \"good\" softly the moment he gets something right, together with the release"
      ]},
     {"Saddle & pad",
      [
-       "Voice cues every session: cluck to walk on, whoa once, back, stand while saddling, over, foot, load, whistle to come, good when he gets it right",
+       "Voice cues every session: cluck to walk on, whoa once, back, easy on the longe line, stand while saddling, over, foot, step up, whistle to come, good when he gets it right",
        "Say each cue once, the same sound every time: low and calm for whoa and easy, bright for cluck"
      ]},
     {"Saddling & ground driving",
