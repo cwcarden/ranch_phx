@@ -16,8 +16,8 @@ defmodule RanchPhxWeb.AnimalSidebarTest do
         "animal_id" => ruby.id,
         "record_type" => "vaccination",
         "title" => "Rabies vaccine",
-        "date" => Date.add(Date.utc_today(), -370),
-        "next_due_date" => Date.add(Date.utc_today(), -5)
+        "date" => Date.add(RanchPhx.LocalTime.today(), -370),
+        "next_due_date" => Date.add(RanchPhx.LocalTime.today(), -5)
       })
 
     {:ok, view, _} = live(conn, ~p"/animals/#{asher.id}?tab=records")

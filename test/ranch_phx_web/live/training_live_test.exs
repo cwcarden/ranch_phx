@@ -81,7 +81,7 @@ defmodule RanchPhxWeb.TrainingLiveTest do
   test "log a session for an earlier day, then edit it", %{conn: conn, animal: animal} do
     book = start_book(animal)
     {:ok, view, _html} = live(conn, ~p"/training/#{book.id}")
-    earlier = Date.utc_today() |> Date.add(-3) |> Date.to_iso8601()
+    earlier = RanchPhx.LocalTime.today() |> Date.add(-3) |> Date.to_iso8601()
     picks = %{activity_ids: [act("groundwork").id], date_typed: earlier}
 
     view
@@ -110,7 +110,7 @@ defmodule RanchPhxWeb.TrainingLiveTest do
       Training.save_session(%{
         "book_id" => book.id,
         "client_id" => Ecto.UUID.generate(),
-        "date" => Date.to_iso8601(Date.utc_today()),
+        "date" => Date.to_iso8601(RanchPhx.LocalTime.today()),
         "minutes" => "20",
         "activities" => [%{"activity_id" => act("flag").id}]
       })
@@ -151,7 +151,7 @@ defmodule RanchPhxWeb.TrainingLiveTest do
        %{conn: conn, animal: animal} do
     book = start_book(animal)
     feet = "#{act("feet").id}"
-    today = Date.to_iso8601(Date.utc_today())
+    today = Date.to_iso8601(RanchPhx.LocalTime.today())
     static = Application.app_dir(:ranch_phx, "priv/static")
     {:ok, view, _html} = live(conn, ~p"/training/#{book.id}")
 
@@ -252,7 +252,7 @@ defmodule RanchPhxWeb.TrainingLiveTest do
     {:ok, book} =
       Training.start_book(%{"animal_id" => animal.id}, %{
         "program_id" => program.id,
-        "started_on" => Date.utc_today()
+        "started_on" => RanchPhx.LocalTime.today()
       })
 
     book

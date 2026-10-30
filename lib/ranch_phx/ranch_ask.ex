@@ -42,9 +42,16 @@ defmodule RanchPhx.RanchAsk do
 
     cond do
       question == "" -> {:error, :empty}
+      RanchPhx.VoiceQuick.brief_request?(question) -> {:ok, brief(question, today)}
       not Coach.configured?() -> {:error, :no_api_key}
       true -> ask(question, today, user_id)
     end
+  end
+
+  # "What's due today?": straight from the records, no AI needed.
+  defp brief(question, today) do
+    animals = Repo.all(from a in Animal, where: a.owned == true, order_by: a.name)
+    RanchPhx.VoiceQuick.brief(today, VoiceNotes.match_animals(question, animals))
   end
 
   def error_message(:empty), do: "I didn't catch a question."

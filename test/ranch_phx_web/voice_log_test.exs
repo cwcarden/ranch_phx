@@ -126,7 +126,7 @@ defmodule RanchPhxWeb.VoiceLogTest do
 
   test "saving one note's records leaves the others waiting", %{conn: conn, user: user, asher: asher} do
     key = Accounts.create_api_token(user)
-    for t <- ["Dewormed Asher", "Trimmed Asher", "Asher weighed 800"], do: siri(key, %{text: t})
+    for t <- ["Dewormed Asher", "Trimmed Asher", "Floated Asher's teeth"], do: siri(key, %{text: t})
     [n3, n2, n1] = VoiceNotes.list_pending()
 
     Req.Test.stub(Coach, fn conn ->

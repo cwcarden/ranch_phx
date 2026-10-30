@@ -23,7 +23,7 @@ defmodule RanchPhxWeb.HoofLiveTest do
       "foot" => "RF",
       "toe" => 52.0,
       "pastern" => 49.0,
-      "date" => Date.to_iso8601(Date.utc_today()),
+      "date" => Date.to_iso8601(RanchPhx.LocalTime.today()),
       "note" => "4 weeks since trim",
       "points" => %{"ground" => [%{"x" => 700, "y" => 1000}, %{"x" => 1100, "y" => 1000}]}
     })
@@ -63,7 +63,7 @@ defmodule RanchPhxWeb.HoofLiveTest do
       "foot" => "LF",
       "toe" => 53.5,
       "pastern" => nil,
-      "date" => Date.to_iso8601(Date.utc_today()),
+      "date" => Date.to_iso8601(RanchPhx.LocalTime.today()),
       "note" => "",
       "points" => %{"ground" => [], "wall" => [], "pastern" => []}
     })
@@ -97,7 +97,7 @@ defmodule RanchPhxWeb.HoofLiveTest do
       "heels" => 1.5,
       "frog" => 2.0,
       "ratio" => 0.98,
-      "date" => Date.to_iso8601(Date.utc_today()),
+      "date" => Date.to_iso8601(RanchPhx.LocalTime.today()),
       "note" => "",
       "points" => %{"toe" => [%{"x" => 500, "y" => 100}]}
     })
@@ -129,7 +129,7 @@ defmodule RanchPhxWeb.HoofLiveTest do
       "foot" => "RF",
       "toe" => 46.0,
       "pastern" => 53.0,
-      "date" => Date.to_iso8601(Date.utc_today()),
+      "date" => Date.to_iso8601(RanchPhx.LocalTime.today()),
       "points" => %{}
     })
 
@@ -224,7 +224,7 @@ defmodule RanchPhxWeb.HoofLiveTest do
       "toe" => 52.0,
       "pastern" => 51.0,
       "with_original" => true,
-      "date" => Date.to_iso8601(Date.utc_today()),
+      "date" => Date.to_iso8601(RanchPhx.LocalTime.today()),
       "points" => %{}
     })
 

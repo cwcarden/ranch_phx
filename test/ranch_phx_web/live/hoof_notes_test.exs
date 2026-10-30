@@ -18,7 +18,7 @@ defmodule RanchPhxWeb.HoofNotesTest do
           "animal_id" => animal.id,
           "event_type" => "hoof",
           "title" => "#{foot}",
-          "event_date" => Date.utc_today(),
+          "event_date" => RanchPhx.LocalTime.today(),
           "metadata" => %{"foot" => foot, "toe" => toe, "pastern" => pastern}
         })
     end

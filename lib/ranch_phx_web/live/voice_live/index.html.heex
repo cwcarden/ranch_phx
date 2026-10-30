@@ -225,6 +225,28 @@
     </ol>
   </div>
 
+  <div :if={@is_superuser} class="tr-card" id="today-setup" style="margin-top:14px">
+    <h2 class="vl-h"><.icon name="hero-sun" /> "Hey Siri, Ranch today"</h2>
+    <p class="tr-muted" style="margin:0 0 10px">
+      A spoken rundown of what's due: today's doses, anything overdue or due in the next two weeks,
+      and when each horse was last worked. Asking your question Shortcut "What's due today?" does the same.
+    </p>
+    <ol class="vl-steps">
+      <li>In Shortcuts, press and hold your question Shortcut → <b>Duplicate</b>. Rename the copy <b>Ranch today</b>.</li>
+      <li>
+        Delete its <b>Ask for Input</b> (or Dictate Text) card. Add a <b>Text</b> action at the top and type <code>today</code> in it.
+      </li>
+      <li>
+        In <b>Get Contents of URL</b>, set the <code>text</code> field to the blue <b>Text</b> bubble.
+        The URL stays the one ending in <code>/api/voice-ask</code>.
+      </li>
+    </ol>
+    <p class="tr-muted" style="margin:10px 0 0">
+      <b>Saved right away, no checking:</b> "Gave Asher his Panacur" checks off today's dose of a running
+      treatment, and "Asher weighed 805" logs his weight. Siri says what it did. Everything else waits here.
+    </p>
+  </div>
+
   <div :if={@is_superuser} class="tr-card" id="ask-setup" style="margin-top:14px">
     <h2 class="vl-h"><.icon name="hero-chat-bubble-left-right" /> Ask questions: "Hey Siri, Ranch ask"</h2>
     <p class="tr-muted" style="margin:0 0 10px">
