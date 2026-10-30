@@ -53,6 +53,7 @@ defmodule RanchPhxWeb.Router do
     end
 
     get "/animals/:id/report", AnimalReportController, :show
+    get "/animals/:id/health", AnimalReportController, :health
   end
 
   # The Siri Shortcut posts here with its own key (no browser login).

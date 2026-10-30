@@ -1,0 +1,165 @@
+<% name = Animal.display_name(@animal) %>
+<% reg = Animal.registered_name(@animal) %>
+<% fmt = fn d -> d && Calendar.strftime(d, "%b %-d, %Y") end %>
+<% label = fn r -> Map.get(@type_label_map, r.record_type, r.record_type) end %>
+<style>
+  .hr-id { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4pt 14pt; font-size: 10pt; margin-bottom: 4pt; }
+  .hr-id div { padding: 3pt 0; border-bottom: 0.5pt solid #f0f0f0; }
+  .hr-id span { display: block; color: #777; font-size: 8.5pt; text-transform: uppercase; letter-spacing: .04em; }
+  .hr-badge { display: inline-block; padding: 1pt 6pt; border-radius: 8pt; font-size: 8.5pt; font-weight: bold; white-space: nowrap; border: 1pt solid; }
+  .hr-ok { color: #15803d; border-color: #86efac; }
+  .hr-soon { color: #b45309; border-color: #fcd34d; }
+  .hr-over { color: #b91c1c; border-color: #fca5a5; }
+  .hr-sub { color: #555; font-size: 9pt; }
+  .hr-covers { color: #555; font-size: 8.5pt; }
+  .hr-table td.d { white-space: nowrap; width: 72pt; }
+  .hr-table td.due { white-space: nowrap; }
+  .hr-group { break-inside: avoid-page; }
+  .hr-fine { font-size: 8.5pt; color: #777; margin-top: 14pt; border-top: 0.5pt solid #ddd; padding-top: 6pt; }
+  @media screen and (max-width: 600px) {
+    .print-page { padding: 16px 14px !important; }
+    .hr-id { grid-template-columns: 1fr 1fr; }
+    .rpt-table { font-size: 9.5pt; }
+    .rpt-table th, .rpt-table td { padding: 4pt 4pt; }
+    .hr-table td.d, .hr-table td.due { white-space: normal; width: auto; }
+    .hr-hist th:nth-child(4), .hr-hist td:nth-child(4) { display: none; }
+  }
+</style>
+
+<div class="print-page" data-back={"/animals/#{@animal.id}?tab=records"}>
+  <div class="rpt-header">
+    <div>
+      <div class="rpt-title">{name}</div>
+      <div class="rpt-subtitle">Health Record · Gimel Ranch</div>
+    </div>
+    <div class="rpt-meta">
+      Prepared {Calendar.strftime(@generated_at, "%B %-d, %Y")}<br />
+      <%= if @date_from || @date_to do %>
+        {fmt.(@date_from) || "All dates"} – {fmt.(@date_to) || "present"}
+      <% end %>
+    </div>
+  </div>
+
+  <%!-- Who --%>
+  <div class="rpt-section">
+    <div class="rpt-section-title">Animal</div>
+    <div class="hr-id">
+      <div :if={reg}><span>Registered name</span>{reg}</div>
+      <div><span>Species</span>{String.capitalize(@animal.kind || "")}</div>
+      <div :if={@animal.breed}><span>Breed</span>{@animal.breed}</div>
+      <div :if={@animal.color}><span>Color</span>{@animal.color}</div>
+      <div :if={@animal.sex}><span>Sex</span>{String.capitalize(@animal.sex)}</div>
+      <div :if={@animal.birth_date}>
+        <span>Foaled / born</span>{fmt.(@animal.birth_date)}<%= if a = Animal.age_label(@animal), do: " (#{a})" %>
+      </div>
+      <div :if={@animal.registration_number}><span>Registration #</span>{@animal.registration_number}</div>
+      <div :if={@animal.microchip}><span>Microchip</span>{@animal.microchip}</div>
+      <div :if={@animal.markings}><span>Markings</span>{@animal.markings}</div>
+      <div :if={@animal.owner}><span>Owner</span>{@animal.owner}</div>
+      <div :if={@weights != []}>
+        <% {wd, w} = hd(@weights) %>
+        <span>Latest weight</span>{w} lb · {fmt.(wd)}
+      </div>
+    </div>
+  </div>
+
+  <%!-- At a glance --%>
+  <div :if={@status != []} class="rpt-section">
+    <div class="rpt-section-title">Current status</div>
+    <table class="rpt-table hr-table">
+      <thead>
+        <tr><th>Item</th><th>Last done</th><th>Next due</th><th>Status</th></tr>
+      </thead>
+      <tbody>
+        <tr :for={s <- @status}>
+          <td>
+            <b>{s.record.title}</b>
+            <div :if={s.covers != []} class="hr-covers">Covers {Enum.join(s.covers, ", ")}</div>
+          </td>
+          <td class="d">{fmt.(s.record.date)}</td>
+          <td class="due">{fmt.(s.record.next_due_date)}</td>
+          <td>
+            <span :if={s.days < 0} class="hr-badge hr-over">Overdue {-s.days}d</span>
+            <span :if={s.days >= 0 and s.days <= 30} class="hr-badge hr-soon">Due {if s.days == 0, do: "today", else: "in #{s.days}d"}</span>
+            <span :if={s.days > 30} class="hr-badge hr-ok">Current</span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <%!-- History, by kind --%>
+  <div :if={@groups == []} class="rpt-empty">
+    No health records yet{if @date_from || @date_to, do: " in these dates"}. Vaccines, Coggins,
+    deworming, medications and vet visits you log show up here.
+  </div>
+
+  <div :for={{title, rows} <- @groups} class="rpt-section hr-group">
+    <div class="rpt-section-title">{title}</div>
+    <% mixed? = rows |> Enum.map(& &1.record_type) |> Enum.uniq() |> length() > 1 %>
+    <table class="rpt-table hr-table hr-hist">
+      <thead>
+        <tr><th>Date</th><th>What</th><th>Product / details</th><th>By · where</th><th>Next due</th></tr>
+      </thead>
+      <tbody>
+        <tr :for={r <- rows}>
+          <td class="d">{fmt.(r.date)}</td>
+          <td>
+            <b>{r.title}</b>
+            <div :if={mixed? and r.title != label.(r)} class="hr-sub">{label.(r)}</div>
+            <% c = CareSchedule.course(r, @today) %>
+            <div :if={c} class="hr-sub">
+              {fmt.(hd(c.dates))} – {fmt.(List.last(c.dates))} · {c.given} of {c.total} doses checked
+            </div>
+            <% covers = CareSchedule.covers(r.record_type, r.title, r.description) %>
+            <div :if={covers != []} class="hr-covers">
+              Covers {covers |> Enum.map(&CareSchedule.disease_name/1) |> Enum.join(", ")}
+            </div>
+          </td>
+          <td>
+            {CareSchedule.describe(r.description, r.date)}
+            <div :if={r.notes && r.notes != ""} class="hr-sub"><i>{r.notes}</i></div>
+          </td>
+          <td>{Enum.reject([r.person, r.location], &(&1 in [nil, ""])) |> Enum.join(" · ")}</td>
+          <td class="due">{fmt.(r.next_due_date)}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div :if={@hoof != []} class="rpt-section hr-group">
+    <div class="rpt-section-title">Hoof care (recent)</div>
+    <table class="rpt-table hr-table hr-hist">
+      <thead>
+        <tr><th>Date</th><th>What</th><th>Details</th><th>By</th><th>Next due</th></tr>
+      </thead>
+      <tbody>
+        <tr :for={r <- @hoof}>
+          <td class="d">{fmt.(r.date)}</td>
+          <td><b>{r.title}</b></td>
+          <td>{r.description}</td>
+          <td>{r.person}</td>
+          <td class="due">{fmt.(r.next_due_date)}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div :if={@docs != []} class="rpt-section hr-group">
+    <div class="rpt-section-title">Papers on file</div>
+    <table class="rpt-table hr-table">
+      <tbody>
+        <tr :for={d <- @docs}>
+          <td class="d">{fmt.(d.doc_date)}</td>
+          <td><b>{d.title}</b></td>
+          <td>{d.doc_type}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="hr-fine">
+    Kept by Gimel Ranch from the ranch's own records. Product names, lot numbers and
+    who gave each treatment are as recorded at the time.
+  </p>
+</div>

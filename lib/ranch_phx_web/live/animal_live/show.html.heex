@@ -253,6 +253,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .rx-row .info-empty { font-size: 14px; color: var(--text2); }
 .info-add { display: block; margin-top: 8px; min-height: 40px; padding: 0; border: none; background: none; color: var(--brand); font: inherit; font-weight: 700; cursor: pointer; text-align: left; }
 .hero-reg { font-size: 14px; color: var(--text2); margin: -2px 0 8px; }
+.hr-link { display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--text); margin-bottom: 14px; }
+.hr-link .rx-ico { flex: none; }
+.hr-link-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.hr-link-text b { font-size: 16px; }
+.hr-link-text small { font-size: 13px; color: var(--text2); }
+.hr-link-chev { width: 20px; height: 20px; color: var(--text2); flex: none; }
 .rec-desc { font-size: 14px; }
 .rx-doc { border-left: 4px solid var(--c); }
 .rx-doc-badge { color: var(--c); background: color-mix(in srgb, var(--c) 14%, transparent); font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 20px; }
@@ -819,6 +825,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   <a :if={@animal.kind == "horse"} class="act-row" href={~p"/conformation?animal=#{@animal.id}"} data-phx-link="redirect" data-phx-link-state="push">
     <.icon name="hero-viewfinder-circle" /> Conformation
   </a>
+  <a class="act-row" href={~p"/animals/#{@animal.id}/health"} id="act-health">
+    <.icon name="hero-heart" /> Health record
+  </a>
   <button class="act-row" phx-click={close_actions |> JS.push("open_report")}>
     <.icon name="hero-document-text" /> Report / PDF
   </button>
@@ -1310,6 +1319,15 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     <% care = CareSchedule.status(@animal.records, today) %>
     <% planned = CareSchedule.planned(@animal.records, today) %>
     <% attention = Enum.count(care, &(&1.days <= 30)) %>
+
+<a class="rx-card hr-link" href={~p"/animals/#{@animal.id}/health"} id="health-record-link">
+  <span class="rx-ico" style="--c:#dc2626"><.icon name="hero-heart" /></span>
+  <span class="hr-link-text">
+    <b>Health record</b>
+    <small>Vaccines, Coggins, deworming, medications and vet visits with dates: view, print or share</small>
+  </span>
+  <.icon name="hero-chevron-right" class="hr-link-chev" />
+</a>
 
 <% left? = care != [] or planned != [] or (@ai_on and @animal.records != []) %>
 <div class={["rx-split", (!left? or !@is_superuser) && "one"]}>
