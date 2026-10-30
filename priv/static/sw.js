@@ -1,4 +1,4 @@
-const SHELL_CACHE = "ranch-shell-v14";
+const SHELL_CACHE = "ranch-shell-v15";
 const DOCS_CACHE = "ranch-docs-v1";
 // Photos kept for Barn mode (see barn.js); refreshed while online.
 const BARN_MEDIA = "ranch-barn-media-v1";
@@ -75,6 +75,8 @@ self.addEventListener("push", (event) => {
     self.registration.showNotification(msg.title || "Gimel Ranch", {
       body: msg.body || "",
       tag: msg.tag,
+      // A newer one with the same tag (like "Siri notes to check") still buzzes.
+      renotify: !!msg.tag,
       icon: "/icons/icon-192.png",
       badge: "/icons/icon-192.png",
       data: {url: msg.url || "/"},

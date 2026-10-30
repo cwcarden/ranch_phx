@@ -45,7 +45,10 @@ defmodule RanchPhxWeb.VoiceLogController do
         {:ok, message}
 
       _ ->
-        with {:ok, notes} <- VoiceNotes.create_from_text(user, text), do: {:ok, reply(notes)}
+        with {:ok, notes} <- VoiceNotes.create_from_text(user, text) do
+          RanchPhx.Push.voice_notes_waiting(List.last(notes))
+          {:ok, reply(notes)}
+        end
     end
   end
 

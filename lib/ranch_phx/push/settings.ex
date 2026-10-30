@@ -14,10 +14,12 @@ defmodule RanchPhx.Push.Settings do
     field :care_days_ahead, :integer, default: 1
     field :overdue, :boolean, default: true
     field :muted_animal_ids, {:array, :integer}, default: []
+    # A Siri note is waiting to be checked in the voice log.
+    field :voice_notes, :boolean, default: true
     timestamps(type: :utc_datetime)
   end
 
-  @fields ~w(morning_on morning_hour evening_on evening_hour doses care care_days_ahead overdue muted_animal_ids)a
+  @fields ~w(morning_on morning_hour evening_on evening_hour doses care care_days_ahead overdue muted_animal_ids voice_notes)a
 
   def changeset(s, attrs) do
     s

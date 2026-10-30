@@ -170,6 +170,13 @@
           <span><b>Overdue</b><small>The day after something comes due</small></span>
         </label>
       </div>
+      <div class="nt-row">
+        <label class="nt-switch">
+          <input type="hidden" name="s[voice_notes]" value="false" />
+          <input type="checkbox" name="s[voice_notes]" value="true" checked={@settings.voice_notes} />
+          <span><b>Siri notes to check</b><small>Right after you tell Siri something that needs a look</small></span>
+        </label>
+      </div>
     </.form>
 
     <div :if={@animals != []}>

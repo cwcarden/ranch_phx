@@ -127,6 +127,51 @@ defmodule RanchPhx.Push do
     end)
   end
 
+  @doc """
+  Tells superusers' devices that Siri notes are waiting to be checked (one
+  notification that updates, rather than a pile). Runs in the background so Siri's
+  reply isn't held up.
+  """
+  def voice_notes_waiting(%{text: text} = note) do
+    if Application.get_env(:ranch_phx, :voice_push, true) do
+      Task.start(fn -> send_voice_notes_waiting(note, text) end)
+    end
+
+    :ok
+  end
+
+  @doc false
+  def send_voice_notes_waiting(note, text) do
+    waiting = RanchPhx.VoiceNotes.count_pending()
+    animal = note |> RanchPhx.Repo.preload(:animal) |> Map.get(:animal)
+    who = if animal, do: RanchPhx.Animals.Animal.display_name(animal) <> ": ", else: ""
+    said = if String.length(text) > 90, do: String.slice(text, 0, 87) <> "…", else: text
+
+    msg = %{
+      title: if(waiting > 1, do: "#{waiting} Siri notes to check", else: "Siri note to check"),
+      body: "#{who}“#{said}”",
+      url: "/voice",
+      tag: "voice-notes"
+    }
+
+    for {settings, subs} <- people(),
+        settings.voice_notes,
+        superuser?(settings.user_id) do
+      notify(subs, msg)
+    end
+
+    :ok
+  rescue
+    e -> Logger.warning("Siri note push failed: #{Exception.message(e)}")
+  end
+
+  defp superuser?(user_id) do
+    case RanchPhx.Repo.get(RanchPhx.Accounts.User, user_id) do
+      nil -> false
+      user -> RanchPhx.Accounts.Scope.superuser?(RanchPhx.Accounts.Scope.for_user(user))
+    end
+  end
+
   @doc "When this person's last morning or evening reminder went out, or nil."
   def last_sent(%{id: user_id}) do
     Repo.one(
