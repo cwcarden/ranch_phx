@@ -78,7 +78,7 @@ defmodule RanchPhxWeb.AnimalRecordsTest do
     # Pick the dewormer from the one-tap choices.
     view |> element("#visit-item-1 button", "Panacur PowerPac") |> render_click()
 
-    today = Date.utc_today()
+    today = RanchPhx.LocalTime.today()
     start = Date.add(today, 7)
 
     view
@@ -163,7 +163,7 @@ defmodule RanchPhxWeb.AnimalRecordsTest do
     assert record.title == "West Nile vaccine"
     assert record.person == "Dr. Hall"
     # No date was said, so it gets the usual interval from the Core EQ Innovator button.
-    assert Date.diff(record.next_due_date, Date.utc_today()) in 365..366
+    assert Date.diff(record.next_due_date, RanchPhx.LocalTime.today()) in 365..366
   end
 
   test "a scanned invoice becomes records and the paperwork is saved",
@@ -255,7 +255,7 @@ defmodule RanchPhxWeb.AnimalRecordsTest do
         "animal_id" => animal.id,
         "event_type" => "weight",
         "title" => "700 lb",
-        "event_date" => Date.add(Date.utc_today(), -30)
+        "event_date" => Date.add(RanchPhx.LocalTime.today(), -30)
       })
 
     {:ok, view, _} = live(conn, ~p"/animals/#{animal.id}")
@@ -263,7 +263,7 @@ defmodule RanchPhxWeb.AnimalRecordsTest do
 
     view
     |> form("#measure-form",
-      measure: %{value: "736", method: "tape", date: Date.to_iso8601(Date.utc_today())}
+      measure: %{value: "736", method: "tape", date: Date.to_iso8601(RanchPhx.LocalTime.today())}
     )
     |> render_submit()
 
@@ -283,7 +283,7 @@ defmodule RanchPhxWeb.AnimalRecordsTest do
           "animal_id" => animal.id,
           "event_type" => "weight",
           "title" => "#{lbs} lb",
-          "event_date" => Date.add(Date.utc_today(), -days)
+          "event_date" => Date.add(RanchPhx.LocalTime.today(), -days)
         })
     end
 
@@ -314,7 +314,7 @@ defmodule RanchPhxWeb.AnimalRecordsTest do
         "event_type" => "height",
         "title" => "13.3 hh",
         "metadata" => %{"inches" => 55.0},
-        "event_date" => Date.add(Date.utc_today(), -91)
+        "event_date" => Date.add(RanchPhx.LocalTime.today(), -91)
       })
 
     {:ok, view, _} = live(conn, ~p"/animals/#{animal.id}")
@@ -323,7 +323,7 @@ defmodule RanchPhxWeb.AnimalRecordsTest do
 
     view
     |> form("#measure-form",
-      measure: %{value: "14.2", method: "stick", date: Date.to_iso8601(Date.utc_today())}
+      measure: %{value: "14.2", method: "stick", date: Date.to_iso8601(RanchPhx.LocalTime.today())}
     )
     |> render_submit()
 
@@ -355,7 +355,7 @@ defmodule RanchPhxWeb.AnimalRecordsTest do
     view |> form("#measure-form", measure: %{value: "13.375"}) |> render_change()
     assert has_element?(view, "#height-read", "13.1½ hh (53.5 inches)")
 
-    earlier = Date.add(Date.utc_today(), -40)
+    earlier = Date.add(RanchPhx.LocalTime.today(), -40)
 
     view
     |> form("#measure-form", measure: %{value: "13.375", date: Date.to_iso8601(earlier)})
@@ -373,7 +373,7 @@ defmodule RanchPhxWeb.AnimalRecordsTest do
 
     html =
       view
-      |> form("#measure-form", measure: %{value: "abc", date: Date.to_iso8601(Date.utc_today())})
+      |> form("#measure-form", measure: %{value: "abc", date: Date.to_iso8601(RanchPhx.LocalTime.today())})
       |> render_submit()
 
     assert html =~ "rx-err"
@@ -419,14 +419,14 @@ defmodule RanchPhxWeb.AnimalRecordsTest do
           "event_type" => "height",
           "title" => "#{RanchPhx.Animals.Insights.hands(inches)} hh",
           "metadata" => %{"inches" => inches, "method" => "stick"},
-          "event_date" => Date.add(Date.utc_today(), -days)
+          "event_date" => Date.add(RanchPhx.LocalTime.today(), -days)
         })
     end
 
     {:ok, view, _} = live(conn, ~p"/animals/#{animal.id}?data=height")
     view |> element("#toggle-data-edit") |> render_click()
 
-    today = Date.to_iso8601(Date.utc_today())
+    today = Date.to_iso8601(RanchPhx.LocalTime.today())
     view |> element("#data-rows button[phx-value-date='#{today}']") |> render_click()
     assert has_element?(view, "#measure-sheet", "Edit height")
 
@@ -450,7 +450,7 @@ defmodule RanchPhxWeb.AnimalRecordsTest do
 
   test "tick off a Panacur course day by day, on the animal and its card",
        %{conn: conn, animal: animal} do
-    start = Date.add(Date.utc_today(), -1)
+    start = Date.add(RanchPhx.LocalTime.today(), -1)
 
     {:ok, r} =
       Animals.create_record(%{

@@ -82,7 +82,7 @@ defmodule RanchPhx.VoiceNotes do
     Repo.all(
       from n in VoiceNote,
         where: n.status == "pending",
-        order_by: [desc: n.inserted_at],
+        order_by: [desc: n.inserted_at, desc: n.id],
         preload: :animal
     )
   end
@@ -108,5 +108,7 @@ defmodule RanchPhx.VoiceNotes do
 
   @topic "voice_notes"
   def subscribe, do: Phoenix.PubSub.subscribe(RanchPhx.PubSub, @topic)
+  @doc false
+  def broadcast_changed, do: broadcast()
   defp broadcast, do: Phoenix.PubSub.broadcast(RanchPhx.PubSub, @topic, :voice_notes_changed)
 end
