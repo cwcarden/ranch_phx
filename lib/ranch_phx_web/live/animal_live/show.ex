@@ -41,6 +41,7 @@ defmodule RanchPhxWeb.AnimalLive.Show do
      |> assign(:presets, Animals.list_care_presets(animal.kind))
      |> assign(:quick_selected, [])
      |> assign(:visit, nil)
+     |> assign(:reminder, nil)
      |> assign(:editing_presets, false)
      |> assign(:scan_loading, false)
      |> assign(:measure, nil)
@@ -131,12 +132,24 @@ defmodule RanchPhxWeb.AnimalLive.Show do
 
     case su? && VoiceNotes.get(id) do
       %{status: "pending", animal_id: animal_id} = note when animal_id == animal.id ->
-        if current && current.id == note.id do
-          socket
-        else
-          socket
-          |> assign(tab: "records", rec_voice_open: true, voice_note: note)
-          |> start_voice_draft(note.text)
+        cond do
+          current && current.id == note.id ->
+            socket
+
+          # "Gave him his Panacur": check off today's dose rather than drafting a new record.
+          match?({:ok, _}, quick = RanchPhx.VoiceQuick.check_off(animal, note.text, RanchPhx.LocalTime.today())) ->
+            {:ok, msg} = quick
+            VoiceNotes.mark(note, "done")
+
+            socket
+            |> assign(:animal, Animals.get_animal_with_pedigree!(animal.id))
+            |> assign(:tab, "overview")
+            |> put_flash(:info, msg)
+
+          true ->
+            socket
+            |> assign(tab: "records", rec_voice_open: true, voice_note: note)
+            |> start_voice_draft(note.text)
         end
 
       _ ->
@@ -467,6 +480,82 @@ defmodule RanchPhxWeb.AnimalLive.Show do
     }
 
     {:noreply, assign(socket, visit: visit, quick_selected: [])}
+  end
+
+  # ── Your own daily reminders (a course with day boxes, like Panacur's) ──
+
+  def handle_event("open_reminder", _params, socket) do
+    {:noreply,
+     assign(socket, :reminder, %{
+       "kind" => "medication",
+       "title" => "",
+       "start" => Date.to_iso8601(RanchPhx.LocalTime.today()),
+       "days" => "5",
+       "note" => "",
+       "error" => nil
+     })}
+  end
+
+  def handle_event("close_reminder", _params, socket), do: {:noreply, assign(socket, :reminder, nil)}
+
+  def handle_event("reminder_change", %{"reminder" => params}, socket),
+    do: {:noreply, assign(socket, :reminder, Map.merge(socket.assigns.reminder, params))}
+
+  def handle_event("save_reminder", %{"reminder" => params}, socket) do
+    %{animal: animal, is_superuser: su?} = socket.assigns
+    r = Map.merge(socket.assigns.reminder, params)
+    title = String.trim(r["title"] || "")
+    note = String.trim(r["note"] || "")
+
+    days =
+      case Integer.parse("#{r["days"]}") do
+        {n, _} when n in 1..60 -> n
+        _ -> nil
+      end
+
+    start =
+      case Date.from_iso8601("#{r["start"]}") do
+        {:ok, d} -> d
+        _ -> nil
+      end
+
+    kind = if r["kind"] in ~w(medication deworming task), do: r["kind"], else: "medication"
+
+    cond do
+      not su? ->
+        {:noreply, socket}
+
+      title == "" ->
+        {:noreply, assign(socket, :reminder, Map.put(r, "error", "Give it a name, like Bute or Soak left front."))}
+
+      is_nil(days) ->
+        {:noreply, assign(socket, :reminder, Map.put(r, "error", "Days in a row: 1 to 60."))}
+
+      is_nil(start) ->
+        {:noreply, assign(socket, :reminder, Map.put(r, "error", "Pick the first day."))}
+
+      true ->
+        schedule = "daily for #{days} #{if days == 1, do: "day", else: "days"}"
+
+        case Animals.create_record(%{
+               "animal_id" => animal.id,
+               "record_type" => kind,
+               "title" => title,
+               "date" => start,
+               "description" => Enum.join(Enum.reject([note, schedule], &(&1 == "")), " · ")
+             }) do
+          {:ok, _} ->
+            {:noreply,
+             socket
+             |> assign(:animal, Animals.get_animal_with_pedigree!(animal.id))
+             |> assign(:reminder, nil)
+             |> put_flash(:info, "Added #{title}, #{schedule}. Check off each day on the overview.")}
+
+          {:error, cs} ->
+            msg = Enum.map_join(cs.errors, ", ", fn {f, {e, _}} -> "#{Phoenix.Naming.humanize(f)} #{e}" end)
+            {:noreply, assign(socket, :reminder, Map.put(r, "error", msg))}
+        end
+    end
   end
 
   def handle_event("close_visit", _params, socket), do: {:noreply, assign(socket, :visit, nil)}

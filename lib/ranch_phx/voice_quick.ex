@@ -15,16 +15,11 @@ defmodule RanchPhx.VoiceQuick do
   alias RanchPhx.Animals.{Animal, CareSchedule}
   alias RanchPhx.VoiceNotes.VoiceNote
 
+  @gave ~r/\b(gave|given|give|dosed|dose|got (his|her|its)|had (his|her)|did|done|finished|soaked|wrapped|walked|hosed|treated|applied)\b/i
+
   @doc "Saves `text` straight away when it's routine: `{:ok, message}`, or `:none`."
   def try_quick(user, text, [%Animal{} = animal], today) do
-    full = Animals.get_animal_with_pedigree!(animal.id)
-
-    result =
-      with :none <- weight(full, text, today) do
-        dose(full, text, today)
-      end
-
-    case result do
+    case check_off(animal, text, today) do
       {:ok, message} ->
         %VoiceNote{}
         |> VoiceNote.changeset(%{text: text, animal_id: animal.id, user_id: user && user.id, status: "done"})
@@ -37,7 +32,39 @@ defmodule RanchPhx.VoiceQuick do
     end
   end
 
+  # No animal named ("Gave the first dose of Panacur"): when exactly one animal has a
+  # running treatment that fits what was said, that's the one.
+  def try_quick(user, text, [], today) do
+    if Regex.match?(@gave, text) do
+      fits =
+        Repo.all(from a in Animal, where: a.owned == true and a.status == "active")
+        |> Enum.filter(fn a ->
+          full = Animals.get_animal_with_pedigree!(a.id)
+          full.records |> CareSchedule.active_courses(today) |> Enum.any?(&(&1.today_i != nil and course_named?(&1, text)))
+        end)
+
+      case fits do
+        [one] -> try_quick(user, text, [one], today)
+        _ -> :none
+      end
+    else
+      :none
+    end
+  end
+
   def try_quick(_user, _text, _animals, _today), do: :none
+
+  @doc """
+  Does the routine part for one animal (today's dose, a weight) without touching the
+  voice log: `{:ok, message}` or `:none`. Also used when a waiting note is opened.
+  """
+  def check_off(%Animal{} = animal, text, today) do
+    full = Animals.get_animal_with_pedigree!(animal.id)
+
+    with :none <- weight(full, text, today) do
+      dose(full, text, today)
+    end
+  end
 
   # ── Weight ──
 
@@ -80,7 +107,6 @@ defmodule RanchPhx.VoiceQuick do
 
   # ── Today's dose of a running treatment ──
 
-  @gave ~r/\b(gave|given|give|dosed|dose|got (his|her|its)|had (his|her))\b/i
 
   defp dose(animal, text, today) do
     courses =
@@ -88,19 +114,7 @@ defmodule RanchPhx.VoiceQuick do
       |> CareSchedule.active_courses(today)
       |> Enum.filter(&(&1.today_i != nil))
 
-    said = String.downcase(text)
-
-    named =
-      Enum.filter(courses, fn c ->
-        words =
-          "#{c.record.title} #{c.record.description}"
-          |> String.downcase()
-          |> String.split(~r/[^a-z]+/, trim: true)
-          |> Enum.filter(&(String.length(&1) >= 4))
-          |> Enum.reject(&(&1 in ~w(daily days with dose given)))
-
-        Enum.any?(words, &String.contains?(said, &1))
-      end)
+    named = Enum.filter(courses, &course_named?(&1, text))
 
     pick =
       cond do
@@ -130,6 +144,36 @@ defmodule RanchPhx.VoiceQuick do
              true -> ""
            end}
     end
+  end
+
+  # Does what was said name this treatment? Product words, allowing for how dictation
+  # spells them ("Panacea" for Panacur), or the kind of treatment ("dewormer").
+  @doc false
+  def course_named?(c, text) do
+    said = text |> String.downcase() |> String.split(~r/[^a-z]+/, trim: true)
+
+    words =
+      "#{c.record.title} #{c.record.description}"
+      |> String.downcase()
+      |> String.split(~r/[^a-z]+/, trim: true)
+      |> Enum.filter(&(String.length(&1) >= 4))
+      |> Enum.reject(&(&1 in ~w(daily days with dose given qty)))
+
+    product? =
+      Enum.any?(words, fn w ->
+        Enum.any?(said, fn s ->
+          s == w or (String.length(s) >= 5 and String.length(w) >= 5 and
+                       String.slice(s, 0, 3) == String.slice(w, 0, 3) and String.jaro_distance(s, w) >= 0.8)
+        end)
+      end)
+
+    kind? =
+      case c.record.record_type do
+        "deworming" -> Enum.any?(said, &String.starts_with?(&1, ["deworm", "wormer"]))
+        _ -> false
+      end
+
+    product? or kind?
   end
 
   # ── The spoken rundown ──
