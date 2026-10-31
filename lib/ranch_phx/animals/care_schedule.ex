@@ -150,12 +150,12 @@ defmodule RanchPhx.Animals.CareSchedule do
   def describe(nil, _date), do: nil
 
   def describe(desc, %Date{} = start) when is_binary(desc) do
-    case Regex.run(~r/daily for (\d+) days/i, desc) do
+    case Regex.run(~r/daily for (\d+) days?/i, desc) do
       [_, n] ->
         n = String.to_integer(n)
         stop = Date.add(start, max(n - 1, 0))
         range = "#{Calendar.strftime(start, "%b %-d")} – #{Calendar.strftime(stop, "%b %-d")}"
-        Regex.replace(~r/(daily for \d+ days),\s*[A-Z][a-z]{2} \d{1,2}\s*[–-]\s*[A-Z][a-z]{2} \d{1,2}/iu, desc, "\\1, " <> range)
+        Regex.replace(~r/(daily for \d+ days?),\s*[A-Z][a-z]{2} \d{1,2}\s*[–-]\s*[A-Z][a-z]{2} \d{1,2}/iu, desc, "\\1, " <> range)
 
       _ ->
         desc
@@ -171,8 +171,8 @@ defmodule RanchPhx.Animals.CareSchedule do
   """
   def course(record, %Date{} = today) do
     with d when is_binary(d) <- record.description,
-         [_, n] <- Regex.run(~r/daily for (\d+) days/i, d),
-         n when n in 2..60 <- String.to_integer(n) do
+         [_, n] <- Regex.run(~r/daily for (\d+) days?/i, d),
+         n when n in 1..60 <- String.to_integer(n) do
       dates = Enum.map(0..(n - 1), &Date.add(record.date, &1))
       done = MapSet.new(record.course_done || [])
       given = Enum.count(dates, &MapSet.member?(done, &1))

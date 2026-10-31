@@ -1,5 +1,6 @@
 defmodule RanchPhxWeb.VoiceQuickTest do
   use RanchPhxWeb.ConnCase, async: false
+  import Phoenix.LiveViewTest
 
   alias RanchPhx.{Accounts, Animals, LocalTime, VoiceNotes, VoiceQuick}
 
@@ -84,5 +85,37 @@ defmodule RanchPhxWeb.VoiceQuickTest do
     assert VoiceQuick.brief_request?("what do I need to do today")
     refute VoiceQuick.brief_request?("What were yesterday's training notes for Asher?")
     refute VoiceQuick.brief_request?("When is Ruby's rabies due?")
+  end
+
+  test "dictation's spelling and no horse named: \"gave the first dose of the Panacea\"", %{user: user, worm: worm, today: today} do
+    key = Accounts.create_api_token(user)
+    resp = siri(key, ~p"/api/voice-log", "I gave the first dose of the Panacea")
+    assert resp["message"] =~ "Checked off Asher's Panacur"
+    assert today in RanchPhx.Repo.get!(RanchPhx.Animals.Record, worm.id).course_done
+  end
+
+  test "opening a waiting dose note checks the box instead of adding a new record",
+       %{conn: conn, user: user, cat: cat, worm: worm, today: today} do
+    {:ok, [note]} = VoiceNotes.create_from_text(user, "Asher got his dewormer this morning")
+    {:ok, view, _} = live(conn, ~p"/animals/#{cat.id}?voice=#{note.id}")
+    assert render(view) =~ "Checked off Asher"
+    assert today in RanchPhx.Repo.get!(RanchPhx.Animals.Record, worm.id).course_done
+    assert VoiceNotes.list_pending() == []
+  end
+
+  test "your own daily reminder shows day boxes and Siri can check it off", %{conn: conn, user: user, cat: cat} do
+    {:ok, view, _} = live(conn, ~p"/animals/#{cat.id}")
+    view |> element("#add-reminder") |> render_click()
+
+    view
+    |> form("#reminder-form", reminder: %{kind: "task", title: "Soak left front", days: "3", note: "Epsom salt"})
+    |> render_submit()
+
+    html = render(view)
+    assert html =~ "Soak left front"
+    assert html =~ "0 of 3 given"
+
+    key = Accounts.create_api_token(user)
+    assert siri(key, ~p"/api/voice-log", "Soaked Asher's left front")["message"] =~ "Checked off Asher's Soak left front, day 1 of 3"
   end
 end

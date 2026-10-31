@@ -259,6 +259,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .hr-link-text b { font-size: 16px; }
 .hr-link-text small { font-size: 13px; color: var(--text2); }
 .hr-link-chev { width: 20px; height: 20px; color: var(--text2); flex: none; }
+.add-reminder { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; width: 100%; margin: 0 0 14px; padding: 12px 14px; border: 1.5px dashed var(--border); border-radius: var(--radius); background: transparent; color: #2563eb; font: inherit; font-size: 15px; font-weight: 700; text-align: left; cursor: pointer; min-height: 52px; }
+.add-reminder [class^="hero-"] { width: 20px; height: 20px; }
+.add-reminder small { flex-basis: 100%; font-size: 12.5px; font-weight: 500; color: var(--text2); padding-left: 28px; }
+.rm-kinds { display: flex; flex-wrap: wrap; gap: 8px; }
+.rm-kind { display: inline-flex; align-items: center; min-height: 40px; padding: 0 14px; border-radius: 20px; border: 1.5px solid var(--border); font-size: 14px; font-weight: 600; color: var(--text2); cursor: pointer; }
+.rm-kind input { position: absolute; opacity: 0; pointer-events: none; }
+.rm-kind.on { border-color: #2563eb; color: #2563eb; background: color-mix(in srgb, #2563eb 10%, transparent); }
+.rm-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .rec-desc { font-size: 14px; }
 .rx-doc { border-left: 4px solid var(--c); }
 .rx-doc-badge { color: var(--c); background: color-mix(in srgb, var(--c) 14%, transparent); font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 20px; }
@@ -1041,6 +1049,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
         {c.missed} earlier {if c.missed == 1, do: "day isn't", else: "days aren't"} checked. Tap a day if it was given.
       </p>
     </div>
+    <button :if={@is_superuser} type="button" class="add-reminder" phx-click="open_reminder" id="add-reminder">
+      <.icon name="hero-plus-circle" /> Add a daily reminder
+      <small>Medicine, a treatment or a chore, with a box to check each day</small>
+    </button>
     <% wt = @animal |> metric_points("weight") |> Insights.trend() %>
     <% ht = @animal |> metric_points("height") |> Insights.trend() %>
     <div :if={wt || ht || @is_superuser} class="rx-card growth" id="growth">
@@ -2784,6 +2796,58 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
           + Log {m}
         </button>
       </div>
+    </div>
+  </div>
+<% end %>
+
+<%= if @reminder do %>
+  <div class="dlg-wrap rx-sheet-wrap">
+    <div class="dlg-backdrop" phx-click="close_reminder"></div>
+    <div class="dlg rx-sheet rx-weigh" id="reminder-sheet" style="--mc:#2563eb">
+      <div class="dlg-header">
+        <h2>Daily reminder</h2>
+        <button class="btn-icon" phx-click="close_reminder" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <form id="reminder-form" phx-change="reminder_change" phx-submit="save_reminder">
+        <div class="dlg-body">
+          <div class="rm-kinds" role="radiogroup" aria-label="Kind">
+            <label :for={{v, l} <- [{"medication", "Medicine / treatment"}, {"deworming", "Dewormer"}, {"task", "Chore / other"}]} class={["rm-kind", @reminder["kind"] == v && "on"]}>
+              <input type="radio" name="reminder[kind]" value={v} checked={@reminder["kind"] == v} /> {l}
+            </label>
+          </div>
+          <label class="rx-vfield">
+            <span>What</span>
+            <input type="text" name="reminder[title]" value={@reminder["title"]} placeholder={if @reminder["kind"] == "task", do: "e.g. Soak left front", else: "e.g. Bute"} maxlength="80" autofocus />
+          </label>
+          <div class="rm-row">
+            <label class="rx-vfield">
+              <span>First day</span>
+              <input type="date" name="reminder[start]" value={@reminder["start"]} />
+            </label>
+            <label class="rx-vfield">
+              <span>Days in a row</span>
+              <input type="number" name="reminder[days]" value={@reminder["days"]} min="1" max="60" inputmode="numeric" />
+            </label>
+          </div>
+          <label class="rx-vfield">
+            <span>Details (optional)</span>
+            <input type="text" name="reminder[note]" value={@reminder["note"]} placeholder={if @reminder["kind"] == "task", do: "e.g. Epsom salt, 20 minutes", else: "e.g. 2 g paste, morning feed"} maxlength="200" />
+          </label>
+          <p class="rx-sub" style="margin:0">
+            It shows on the overview with a box for each day, the morning and evening notifications
+            remind you, and "Hey Siri, Barn log… gave Asher his {if @reminder["title"] != "", do: @reminder["title"], else: "Bute"}" checks it off.
+          </p>
+          <p :if={@reminder["error"]} class="rx-err">{@reminder["error"]}</p>
+        </div>
+        <div class="dlg-footer">
+          <button type="button" class="btn btn-ghost" phx-click="close_reminder">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="save-reminder">Add reminder</button>
+        </div>
+      </form>
     </div>
   </div>
 <% end %>
