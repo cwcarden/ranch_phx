@@ -118,4 +118,30 @@ defmodule RanchPhxWeb.VoiceQuickTest do
     key = Accounts.create_api_token(user)
     assert siri(key, ~p"/api/voice-log", "Soaked Asher's left front")["message"] =~ "Checked off Asher's Soak left front, day 1 of 3"
   end
+
+  test "\"Started Asher on Bute for five days\" creates the reminder", %{user: user, cat: cat, today: today} do
+    key = Accounts.create_api_token(user)
+    msg = siri(key, ~p"/api/voice-log", "Started Asher on Bute for five days")["message"]
+    assert msg =~ "Started Asher on Bute, daily for 5 days starting today."
+
+    bute = Animals.get_animal_with_pedigree!(cat.id).records |> Enum.find(&(&1.title == "Bute"))
+    assert bute.record_type == "medication" and bute.date == today
+    assert RanchPhx.Animals.CareSchedule.course(bute, today).total == 5
+
+    assert siri(key, ~p"/api/voice-log", "Gave Asher his Bute")["message"] =~ "day 1 of 5"
+    refute siri(key, ~p"/api/voice-log", "Worked Asher in the round pen for twenty minutes")["message"] =~ "Started"
+  end
+
+  test "edit and delete a reminder from its card", %{conn: conn, cat: cat, worm: worm} do
+    {:ok, view, _} = live(conn, ~p"/animals/#{cat.id}")
+    view |> element("#course-edit-#{worm.id}") |> render_click()
+    assert has_element?(view, "#reminder-form input[name='reminder[days]'][value='5']")
+
+    view |> form("#reminder-form", reminder: %{title: "Panacur", days: "6"}) |> render_submit()
+    assert render(view) =~ "of 6 given"
+
+    view |> element("#course-delete-#{worm.id}") |> render_click()
+    refute has_element?(view, "#course-#{worm.id}")
+    assert RanchPhx.Repo.get(RanchPhx.Animals.Record, worm.id) == nil
+  end
 end

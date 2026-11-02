@@ -259,6 +259,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .hr-link-text b { font-size: 16px; }
 .hr-link-text small { font-size: 13px; color: var(--text2); }
 .hr-link-chev { width: 20px; height: 20px; color: var(--text2); flex: none; }
+.cs-manage { display: flex; justify-content: flex-end; gap: 6px; margin-top: 8px; }
+.cs-manage .btn { min-height: 36px; font-size: 13px; color: var(--text2); display: inline-flex; align-items: center; gap: 5px; }
+.cs-manage [class^="hero-"] { width: 16px; height: 16px; }
+.cs-del { color: #dc2626 !important; }
 .add-reminder { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; width: 100%; margin: 0 0 14px; padding: 12px 14px; border: 1.5px dashed var(--border); border-radius: var(--radius); background: transparent; color: #2563eb; font: inherit; font-size: 15px; font-weight: 700; text-align: left; cursor: pointer; min-height: 52px; }
 .add-reminder [class^="hero-"] { width: 20px; height: 20px; }
 .add-reminder small { flex-basis: 100%; font-size: 12.5px; font-weight: 500; color: var(--text2); padding-left: 28px; }
@@ -1044,6 +1048,21 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       >
         <.icon name="hero-check" /> Today's dose given (day {c.today_i + 1} of {c.total})
       </button>
+      <div :if={@is_superuser} class="cs-manage">
+        <button type="button" class="btn btn-ghost btn-sm" phx-click="edit_reminder" phx-value-id={c.record.id} id={"course-edit-#{c.record.id}"}>
+          <.icon name="hero-pencil-square" /> Edit
+        </button>
+        <button
+          type="button"
+          class="btn btn-ghost btn-sm cs-del"
+          phx-click="delete_reminder"
+          phx-value-id={c.record.id}
+          data-confirm={"Delete #{c.record.title}? Its checked days go with it."}
+          id={"course-delete-#{c.record.id}"}
+        >
+          <.icon name="hero-trash" /> Delete
+        </button>
+      </div>
       <p :if={c.finished?} class="cs-note ok">All {c.total} doses given.</p>
       <p :if={!c.finished? and c.missed > 0} class="cs-note warn">
         {c.missed} earlier {if c.missed == 1, do: "day isn't", else: "days aren't"} checked. Tap a day if it was given.
@@ -2805,7 +2824,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     <div class="dlg-backdrop" phx-click="close_reminder"></div>
     <div class="dlg rx-sheet rx-weigh" id="reminder-sheet" style="--mc:#2563eb">
       <div class="dlg-header">
-        <h2>Daily reminder</h2>
+        <h2>{if @reminder["id"], do: "Edit reminder", else: "Daily reminder"}</h2>
         <button class="btn-icon" phx-click="close_reminder" aria-label="Close">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
             <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -2845,7 +2864,15 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
         </div>
         <div class="dlg-footer">
           <button type="button" class="btn btn-ghost" phx-click="close_reminder">Cancel</button>
-          <button type="submit" class="btn btn-primary" id="save-reminder">Add reminder</button>
+          <button
+            :if={@reminder["id"]}
+            type="button"
+            class="btn btn-ghost cs-del"
+            phx-click="delete_reminder"
+            phx-value-id={@reminder["id"]}
+            data-confirm="Delete this reminder? Its checked days go with it."
+          >Delete</button>
+          <button type="submit" class="btn btn-primary" id="save-reminder">{if @reminder["id"], do: "Save", else: "Add reminder"}</button>
         </div>
       </form>
     </div>
