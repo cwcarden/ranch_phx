@@ -61,8 +61,64 @@ defmodule RanchPhx.VoiceQuick do
   def check_off(%Animal{} = animal, text, today) do
     full = Animals.get_animal_with_pedigree!(animal.id)
 
-    with :none <- weight(full, text, today) do
+    with :none <- start_course(full, text, today),
+         :none <- weight(full, text, today) do
       dose(full, text, today)
+    end
+  end
+
+  # ── Starting a treatment: "Started Asher on Bute for five days" ──
+
+  @numbers %{"one" => 1, "two" => 2, "three" => 3, "four" => 4, "five" => 5, "six" => 6,
+             "seven" => 7, "eight" => 8, "nine" => 9, "ten" => 10, "eleven" => 11, "twelve" => 12,
+             "fourteen" => 14, "a week" => 7, "two weeks" => 14, "ten days" => 10}
+  @dewormers ~r/panacur|quest|ivermectin|strongid|safe-?guard|dewormer|wormer|fenbendazole|pyrantel|equimax|zimecterin|anthelcide|power ?pac/i
+
+  defp start_course(animal, text, today) do
+    n_words = "\\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fourteen"
+
+    patterns = [
+      Regex.compile!("\\b(?:start(?:ed|ing)?|begin|began|beginning)\\b\\s+(?:.+?\\s+)?on\\s+(?<what>.+?)\\s+for\\s+(?:(?<n>#{n_words})\\s+days?|(?<w>a week|two weeks))\\b", "i"),
+      Regex.compile!("\\b(?:start(?:ed|ing)?|begin|began)\\s+(?:(?:his|her|the)\\s+)?(?<what>.+?)\\s+for\\s+(?:(?<n>#{n_words})\\s+days?|(?<w>a week|two weeks))\\b", "i")
+    ]
+
+    case Enum.find_value(patterns, &Regex.named_captures(&1, text)) do
+      %{"what" => what} = m ->
+        n =
+          case {m["n"], m["w"]} do
+            {"", w} -> @numbers[String.downcase(w)]
+            {n, _} -> if n =~ ~r/^\d+$/, do: String.to_integer(n), else: @numbers[String.downcase(n)]
+          end
+
+        title =
+          what
+          |> String.replace(~r/^(his|her|the|some|daily)\s+/i, "")
+          |> String.trim()
+          |> then(&(String.upcase(String.first(&1)) <> String.slice(&1, 1..-1//1)))
+
+        if n in 1..60 and title != "" and String.length(title) <= 60 do
+          start = if Regex.match?(~r/\btomorrow\b/i, text), do: Date.add(today, 1), else: today
+          kind = if Regex.match?(@dewormers, title), do: "deworming", else: "medication"
+
+          {:ok, _} =
+            Animals.create_record(%{
+              "animal_id" => animal.id,
+              "record_type" => kind,
+              "title" => title,
+              "date" => start,
+              "description" => "daily for #{n} #{if n == 1, do: "day", else: "days"}"
+            })
+
+          {:ok,
+           "Started #{Animal.display_name(animal)} on #{title}, daily for #{n} #{if n == 1, do: "day", else: "days"}" <>
+             if(start == today, do: " starting today.", else: " starting tomorrow.") <>
+             " Say gave #{Animal.display_name(animal)} his #{title} after each dose."}
+        else
+          :none
+        end
+
+      _ ->
+        :none
     end
   end
 

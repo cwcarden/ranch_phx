@@ -496,6 +496,57 @@ defmodule RanchPhxWeb.AnimalLive.Show do
      })}
   end
 
+  def handle_event("edit_reminder", %{"id" => id}, socket) do
+    case Enum.find(socket.assigns.animal.records, &("#{&1.id}" == id)) do
+      nil ->
+        {:noreply, socket}
+
+      r ->
+        desc = r.description || ""
+
+        days =
+          case Regex.run(~r/daily for (\d+) days?/i, desc) do
+            [_, n] -> n
+            _ -> "1"
+          end
+
+        # The details are whatever came before "daily for N days".
+        note =
+          desc
+          |> String.split(~r/\s*·?\s*daily for \d+ days?.*$/iu)
+          |> List.first()
+          |> to_string()
+          |> String.trim()
+
+        {:noreply,
+         assign(socket, :reminder, %{
+           "id" => r.id,
+           "kind" => if(r.record_type in ~w(medication deworming task), do: r.record_type, else: "medication"),
+           "title" => r.title,
+           "start" => Date.to_iso8601(r.date),
+           "days" => days,
+           "note" => note,
+           "error" => nil
+         })}
+    end
+  end
+
+  def handle_event("delete_reminder", %{"id" => id}, socket) do
+    %{animal: animal, is_superuser: su?} = socket.assigns
+
+    with true <- su?,
+         %{} = r <- Enum.find(animal.records, &("#{&1.id}" == id)),
+         {:ok, _} <- Animals.delete_record(r) do
+      {:noreply,
+       socket
+       |> assign(:animal, Animals.get_animal_with_pedigree!(animal.id))
+       |> assign(:reminder, nil)
+       |> put_flash(:info, "Deleted #{r.title}.")}
+    else
+      _ -> {:noreply, socket}
+    end
+  end
+
   def handle_event("close_reminder", _params, socket), do: {:noreply, assign(socket, :reminder, nil)}
 
   def handle_event("reminder_change", %{"reminder" => params}, socket),
@@ -537,19 +588,41 @@ defmodule RanchPhxWeb.AnimalLive.Show do
       true ->
         schedule = "daily for #{days} #{if days == 1, do: "day", else: "days"}"
 
-        case Animals.create_record(%{
-               "animal_id" => animal.id,
-               "record_type" => kind,
-               "title" => title,
-               "date" => start,
-               "description" => Enum.join(Enum.reject([note, schedule], &(&1 == "")), " · ")
-             }) do
+        attrs = %{
+          "animal_id" => animal.id,
+          "record_type" => kind,
+          "title" => title,
+          "date" => start,
+          "description" => Enum.join(Enum.reject([note, schedule], &(&1 == "")), " · ")
+        }
+
+        existing = r["id"] && Enum.find(animal.records, &(&1.id == r["id"]))
+
+        result =
+          if existing do
+            # Keep the days already checked that are still inside the new dates.
+            last = Date.add(start, days - 1)
+
+            kept =
+              Enum.filter(existing.course_done || [], fn d ->
+                Date.compare(d, start) != :lt and Date.compare(d, last) != :gt
+              end)
+
+            Animals.update_record(existing, Map.put(attrs, "course_done", kept))
+          else
+            Animals.create_record(attrs)
+          end
+
+        case result do
           {:ok, _} ->
             {:noreply,
              socket
              |> assign(:animal, Animals.get_animal_with_pedigree!(animal.id))
              |> assign(:reminder, nil)
-             |> put_flash(:info, "Added #{title}, #{schedule}. Check off each day on the overview.")}
+             |> put_flash(
+               :info,
+               if(existing, do: "Updated #{title}.", else: "Added #{title}, #{schedule}. Check off each day on the overview.")
+             )}
 
           {:error, cs} ->
             msg = Enum.map_join(cs.errors, ", ", fn {f, {e, _}} -> "#{Phoenix.Naming.humanize(f)} #{e}" end)
