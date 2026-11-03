@@ -180,4 +180,34 @@ defmodule RanchPhxWeb.ConformationLiveTest do
     assert {:info, "Shoulder / back / hip: 25 / 45 / 30%. The back" <> _} = Enum.at(lines, 4)
     assert {:check, "Neck is 80%" <> _} = Enum.at(lines, 5)
   end
+
+  test "save a photo now, place the dots later", %{conn: conn, horse: horse} do
+    {:ok, view, _} = live(conn, ~p"/conformation?animal=#{horse.id}")
+
+    f =
+      file_input(view, "#conf-later-form", :conf_later, [
+        %{name: "IMG_0001.jpg", content: <<0xFF, 0xD8, 0xFF, 0xD9>>, type: "image/jpeg"}
+      ])
+
+    render_upload(f, "IMG_0001.jpg")
+
+    [e] = Conformations.list(animal_id: horse.id)
+    assert e.animal_id == horse.id and is_nil(e.shoulder)
+    assert e.photo_url == e.original_url
+    assert has_element?(view, "#conf-waiting #wait-#{e.id}")
+    assert has_element?(view, "#draw-#{e.id}")
+    refute has_element?(view, "#conf-list #conf-#{e.id}")
+
+    # The animal page says it's waiting.
+    {:ok, page, _} = live(conn, ~p"/animals/#{horse.id}")
+    assert has_element?(page, "#conformation-card", "1 photo waiting for dots")
+
+    # Dots placed later: the same evaluation gets its numbers, and the original stays.
+    measure(view, %{"event_id" => e.id, "with_original" => false})
+    [done] = Conformations.list(animal_id: horse.id)
+    assert done.id == e.id and done.shoulder == 47.0
+    assert done.original_url == e.original_url
+    assert File.exists?(Path.join(conf_dir(), Path.basename(e.original_url)))
+    refute has_element?(view, "#conf-waiting")
+  end
 end
