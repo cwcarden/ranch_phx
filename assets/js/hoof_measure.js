@@ -363,6 +363,7 @@ export const HoofMeasure = {
       : picker && VIEWS[picker.dataset.view] ? picker.dataset.view : "side"
     this.eventId = opts.id || null
     this.original = null
+    this.isNew = src instanceof Blob
     this.url = null
     this.def = VIEWS[this.mode]
     this.steps = this.def.steps
@@ -389,8 +390,9 @@ export const HoofMeasure = {
     ed.innerHTML = `
       <div class="hm-bar">
         <div class="hm-step"><b>${this.mode === "body" ? "Conformation" : (FEET[this.foot] || this.foot) + (this.mode === "sole" ? " · sole" : "")}</b><span data-say></span></div>
-        ${this.mode === "body" && this.el.dataset.ai === "1" ? `<button class="hm-btn hm-ai" data-ai>✦ Place dots with AI</button>` : ""}
+        ${this.el.dataset.ai === "1" ? `<button class="hm-btn hm-ai" data-ai>✦ Place dots with AI</button>` : ""}
         <button class="hm-btn hm-q" data-help aria-label="What are these lines?">?</button>
+        <button class="hm-btn hm-q" data-rotate aria-label="Rotate photo" title="Rotate photo">⟳</button>
         <button class="hm-btn" data-undo>Undo</button>
         <button class="hm-btn" data-cancel>Cancel</button>
       </div>
@@ -412,6 +414,7 @@ export const HoofMeasure = {
     ed.querySelector("[data-cancel]").onclick = () => this.close()
     ed.querySelector("[data-undo]").onclick = () => this.undo()
     ed.querySelector("[data-help]").onclick = () => this.toggleHelp()
+    ed.querySelector("[data-rotate]").onclick = () => this.rotate()
     const ai = ed.querySelector("[data-ai]")
     if (ai) ai.onclick = () => this.askAi()
     ed.querySelector("[data-skip]").onclick = () => {
@@ -587,7 +590,7 @@ export const HoofMeasure = {
     skip.textContent = st && st.optional ? `Skip ${st.label.toLowerCase()}` : "Skip"
     this.ed.querySelector("[data-save]").disabled = !this.ready()
     // A new photo with dots still missing: keep the photo now, place the dots later.
-    this.ed.querySelector("[data-later]").hidden = !(this.original && this.laterInput() && !this.ready())
+    this.ed.querySelector("[data-later]").hidden = !(this.isNew && this.original && this.laterInput() && !this.ready())
     this.draw()
   },
 
@@ -763,6 +766,41 @@ export const HoofMeasure = {
     this.cornerAngle(c, [lo, end], [lo, hi], deg, color, k, 0.9)
   },
 
+  // ── Turning the photo ──
+  // Photos taken with the phone upside down (lens near the ground for a hoof) come out
+  // upside down. Each tap turns the photo a quarter turn clockwise, dots and all, and
+  // the turned photo becomes the clean copy that's saved.
+  rotate() {
+    const img = this.img
+    if (!img || !img.naturalWidth || this.rotating) return
+    this.rotating = true
+    const W = img.naturalWidth, H = img.naturalHeight
+    const cv = document.createElement("canvas")
+    cv.width = H
+    cv.height = W
+    const c = cv.getContext("2d")
+    c.translate(H, 0)
+    c.rotate(Math.PI / 2)
+    c.drawImage(img, 0, 0)
+    const turn = (p) => ({x: H - p.y, y: p.x})
+    cv.toBlob((blob) => {
+      this.rotating = false
+      if (!blob || !this.ed) return
+      for (const st of this.steps) {
+        this.points[st.key] = st.trace
+          ? this.points[st.key].map((line) => line.map(turn))
+          : this.points[st.key].map(turn)
+      }
+      this.original = blob
+      if (this.url) URL.revokeObjectURL(this.url)
+      this.url = URL.createObjectURL(blob)
+      this.img = new Image()
+      this.img.onload = () => { this.layout(); this.refresh() }
+      this.img.src = this.url
+      this.say("Turned. Tap ⟳ again to keep turning.")
+    }, "image/jpeg", 0.9)
+  },
+
   // ── AI: place the dots ──
   // Sends a small copy of the photo; the server asks Claude where each landmark is.
   askAi() {
@@ -779,7 +817,7 @@ export const HoofMeasure = {
     const image = cv.toDataURL("image/jpeg", 0.85).split(",")[1]
     clearTimeout(this.aiTimer)
     this.aiTimer = setTimeout(() => this.aiPlaced({error: "That took too long. Try again, or place the dots yourself."}), 90000)
-    this.pushEvent("ai_points", {image})
+    this.pushEvent("ai_points", {image, view: this.mode})
   },
 
   // Points come back as fractions of the width and height.
@@ -1029,7 +1067,7 @@ export const HoofMeasure = {
 
   // Keeps the clean photo as an entry waiting for its dots, and closes the editor.
   saveLater() {
-    if (!this.original || !this.laterInput()) return
+    if (!this.isNew || !this.original || !this.laterInput()) return
     const file = new File([this.original], `photo-${this.mode}.jpg`, {type: "image/jpeg"})
     this.upload(this.el.dataset.later, [file])
     this.close()

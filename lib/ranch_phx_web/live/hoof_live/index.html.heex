@@ -296,7 +296,7 @@
       </li>
     </ul>
 
-    <div id="hoof-tool" phx-hook="HoofMeasure" phx-update="ignore" data-animal={@animal.name} data-later="hoof_later">
+    <div id="hoof-tool" phx-hook="HoofMeasure" phx-update="ignore" data-animal={@animal.name} data-later="hoof_later" data-ai={if @ai_on, do: "1", else: "0"}>
       <div class="hf-go">
         <label class="primary">
           <.icon name="hero-camera" /> Take photo
