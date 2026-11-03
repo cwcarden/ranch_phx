@@ -12,7 +12,8 @@ defmodule RanchPhxWeb.NotesLive.Index do
   alias RanchPhx.Training.Coach
   alias RanchPhx.Accounts.Scope
 
-  @uploads_dir Application.app_dir(:ranch_phx, "priv/static/uploads")
+  # Uploaded files live outside the release so deploys never touch them.
+  defp uploads_dir, do: RanchPhx.Storage.root()
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
@@ -211,7 +212,7 @@ defmodule RanchPhxWeb.NotesLive.Index do
   end
 
   defp store(animal, tmp, kind) do
-    dir = Path.join([@uploads_dir, "animals", "#{animal.id}", "notes"])
+    dir = Path.join([uploads_dir(), "animals", "#{animal.id}", "notes"])
     File.mkdir_p!(dir)
     ext = if kind == :strokes, do: ".json", else: ".png"
     name = "#{:crypto.strong_rand_bytes(9) |> Base.url_encode64(padding: false)}#{ext}"
@@ -219,7 +220,7 @@ defmodule RanchPhxWeb.NotesLive.Index do
     "/uploads/animals/#{animal.id}/notes/#{name}"
   end
 
-  defp path("/uploads/" <> rest), do: Path.join(@uploads_dir, rest)
+  defp path("/uploads/" <> rest), do: Path.join(uploads_dir(), rest)
   defp path(_), do: ""
 
   defp remove("/uploads/animals/" <> rest = url) do

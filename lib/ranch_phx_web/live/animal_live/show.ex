@@ -8,7 +8,8 @@ defmodule RanchPhxWeb.AnimalLive.Show do
   alias RanchPhx.Accounts.Scope
   require Decimal
 
-  @uploads_dir Application.app_dir(:ranch_phx, "priv/static/uploads")
+  # Uploaded files live outside the release so deploys never touch them.
+  defp uploads_dir, do: RanchPhx.Storage.root()
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
@@ -285,7 +286,7 @@ defmodule RanchPhxWeb.AnimalLive.Show do
 
   def handle_event("upload_document", %{"doc" => params}, socket) do
     animal_id = socket.assigns.animal.id
-    dir = Path.join([@uploads_dir, "animals", "#{animal_id}", "documents"])
+    dir = Path.join([uploads_dir(), "animals", "#{animal_id}", "documents"])
     File.mkdir_p!(dir)
 
     uploaded = consume_uploaded_entries(socket, :document, fn %{path: tmp}, entry ->
@@ -1045,7 +1046,7 @@ defmodule RanchPhxWeb.AnimalLive.Show do
 
     case result do
       {:ok, _} ->
-        doc_dir = Path.join([@uploads_dir, "animals", "#{animal_id}", "documents"])
+        doc_dir = Path.join([uploads_dir(), "animals", "#{animal_id}", "documents"])
         File.mkdir_p!(doc_dir)
         record_title = params |> Map.get("title", "") |> String.trim()
         record_type  = params |> Map.get("record_type", "")
@@ -1402,7 +1403,7 @@ defmodule RanchPhxWeb.AnimalLive.Show do
   def handle_progress(:markup, entry, socket) do
     if entry.done? do
       %{animal: animal} = socket.assigns
-      dir = Path.join([@uploads_dir, "animals", "#{animal.id}", "photos"])
+      dir = Path.join([uploads_dir(), "animals", "#{animal.id}", "photos"])
       File.mkdir_p!(dir)
 
       url =
@@ -1439,7 +1440,7 @@ defmodule RanchPhxWeb.AnimalLive.Show do
 
       file =
         consume_uploaded_entry(socket, entry, fn %{path: tmp} ->
-          doc_dir = Path.join([@uploads_dir, "animals", "#{animal.id}", "documents"])
+          doc_dir = Path.join([uploads_dir(), "animals", "#{animal.id}", "documents"])
           File.mkdir_p!(doc_dir)
           ext = Path.extname(entry.client_name) |> String.downcase()
           name = "#{:crypto.strong_rand_bytes(8) |> Base.url_encode64(padding: false)}#{ext}"
@@ -1622,7 +1623,7 @@ defmodule RanchPhxWeb.AnimalLive.Show do
   end
 
   defp save_visit_docs(socket, animal, visit) do
-    doc_dir = Path.join([@uploads_dir, "animals", "#{animal.id}", "documents"])
+    doc_dir = Path.join([uploads_dir(), "animals", "#{animal.id}", "documents"])
     File.mkdir_p!(doc_dir)
     labels = Enum.map_join(visit["items"], ", ", & &1["label"])
     date = parse_date(visit["date"])
@@ -1896,7 +1897,7 @@ defmodule RanchPhxWeb.AnimalLive.Show do
   # Saves one finished photo upload (converting HEIC if one arrives anyway).
   defp save_photo_entry(socket, entry) do
     animal_id = socket.assigns.animal.id
-    dir = Path.join([@uploads_dir, "animals", "#{animal_id}", "photos"])
+    dir = Path.join([uploads_dir(), "animals", "#{animal_id}", "photos"])
     File.mkdir_p!(dir)
 
     url =

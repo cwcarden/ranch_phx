@@ -348,7 +348,7 @@ defmodule RanchPhx.Barn do
   end
 
   defp store(tmp, parts) do
-    dir = Path.join([Application.app_dir(:ranch_phx, "priv/static/uploads") | parts])
+    dir = Path.join([RanchPhx.Storage.root() | parts])
     File.mkdir_p!(dir)
     name = "#{:crypto.strong_rand_bytes(8) |> Base.url_encode64(padding: false)}.jpg"
     File.cp!(tmp, Path.join(dir, name))

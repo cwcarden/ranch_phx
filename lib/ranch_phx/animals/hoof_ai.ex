@@ -99,12 +99,7 @@ defmodule RanchPhx.Animals.HoofAI do
   # Photos are under priv/static/uploads; only read our own hoof photos.
   defp read_photo("/uploads/animals/" <> _ = url) do
     if String.contains?(url, "/hooves/") and not String.contains?(url, "..") do
-      path = Path.join(Application.app_dir(:ranch_phx, "priv/static"), url)
-
-      case File.read(path) do
-        {:ok, bin} -> bin
-        _ -> nil
-      end
+      RanchPhx.Storage.read(url)
     end
   end
 

@@ -88,6 +88,50 @@
     </p>
   </section>
 
+  <section class="tr-card" id="file-check">
+    <h2 style="margin:0 0 6px">Photos and papers on the server</h2>
+    <p class="tr-muted" style="margin:0 0 10px;font-size:14px">
+      Checks that every photo and document the app shows is really on the server, and puts back any that went missing from the backup.
+    </p>
+    <button id="check-files" class="tr-btn tr-btn-block" phx-click="check" disabled={@checking}>
+      <.icon name={if @checking, do: "hero-arrow-path", else: "hero-magnifying-glass"} class={if @checking, do: "animate-spin"} />
+      {if @checking, do: "Checking…", else: "Check photos and papers"}
+    </button>
+    <div :if={@missing == []} class="bk-state on" id="files-ok" style="margin-top:10px">
+      <.icon name="hero-check-circle" />
+      <div><b>Everything's there</b><small>Every photo and document the app points at is on the server.</small></div>
+    </div>
+    <div :if={is_list(@missing) and @missing != []} id="files-missing" style="margin-top:10px">
+      <% in_backup = Enum.count(@missing, &elem(&1, 1)) %>
+      <div class="bk-state warn">
+        <.icon name="hero-exclamation-triangle" />
+        <div>
+          <b>{length(@missing)} file(s) missing on the server</b>
+          <small>
+            {in_backup} can be put back from the backup.<%= if in_backup < length(@missing) do %> {length(@missing) - in_backup} never made it into a backup.<% end %>
+          </small>
+        </div>
+      </div>
+      <button
+        :if={in_backup > 0}
+        id="restore-files"
+        class="tr-btn tr-btn-primary tr-btn-block"
+        style="margin-top:10px"
+        phx-click="restore"
+        disabled={@checking}
+      >
+        <.icon name="hero-arrow-uturn-left" /> Put back {in_backup} from the backup
+      </button>
+      <details style="margin-top:8px">
+        <summary class="tr-muted" style="font-size:14px">Show which</summary>
+        <div :for={{url, ok?} <- Enum.take(@missing, 60)} class="bk-run">
+          <span class={if ok?, do: "bk-ok", else: "bk-bad"}>{if ok?, do: "✓", else: "✕"}</span>
+          <span style="word-break:break-all;font-size:13px">{url}</span>
+        </div>
+      </details>
+    </div>
+  </section>
+
   <section :if={@configured} class="tr-card" id="backup-storage">
     <h2 style="margin:0 0 6px">Storage used</h2>
     <div class={["bk-meter", percent(@remote_bytes) > 80 && "high"]}>
