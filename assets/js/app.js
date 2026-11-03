@@ -790,7 +790,12 @@ window.addEventListener("phx:ranch:scroll-to", (e) => {
 // Framing a cover photo: tap the spot that should stay in view.
 Hooks.FocusPicker = {
   mounted() {
-    this.el.addEventListener("click", (e) => {
+    // pointerup, not click: iPhone Safari doesn't send clicks for taps on a plain picture.
+    let down = null
+    this.el.addEventListener("pointerdown", (e) => { down = {x: e.clientX, y: e.clientY} })
+    this.el.addEventListener("pointerup", (e) => {
+      if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 12) { down = null; return }
+      down = null
       const img = this.el.querySelector("img")
       if (!img) return
       const r = img.getBoundingClientRect()
