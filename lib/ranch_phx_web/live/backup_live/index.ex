@@ -10,6 +10,8 @@ defmodule RanchPhxWeb.BackupLive.Index do
      socket
      |> assign(:page_title, "Backups")
      |> assign(:running, false)
+     |> assign(:checking, false)
+     |> assign(:missing, nil)
      |> load()}
   end
 
@@ -42,7 +44,53 @@ defmodule RanchPhxWeb.BackupLive.Index do
     end
   end
 
+  def handle_event("check", _params, socket) do
+    {:noreply, socket |> assign(:checking, true) |> start_async(:check, &Backup.check_missing/0)}
+  end
+
+  def handle_event("restore", _params, socket) do
+    {:noreply,
+     socket |> assign(:checking, true) |> start_async(:restore, &Backup.restore_missing/0)}
+  end
+
   @impl true
+  def handle_async(:check, {:ok, {:ok, list}}, socket),
+    do: {:noreply, socket |> assign(checking: false, missing: list)}
+
+  def handle_async(:check, {:ok, {:error, msg}}, socket),
+    do:
+      {:noreply,
+       socket |> assign(:checking, false) |> put_flash(:error, "Couldn't check: #{msg}")}
+
+  def handle_async(:restore, {:ok, {:ok, r}}, socket) do
+    socket = socket |> assign(:checking, false) |> load()
+
+    missing =
+      case Backup.check_missing() do
+        {:ok, l} -> l
+        _ -> socket.assigns.missing
+      end
+
+    {:noreply,
+     socket
+     |> assign(:missing, missing)
+     |> put_flash(
+       :info,
+       "Put back #{r.restored} file(s)." <>
+         if(r.not_in_backup > 0, do: " #{r.not_in_backup} weren't in the backup.", else: "")
+     )}
+  end
+
+  def handle_async(:restore, {:ok, {:error, msg}}, socket),
+    do:
+      {:noreply,
+       socket |> assign(:checking, false) |> put_flash(:error, "Couldn't put files back: #{msg}")}
+
+  def handle_async(name, {:exit, _}, socket) when name in [:check, :restore],
+    do:
+      {:noreply,
+       socket |> assign(:checking, false) |> put_flash(:error, "That stopped partway. Try again.")}
+
   def handle_async(:run, {:ok, result}, socket) do
     socket = socket |> assign(:running, false) |> load()
 

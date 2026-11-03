@@ -28,6 +28,9 @@ ranch_phx-*.tar
 # Ignore assets that are produced by build tools.
 /priv/static/assets/
 
+# Uploaded photos and papers (kept on the server, backed up to R2).
+/priv/static/uploads/
+
 # Ignore digested assets cache.
 /priv/static/cache_manifest.json
 

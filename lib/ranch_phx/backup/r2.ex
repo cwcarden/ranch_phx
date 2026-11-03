@@ -1,6 +1,6 @@
 defmodule RanchPhx.Backup.R2 do
   @moduledoc """
-  The few Cloudflare R2 calls the backup needs (R2 speaks the S3 API): list, put, delete.
+  The few Cloudflare R2 calls the backup needs (R2 speaks the S3 API): list, get, put, delete.
   Requests are signed with AWS SigV4 by Req.
   """
 
@@ -47,6 +47,15 @@ defmodule RanchPhx.Backup.R2 do
            opts(c) ++ [body: body, headers: [{"content-type", content_type}]]
          ) do
       {:ok, %{status: s}} when s in 200..299 -> :ok
+      other -> error(other)
+    end
+  end
+
+  @doc "One object's bytes: `{:ok, body}`, `{:error, :not_found}` or `{:error, message}`."
+  def get(c, key) do
+    case Req.get(object_url(c, key), opts(c)) do
+      {:ok, %{status: 200, body: body}} -> {:ok, body}
+      {:ok, %{status: 404}} -> {:error, :not_found}
       other -> error(other)
     end
   end

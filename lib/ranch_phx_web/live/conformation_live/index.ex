@@ -14,7 +14,8 @@ defmodule RanchPhxWeb.ConformationLive.Index do
   alias RanchPhx.Training.Coach
   alias RanchPhx.Accounts.Scope
 
-  @uploads_dir Application.app_dir(:ranch_phx, "priv/static/uploads")
+  # Uploaded files live outside the release so deploys never touch them.
+  defp uploads_dir, do: RanchPhx.Storage.root()
 
   @impl true
   def mount(_params, _session, socket) do
@@ -364,7 +365,7 @@ defmodule RanchPhxWeb.ConformationLive.Index do
   end
 
   defp store(tmp) do
-    dir = Path.join(@uploads_dir, "conformation")
+    dir = Path.join(uploads_dir(), "conformation")
     File.mkdir_p!(dir)
     name = "#{:crypto.strong_rand_bytes(9) |> Base.url_encode64(padding: false)}.jpg"
     File.cp!(tmp, Path.join(dir, name))
@@ -373,7 +374,7 @@ defmodule RanchPhxWeb.ConformationLive.Index do
 
   defp remove("/uploads/conformation/" <> rest) do
     if not String.contains?(rest, ".."),
-      do: File.rm(Path.join([@uploads_dir, "conformation", rest]))
+      do: File.rm(Path.join([uploads_dir(), "conformation", rest]))
   end
 
   defp remove(_), do: :ok

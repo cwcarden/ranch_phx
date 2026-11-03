@@ -193,7 +193,7 @@ defmodule RanchPhx.Backup do
   def uploads_dir,
     do:
       Application.get_env(:ranch_phx, :backup_uploads_dir) ||
-        Application.app_dir(:ranch_phx, "priv/static/uploads")
+        RanchPhx.Storage.root()
 
   @doc "Local uploaded files as `[{relative_path, size}]`, documents first."
   def local_files do
@@ -237,6 +237,63 @@ defmodule RanchPhx.Backup do
     case errors do
       [] -> {:ok, stats}
       _ -> {{:error, "#{length(errors)} file(s) didn't copy (#{List.last(errors)})"}, stats}
+    end
+  end
+
+  # ── Putting missing files back ──────────────────────────────────────────────
+
+  @doc """
+  Files the app points at that aren't on the server, each with whether the R2 backup
+  has a copy: `{:ok, [{url, in_backup?}]}`.
+  """
+  def check_missing do
+    missing = RanchPhx.Storage.missing()
+
+    case {missing, R2.config()} do
+      {[], _} ->
+        {:ok, []}
+
+      {_, nil} ->
+        {:ok, Enum.map(missing, &{&1, false})}
+
+      {_, c} ->
+        with {:ok, remote} <- R2.list(c) do
+          {:ok,
+           Enum.map(
+             missing,
+             &{&1, Map.has_key?(remote, "uploads/" <> String.replace_prefix(&1, "/uploads/", ""))}
+           )}
+        end
+    end
+  end
+
+  @doc """
+  Copies every missing file the backup has back onto the server. Only writes files that
+  aren't there; never overwrites or deletes. `{:ok, %{restored: n, not_in_backup: m}}`.
+  """
+  def restore_missing do
+    with c when not is_nil(c) <- R2.config() || {:error, "Backups aren't set up yet."},
+         {:ok, list} <- check_missing() do
+      {restored, gone} =
+        Enum.reduce(list, {0, 0}, fn
+          {url, true}, {r, g} ->
+            rel = String.replace_prefix(url, "/uploads/", "")
+            dest = RanchPhx.Storage.path(rel)
+
+            with true <- is_binary(dest) and not File.exists?(dest),
+                 {:ok, body} <- R2.get(c, "uploads/" <> rel),
+                 :ok <- File.mkdir_p(Path.dirname(dest)),
+                 :ok <- File.write(dest, body) do
+              {r + 1, g}
+            else
+              _ -> {r, g + 1}
+            end
+
+          {_, false}, {r, g} ->
+            {r, g + 1}
+        end)
+
+      {:ok, %{restored: restored, not_in_backup: gone}}
     end
   end
 

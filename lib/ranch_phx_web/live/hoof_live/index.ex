@@ -12,7 +12,8 @@ defmodule RanchPhxWeb.HoofLive.Index do
   alias RanchPhx.Training.Coach
   alias RanchPhx.Accounts.Scope
 
-  @uploads_dir Application.app_dir(:ranch_phx, "priv/static/uploads")
+  # Uploaded files live outside the release so deploys never touch them.
+  defp uploads_dir, do: RanchPhx.Storage.root()
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
@@ -204,7 +205,7 @@ defmodule RanchPhxWeb.HoofLive.Index do
   end
 
   defp store(animal, tmp, client_name \\ "photo.jpg") do
-    dir = Path.join([@uploads_dir, "animals", "#{animal.id}", "hooves"])
+    dir = Path.join([uploads_dir(), "animals", "#{animal.id}", "hooves"])
     File.mkdir_p!(dir)
     ext = if String.ends_with?(String.downcase(client_name), ".png"), do: ".png", else: ".jpg"
     name = "#{:crypto.strong_rand_bytes(8) |> Base.url_encode64(padding: false)}#{ext}"
@@ -269,7 +270,7 @@ defmodule RanchPhxWeb.HoofLive.Index do
   end
 
   defp remove("/uploads/animals/" <> rest) do
-    if not String.contains?(rest, ".."), do: File.rm(Path.join([@uploads_dir, "animals", rest]))
+    if not String.contains?(rest, ".."), do: File.rm(Path.join([uploads_dir(), "animals", rest]))
   end
 
   defp remove(_), do: :ok

@@ -5,7 +5,8 @@ defmodule RanchPhxWeb.Uploads do
   """
   require Logger
 
-  @uploads_dir Application.app_dir(:ranch_phx, "priv/static/uploads")
+  # Uploaded files live outside the release so deploys never touch them.
+  defp uploads_dir, do: RanchPhx.Storage.root()
 
   @image_types ~w(.jpg .jpeg .png .webp .gif .heic .heif)
 
@@ -13,7 +14,7 @@ defmodule RanchPhxWeb.Uploads do
 
   @doc "Copy the temp upload to uploads/<subdir>/ and return its URL, or nil on failure."
   def save_image(tmp_path, client_name, subdir) do
-    dir = Path.join(@uploads_dir, subdir)
+    dir = Path.join(uploads_dir(), subdir)
     File.mkdir_p!(dir)
 
     orig_ext = client_name |> Path.extname() |> String.downcase()
@@ -49,7 +50,7 @@ defmodule RanchPhxWeb.Uploads do
   @doc "Delete a saved training photo file. Ignores anything outside uploads/training/."
   def delete_file("/uploads/training/" <> rest = _url) do
     unless String.contains?(rest, "..") do
-      File.rm(Path.join([@uploads_dir, "training", rest]))
+      File.rm(Path.join([uploads_dir(), "training", rest]))
     end
 
     :ok

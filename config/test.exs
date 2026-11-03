@@ -54,4 +54,5 @@ config :ranch_phx, :push_req_options, plug: {Req.Test, RanchPhx.Push}
 
 # Off-site backup: no nightly runs in tests; R2 calls go to a stub.
 config :ranch_phx, :nightly_backup, false
+config :ranch_phx, :adopt_release_uploads, false
 config :ranch_phx, :backup_req_options, plug: {Req.Test, RanchPhx.Backup.R2}, retry: false

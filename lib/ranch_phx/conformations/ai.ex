@@ -317,10 +317,7 @@ defmodule RanchPhx.Conformations.AI do
 
   defp read_photo("/uploads/conformation/" <> _ = url) do
     if not String.contains?(url, "..") do
-      case File.read(Path.join(Application.app_dir(:ranch_phx, "priv/static"), url)) do
-        {:ok, bin} -> bin
-        _ -> nil
-      end
+      RanchPhx.Storage.read(url)
     end
   end
 
