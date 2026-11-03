@@ -135,6 +135,12 @@ defmodule RanchPhxWeb.HoofLive.Index do
     end
   end
 
+  # "Place dots with AI" in the measuring tool: a first guess to drag into place.
+  def handle_event("ai_points", %{"image" => image} = params, socket) when is_binary(image) do
+    view = if params["view"] == "sole", do: "sole", else: "side"
+    {:noreply, start_async(socket, :ai_points, fn -> HoofAI.place(image, view) end)}
+  end
+
   def handle_event("farrier_notes", _params, socket) do
     %{animal: animal, measurements: ms, notes_loading: busy?} = socket.assigns
 
@@ -276,6 +282,19 @@ defmodule RanchPhxWeb.HoofLive.Index do
   defp remove(_), do: :ok
 
   @impl true
+  def handle_async(:ai_points, {:ok, {:ok, %{points: points, note: note}}}, socket),
+    do: {:noreply, push_event(socket, "ai-points", %{points: points, note: note})}
+
+  def handle_async(:ai_points, {:ok, {:error, reason}}, socket),
+    do: {:noreply, push_event(socket, "ai-points", %{error: Coach.error_message(reason)})}
+
+  def handle_async(:ai_points, {:exit, _}, socket),
+    do:
+      {:noreply,
+       push_event(socket, "ai-points", %{
+         error: "The AI couldn't place the dots. Place them yourself."
+       })}
+
   def handle_async(:notes, {:ok, {:ok, text}}, socket),
     do: {:noreply, assign(socket, notes: {:ok, text}, notes_loading: false)}
 
@@ -329,8 +348,13 @@ defmodule RanchPhxWeb.HoofLive.Index do
 
   defp past_date(value) do
     case Date.from_iso8601(to_string(value)) do
-      {:ok, d} -> if Date.compare(d, RanchPhx.LocalTime.today()) == :gt, do: RanchPhx.LocalTime.today(), else: d
-      _ -> RanchPhx.LocalTime.today()
+      {:ok, d} ->
+        if Date.compare(d, RanchPhx.LocalTime.today()) == :gt,
+          do: RanchPhx.LocalTime.today(),
+          else: d
+
+      _ ->
+        RanchPhx.LocalTime.today()
     end
   end
 
