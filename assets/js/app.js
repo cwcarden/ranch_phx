@@ -786,3 +786,21 @@ window.addEventListener("phx:ranch:scroll-to", (e) => {
     if (el) el.scrollIntoView({behavior: "smooth", block: "start"})
   }, 150)
 })
+
+// Framing a cover photo: tap the spot that should stay in view.
+Hooks.FocusPicker = {
+  mounted() {
+    this.el.addEventListener("click", (e) => {
+      const img = this.el.querySelector("img")
+      if (!img) return
+      const r = img.getBoundingClientRect()
+      // The photo is shown whole (contain): measure against the picture, not its box.
+      const scale = Math.min(r.width / img.naturalWidth, r.height / img.naturalHeight)
+      const w = img.naturalWidth * scale, h = img.naturalHeight * scale
+      const left = r.left + (r.width - w) / 2, top = r.top + (r.height - h) / 2
+      const x = ((e.clientX - left) / w) * 100, y = ((e.clientY - top) / h) * 100
+      if (x < 0 || x > 100 || y < 0 || y > 100) return
+      this.pushEvent("set_cover_focus", {x: x.toFixed(1), y: y.toFixed(1)})
+    })
+  },
+}

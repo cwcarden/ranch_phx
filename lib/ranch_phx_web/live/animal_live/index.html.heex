@@ -254,7 +254,7 @@ a.ci-row:active { background: var(--surface2); }
           <a class="animal-card-link" href={"/animals/#{animal.id}"} data-phx-link="redirect" data-phx-link-state="push">
             <div class="card-photo">
               <%= if animal.cover_photo_url do %>
-                <img src={animal.cover_photo_url} alt={animal.name}/>
+                <img src={animal.cover_photo_url} alt={animal.name} style={"object-position: #{RanchPhx.Animals.Animal.cover_focus(animal)}"}/>
               <% else %>
                 <div class="card-photo-placeholder">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48">

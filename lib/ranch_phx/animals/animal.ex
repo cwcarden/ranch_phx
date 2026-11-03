@@ -54,6 +54,18 @@ defmodule RanchPhx.Animals.Animal do
   @statuses ~w(active retired sold deceased)
   @required ~w(name kind)a
 
+  @doc """
+  CSS object-position for the cover photo: "top", "center", "bottom", or a focal
+  point "38% 22%" picked by tapping the photo. Anything else falls back to center.
+  """
+  def cover_focus(%{cover_position: pos}) when pos in ["top", "center", "bottom"], do: pos
+
+  def cover_focus(%{cover_position: pos}) when is_binary(pos) do
+    if Regex.match?(~r/^\d{1,3}% \d{1,3}%$/, pos), do: pos, else: "center"
+  end
+
+  def cover_focus(_), do: "center"
+
   @doc "The name to show first: the barn name when there is one, else the registered name."
   def display_name(%{barn_name: b} = a) when is_binary(b) and b != "", do: String.trim(b) |> then(&if(&1 == "", do: a.name, else: &1))
   def display_name(%{name: name}), do: name
