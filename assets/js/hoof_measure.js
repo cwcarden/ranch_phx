@@ -400,6 +400,7 @@ export const HoofMeasure = {
         <input type="date" data-date value="${opts.date || iso}" max="${iso}" aria-label="Date measured">
         <input type="text" data-note placeholder="${this.mode === "body" ? "Note (optional), e.g. 2 yr old, $6,500, seen at the Stanley sale" : "Note (optional), e.g. 4 weeks since trim"}" maxlength="200">
         <button class="hm-btn" data-skip>Skip</button>
+        <button class="hm-btn" data-later hidden>Save for later</button>
         <button class="hm-btn go" data-save disabled>Save</button>
       </div>`
     document.body.appendChild(ed)
@@ -419,6 +420,7 @@ export const HoofMeasure = {
       this.refresh()
     }
     ed.querySelector("[data-save]").onclick = () => this.save()
+    ed.querySelector("[data-later]").onclick = () => this.saveLater()
 
     this.canvas.addEventListener("pointerdown", (e) => this.down(e))
     this.canvas.addEventListener("pointermove", (e) => this.move(e))
@@ -584,6 +586,8 @@ export const HoofMeasure = {
     skip.style.display = st && st.optional && this.points[st.key].length === 0 ? "" : "none"
     skip.textContent = st && st.optional ? `Skip ${st.label.toLowerCase()}` : "Skip"
     this.ed.querySelector("[data-save]").disabled = !this.ready()
+    // A new photo with dots still missing: keep the photo now, place the dots later.
+    this.ed.querySelector("[data-later]").hidden = !(this.original && this.laterInput() && !this.ready())
     this.draw()
   },
 
@@ -1017,6 +1021,20 @@ export const HoofMeasure = {
   },
 
   // ── Saving ──
+  // The page's "save for later" upload (hoof_later, conf_later), when it has one.
+  laterInput() {
+    const name = this.el.dataset.later
+    return name ? document.querySelector(`input[type=file][name="${name}"]`) : null
+  },
+
+  // Keeps the clean photo as an entry waiting for its dots, and closes the editor.
+  saveLater() {
+    if (!this.original || !this.laterInput()) return
+    const file = new File([this.original], `photo-${this.mode}.jpg`, {type: "image/jpeg"})
+    this.upload(this.el.dataset.later, [file])
+    this.close()
+  },
+
   // Puts the Save button back and says why, so it never sits on "Saving…".
   saveFailed(message) {
     clearTimeout(this.saveTimer)
