@@ -1,0 +1,171 @@
+<.styles />
+<.app_nav active={:animals} detail flash={@flash} />
+<.topbar
+  back={~p"/animals/#{@animal.id}"}
+  back_label={Animal.display_name(@animal)}
+  title="Feed plan"
+/>
+
+<style>
+  .fp-wrap > * + * { margin-top: 14px; }
+  .fp-sec { border: 1px solid var(--border); border-radius: 14px; padding: 12px; background: var(--surface); }
+  .fp-sec + .fp-sec { margin-top: 10px; }
+  .fp-head { display: flex; gap: 6px; align-items: center; }
+  .fp-head input { flex: 1; min-width: 0; font-weight: 700; font-size: 16px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); }
+  .fp-sec textarea { width: 100%; margin-top: 8px; min-height: 84px; font-size: 16px; line-height: 1.45; padding: 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); resize: vertical; }
+  .fp-ico { width: 38px; height: 38px; flex: none; display: grid; place-items: center; border-radius: 10px; border: 1px solid var(--border); background: var(--surface2); color: var(--text2); }
+  .fp-ico:disabled { opacity: .35; }
+  .fp-ico [class^="hero-"] { width: 18px; height: 18px; }
+  .fp-bar { display: flex; gap: 10px; flex-wrap: wrap; }
+  .fp-bar > * { flex: 1 1 160px; }
+  .fp-share { display: flex; align-items: center; gap: 12px; }
+  .fp-share b { display: block; font-size: 17px; }
+  .fp-share small { color: var(--text2); font-size: 14px; }
+  .fp-switch { margin-left: auto; flex: none; width: 58px; height: 34px; border-radius: 17px; background: var(--surface2); border: 1px solid var(--border); position: relative; transition: background .15s; }
+  .fp-switch i { position: absolute; top: 3px; left: 3px; width: 26px; height: 26px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: left .15s; }
+  .fp-switch.on { background: #16a34a; border-color: #16a34a; }
+  .fp-switch.on i { left: 27px; }
+  .fp-link { margin-top: 12px; padding: 10px; border-radius: 10px; background: var(--surface2); border: 1px solid var(--border); font-size: 14px; word-break: break-all; }
+  .fp-view .fp-line { margin: 4px 0; line-height: 1.45; }
+  .fp-dirty { color: #d97706; font-size: 14px; }
+</style>
+
+<div class="tr-wrap fp-wrap">
+  <%!-- Sharing --%>
+  <section class="tr-card" id="feed-share">
+    <div class="fp-share">
+      <div>
+        <b>Share link</b>
+        <small :if={@plan.share_on}>On: anyone with the link can see this plan, always the latest version.</small>
+        <small :if={!@plan.share_on}>Off: the link doesn't open for anyone.</small>
+      </div>
+      <button
+        :if={@is_superuser}
+        type="button"
+        id="share-toggle"
+        class={["fp-switch", @plan.share_on && "on"]}
+        role="switch"
+        aria-checked={to_string(@plan.share_on)}
+        aria-label="Share link"
+        phx-click="share"
+        phx-value-on={to_string(!@plan.share_on)}
+      >
+        <i></i>
+      </button>
+    </div>
+    <div :if={@plan.share_on && @base}>
+      <div class="fp-link" id="share-url">{share_url(@base, @plan)}</div>
+      <div class="fp-bar" style="margin-top:10px">
+        <button
+          type="button"
+          id="send-link"
+          class="tr-btn tr-btn-primary"
+          phx-click={JS.dispatch("ranch:share-link", detail: %{url: share_url(@base, @plan), title: "#{Animal.display_name(@animal)}'s feed plan"})}
+        >
+          <.icon name="hero-share" /> Send link
+        </button>
+        <button
+          type="button"
+          id="copy-link"
+          class="tr-btn"
+          phx-click={JS.dispatch("ranch:copy", detail: %{from: "#share-url"})}
+        >
+          <.icon name="hero-clipboard" /> Copy
+        </button>
+      </div>
+      <button
+        :if={@is_superuser}
+        type="button"
+        id="new-link"
+        class="tr-btn tr-btn-block"
+        style="margin-top:10px;font-size:14px"
+        phx-click="new_link"
+        data-confirm="Make a new link? The one you've already sent will stop working."
+      >
+        <.icon name="hero-arrow-path" /> Make a new link
+      </button>
+    </div>
+  </section>
+
+  <div class="fp-bar">
+    <a
+      id="feed-pdf"
+      class="tr-btn"
+      href={~p"/animals/#{@animal.id}/feed/print"}
+    >
+      <.icon name="hero-document-arrow-down" /> Print / PDF
+    </a>
+  </div>
+  <p :if={@dirty and @is_superuser} class="fp-dirty" id="feed-dirty">
+    Not saved yet. Tap Save before printing or sending.
+  </p>
+
+  <%!-- Treatments running now: added to the plan by themselves --%>
+  <section class="tr-card" id="feed-care">
+    <h2 style="margin:0 0 4px">Medicine and daily care</h2>
+    <%= if @care == [] do %>
+      <p class="tr-muted" style="font-size:14px;margin:0">
+        Nothing running right now. When you start a treatment on {Animal.display_name(@animal)}'s page (or tell Siri "Started him on Bute for five days"), it shows up on the plan and the link by itself, and drops off when it's done.
+      </p>
+    <% else %>
+      <p :for={{label, text} <- @care} class="fp-line" style="margin:4px 0"><b :if={label}>{label}:</b> {text}</p>
+      <p class="tr-muted" style="font-size:14px;margin:8px 0 0">
+        On the plan and the link automatically, from {Animal.display_name(@animal)}'s daily reminders. It drops off when the treatment's done.
+      </p>
+    <% end %>
+  </section>
+
+  <%!-- Editing --%>
+  <.form :if={@is_superuser} for={%{}} id="feed-form" phx-change="edit" phx-submit="save">
+    <div :for={{s, i} <- Enum.with_index(@sections)} class="fp-sec" id={"sec-#{i}"}>
+      <div class="fp-head">
+        <input
+          type="text"
+          name={"sections[#{i}][title]"}
+          value={s["title"]}
+          placeholder="Heading, e.g. Morning feed"
+          maxlength="80"
+          aria-label="Heading"
+        />
+        <button type="button" class="fp-ico" phx-click="move" phx-value-i={i} phx-value-by="-1" disabled={i == 0} aria-label="Move up">
+          <.icon name="hero-chevron-up" />
+        </button>
+        <button type="button" class="fp-ico" phx-click="move" phx-value-i={i} phx-value-by="1" disabled={i == length(@sections) - 1} aria-label="Move down">
+          <.icon name="hero-chevron-down" />
+        </button>
+        <button type="button" class="fp-ico" id={"remove-#{i}"} phx-click="remove" phx-value-i={i} aria-label="Remove section">
+          <.icon name="hero-trash" />
+        </button>
+      </div>
+      <textarea
+        name={"sections[#{i}][body]"}
+        placeholder={placeholder(s["title"])}
+        maxlength="3000"
+        aria-label={s["title"]}
+      >{s["body"]}</textarea>
+    </div>
+
+    <div class="fp-bar" style="margin-top:12px">
+      <button type="button" id="add-section" class="tr-btn" phx-click="add">
+        <.icon name="hero-plus" /> Add section
+      </button>
+      <button type="submit" id="save-feed" class="tr-btn tr-btn-primary">
+        <.icon name="hero-check" /> Save
+      </button>
+    </div>
+    <p class="tr-muted" style="font-size:14px;margin-top:10px">
+      Sections left empty don't show on the printout or the link.
+    </p>
+  </.form>
+
+  <%!-- Reading (everyone else) --%>
+  <section :if={!@is_superuser} class="tr-card fp-view" id="feed-view">
+    <div :for={s <- FeedPlans.filled(@plan)} style="margin-bottom:12px">
+      <h2 style="margin:0 0 4px">{s["title"]}</h2>
+      <p :for={{label, text} <- FeedPlans.lines(s["body"])} class="fp-line">
+        <b :if={label}>{label}:</b> {text}
+      </p>
+    </div>
+    <p :if={FeedPlans.filled(@plan) == []} class="tr-muted">No feed plan written yet.</p>
+  </section>
+</div>

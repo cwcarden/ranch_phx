@@ -85,7 +85,9 @@
 </head>
 <body>
   <div class="no-print">
+    <%= unless assigns[:public] do %>
     <button class="btn-back" onclick="if (history.length > 1) { history.back() } else { window.location = document.querySelector('[data-back]')?.dataset.back || '/' }">‹ Back</button>
+    <% end %>
     <button class="btn-print" id="share-pdf" onclick="sharePdf(this)">Save / Share PDF</button>
     <button class="btn-close" onclick="window.print()">Print</button>
   </div>
@@ -179,7 +181,7 @@
     // Nothing matched what was picked: say so instead of a blank page.
     (() => {
       const page = document.querySelector(".print-page")
-      if (!page || page.querySelector(".rpt-section")) return
+      if (!page || page.querySelector(".rpt-section") || page.querySelector(".fp-empty")) return
       const msg = document.createElement("div")
       msg.className = "rpt-empty"
       msg.id = "rpt-empty"

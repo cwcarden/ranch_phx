@@ -34,6 +34,18 @@ defmodule RanchPhxWeb.Router do
     post "/photo", BarnController, :photo
   end
 
+  # A feed plan someone was sent a link to: no login, read-only, and only while the
+  # owner has sharing turned on (Cloudflare Access bypasses /share/* for this).
+  pipeline :shared do
+    plug :accepts, ["html"]
+    plug :put_secure_browser_headers
+  end
+
+  scope "/share", RanchPhxWeb do
+    pipe_through :shared
+    get "/feed/:token", FeedPlanController, :shared
+  end
+
   # Protected animal routes — require login
   scope "/", RanchPhxWeb do
     pipe_through [:browser, :require_authenticated_user]
@@ -44,6 +56,7 @@ defmodule RanchPhxWeb.Router do
       live "/animals/:id",         AnimalLive.Show,   :show
       live "/animals/:id/hooves",  HoofLive.Index,    :index
       live "/animals/:id/notes",   NotesLive.Index,   :index
+      live "/animals/:id/feed",    FeedLive.Index,    :index
       live "/training",            TrainingLive.Index, :index
       live "/training/lists",      TrainingLive.Lists, :index
       live "/training/:id",        TrainingLive.Book,  :show
@@ -54,6 +67,7 @@ defmodule RanchPhxWeb.Router do
 
     get "/animals/:id/report", AnimalReportController, :show
     get "/animals/:id/health", AnimalReportController, :health
+    get "/animals/:id/feed/print", FeedPlanController, :print
   end
 
   # The Siri Shortcut posts here with its own key (no browser login).
