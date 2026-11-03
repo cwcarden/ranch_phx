@@ -649,6 +649,19 @@ window.addEventListener("ranch:share", async e => {
   }
 })
 
+// Share a link (feed plan): JS.dispatch("ranch:share-link", detail: {url, title}).
+window.addEventListener("ranch:share-link", async e => {
+  const {url, title} = e.detail
+  const btn = e.target
+  try {
+    if (navigator.share) { await navigator.share({title: title || "", url}); return }
+    await navigator.clipboard.writeText(url)
+    const t = btn.textContent
+    btn.textContent = "Link copied"
+    setTimeout(() => btn.textContent = t, 1500)
+  } catch (err) {}
+})
+
 // Copy a field's text (Siri setup page): JS.dispatch("ranch:copy", detail: {from: "#id"}).
 window.addEventListener("ranch:copy", e => {
   const src = document.querySelector(e.detail.from)

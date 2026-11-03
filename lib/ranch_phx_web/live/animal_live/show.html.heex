@@ -850,6 +850,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   <a class="act-row" href={~p"/animals/#{@animal.id}/health"} id="act-health">
     <.icon name="hero-heart" /> Health record
   </a>
+  <a class="act-row" href={~p"/animals/#{@animal.id}/feed"} id="act-feed" data-phx-link="redirect" data-phx-link-state="push">
+    <.icon name="hero-clipboard-document-list" /> Feed plan
+  </a>
   <button class="act-row" phx-click={close_actions |> JS.push("open_report")}>
     <.icon name="hero-document-text" /> Report / PDF
   </button>
@@ -1368,6 +1371,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   <span class="hr-link-text">
     <b>Health record</b>
     <small>Vaccines, Coggins, deworming, medications and vet visits with dates: view, print or share</small>
+  </span>
+  <.icon name="hero-chevron-right" class="hr-link-chev" />
+</a>
+<a class="rx-card hr-link" href={~p"/animals/#{@animal.id}/feed"} id="feed-plan-link" data-phx-link="redirect" data-phx-link-state="push" style="margin-top:10px">
+  <span class="rx-ico" style="--c:#15803d"><.icon name="hero-clipboard-document-list" /></span>
+  <span class="hr-link-text">
+    <b>Feed plan</b>
+    <small>How to feed and care for {Animal.display_name(@animal)} while you're away: print, PDF, or a link to send</small>
   </span>
   <.icon name="hero-chevron-right" class="hr-link-chev" />
 </a>

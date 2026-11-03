@@ -1,0 +1,47 @@
+<style>
+  .fp-page { font-family: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif; }
+  .fp-title { text-align: center; font-size: 24pt; font-weight: 800; color: #2a3b2c; letter-spacing: .01em; text-transform: uppercase; }
+  .fp-sub { text-align: center; color: #666; font-size: 10pt; margin: 2pt 0 16pt; }
+  .fp-box { border: 1pt solid; padding: 10pt 14pt; margin-bottom: 10pt; break-inside: avoid; page-break-inside: avoid; }
+  .fp-box h2 { font-size: 13pt; font-weight: 800; color: #2a3b2c; margin-bottom: 6pt; text-transform: uppercase; letter-spacing: .02em; }
+  .fp-box p { font-size: 11pt; margin: 4pt 0; line-height: 1.45; }
+  .fp-box a { color: inherit; }
+  .fp-foot { text-align: center; color: #888; font-size: 8.5pt; margin-top: 14pt; }
+  .fp-empty { text-align: center; padding: 30pt 10pt; color: #555; font-size: 12pt; }
+  @media screen and (max-width: 600px) { .print-page { padding: 16px 14px !important; } .fp-title { font-size: 20pt; } }
+</style>
+
+<div class="print-page fp-page" data-back={"/animals/#{@animal.id}/feed"}>
+  <div class="fp-title">{@name}'s Feeding Schedule</div>
+  <div class="fp-sub">
+    {[
+      if(@animal.name != @name, do: @animal.name),
+      if(@plan.updated_at,
+        do: "Updated #{Calendar.strftime(RanchPhx.LocalTime.now(@plan.updated_at), "%B %-d, %Y")}"
+      )
+    ]
+    |> Enum.reject(&is_nil/1)
+    |> Enum.join(" · ")}
+  </div>
+
+  <div :for={{s, i} <- Enum.with_index(@sections)} class="fp-box rpt-section" style={"background:#{elem(colors(i), 0)};border-color:#{elem(colors(i), 1)}"}>
+    <h2>{if s["title"] != "", do: "#{i + 1}. #{s["title"]}", else: "#{i + 1}."}</h2>
+    <p :for={{label, text} <- lines(s["body"])}>
+      <b :if={label}>{label}:</b>
+      <%= for part <- with_phone_links(text) do %><%= case part do %><% {:phone, shown, digits} -> %><a href={"tel:#{digits}"}>{shown}</a><% {:text, t} -> %>{t}<% end %><% end %>
+    </p>
+  </div>
+
+  <div :if={@care != []} class="fp-box rpt-section" id="fp-care" style="background:#fdf2f2;border-color:#f3c9c9">
+    <h2>{length(@sections) + 1}. Medicine and daily care right now</h2>
+    <p :for={{label, text} <- @care}><b :if={label}>{label}:</b> {text}</p>
+  </div>
+
+  <div :if={@sections == [] and @care == []} class="fp-empty">
+    No feed plan written yet.<%= if !@public do %> Go back and fill in the sections, then Save.<% end %>
+  </div>
+
+  <div :if={@public && (@sections != [] or @care != [])} class="fp-foot">
+    This page always shows the latest plan. Gimel Ranch
+  </div>
+</div>
