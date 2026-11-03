@@ -263,6 +263,16 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .cs-manage .btn { min-height: 36px; font-size: 13px; color: var(--text2); display: inline-flex; align-items: center; gap: 5px; }
 .cs-manage [class^="hero-"] { width: 16px; height: 16px; }
 .cs-del { color: #dc2626 !important; }
+.fc-body { display: grid; gap: 14px; }
+.fc-pick { position: relative; width: fit-content; max-width: 100%; margin: 0 auto; border-radius: 12px; overflow: hidden; cursor: crosshair; touch-action: manipulation; }
+.fc-pick img { display: block; width: auto; height: auto; max-width: 100%; max-height: 52vh; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.fc-dot { position: absolute; width: 26px; height: 26px; margin: -13px 0 0 -13px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 0 0 2px rgba(0,0,0,.45), 0 2px 8px rgba(0,0,0,.4); pointer-events: none; }
+.fc-previews { display: flex; gap: 12px; align-items: flex-end; }
+.fc-prev { display: grid; gap: 4px; justify-items: center; }
+.fc-prev small { font-size: 12px; color: var(--text2); }
+.fc-card { width: 180px; height: 90px; border-radius: 10px; overflow: hidden; }
+.fc-square { width: 90px; height: 90px; border-radius: 10px; overflow: hidden; }
+.fc-card img, .fc-square img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .add-reminder { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; width: 100%; margin: 0 0 14px; padding: 12px 14px; border: 1.5px dashed var(--border); border-radius: var(--radius); background: transparent; color: #2563eb; font: inherit; font-size: 15px; font-weight: 700; text-align: left; cursor: pointer; min-height: 52px; }
 .add-reminder [class^="hero-"] { width: 20px; height: 20px; }
 .add-reminder small { flex-basis: 100%; font-size: 12.5px; font-weight: 500; color: var(--text2); padding-left: 28px; }
@@ -866,7 +876,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     <div class="animal-cover-photo" style={unless @is_superuser, do: "cursor:default"}>
       <%= if @animal.cover_photo_url do %>
         <img src={@animal.cover_photo_url} alt={@animal.name}
-             style={"object-position: #{@animal.cover_position || "center"}"}
+             style={"object-position: #{RanchPhx.Animals.Animal.cover_focus(@animal)}"}
              onerror="handleHeroPhotoError(this)"/>
       <% else %>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48" style="color:var(--text3)">
@@ -1291,10 +1301,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
             </div>
             <%= if @is_superuser && photo.is_cover do %>
               <div class="cover-pos-btns">
-                <%= for {label, pos} <- [{"Top", "top"}, {"Mid", "center"}, {"Bot", "bottom"}] do %>
-                  <button class={"cover-pos-btn #{if (@animal.cover_position || "center") == pos, do: "active"}"}
-                          phx-click="set_cover_position" phx-value-pos={pos}><%= label %></button>
-                <% end %>
+                <button class="cover-pos-btn active" phx-click="open_focus" id="frame-cover">
+                  Frame the cover…
+                </button>
               </div>
             <% end %>
           </div>
@@ -2814,6 +2823,44 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
         <button :if={@is_superuser and pts != []} class="gr-more" style="margin-top:8px" phx-click="open_measure" phx-value-metric={m}>
           + Log {m}
         </button>
+      </div>
+    </div>
+  </div>
+<% end %>
+
+<%= if @focus_open && @animal.cover_photo_url do %>
+  <% focus = RanchPhx.Animals.Animal.cover_focus(@animal) %>
+  <div class="dlg-wrap rx-sheet-wrap">
+    <div class="dlg-backdrop" phx-click="close_focus"></div>
+    <div class="dlg rx-sheet" id="focus-sheet">
+      <div class="dlg-header">
+        <h2>Frame the cover photo</h2>
+        <button class="btn-icon" phx-click="close_focus" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <div class="dlg-body fc-body">
+        <p class="rx-sub" style="margin:0">Tap what should stay in view, like his face. The card and the profile picture both keep it.</p>
+        <div class="fc-pick" id="focus-pick" phx-hook="FocusPicker">
+          <img src={@animal.cover_photo_url} alt="" draggable="false" />
+          <span class="fc-dot" style={focus_dot(focus)}></span>
+        </div>
+        <div class="fc-previews">
+          <div class="fc-prev">
+            <div class="fc-card"><img src={@animal.cover_photo_url} alt="" style={"object-position: #{focus}"} /></div>
+            <small>Animals page card</small>
+          </div>
+          <div class="fc-prev">
+            <div class="fc-square"><img src={@animal.cover_photo_url} alt="" style={"object-position: #{focus}"} /></div>
+            <small>Profile</small>
+          </div>
+        </div>
+      </div>
+      <div class="dlg-footer">
+        <button type="button" class="btn btn-ghost" phx-click="set_cover_position" phx-value-pos="center">Reset to middle</button>
+        <button type="button" class="btn btn-primary" phx-click="close_focus">Done</button>
       </div>
     </div>
   </div>

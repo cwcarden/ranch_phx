@@ -42,6 +42,7 @@ defmodule RanchPhxWeb.AnimalLive.Show do
      |> assign(:quick_selected, [])
      |> assign(:visit, nil)
      |> assign(:reminder, nil)
+     |> assign(:focus_open, false)
      |> assign(:editing_presets, false)
      |> assign(:scan_loading, false)
      |> assign(:measure, nil)
@@ -249,6 +250,25 @@ defmodule RanchPhxWeb.AnimalLive.Show do
     Animals.update_animal(socket.assigns.animal, %{cover_position: pos})
     animal = Animals.get_animal_with_pedigree!(socket.assigns.animal.id)
     {:noreply, assign(socket, :animal, animal)}
+  end
+
+  def handle_event("open_focus", _params, socket), do: {:noreply, assign(socket, :focus_open, true)}
+  def handle_event("close_focus", _params, socket), do: {:noreply, assign(socket, :focus_open, false)}
+
+  # Tapped on the cover photo: keep that spot in view in every crop.
+  def handle_event("set_cover_focus", %{"x" => x, "y" => y}, socket) do
+    clamp = fn v -> v |> to_string() |> Float.parse() |> case do
+        {n, _} -> n |> max(0.0) |> min(100.0) |> round()
+        _ -> 50
+      end
+    end
+
+    if socket.assigns.is_superuser do
+      Animals.update_animal(socket.assigns.animal, %{cover_position: "#{clamp.(x)}% #{clamp.(y)}%"})
+      {:noreply, assign(socket, :animal, Animals.get_animal_with_pedigree!(socket.assigns.animal.id))}
+    else
+      {:noreply, socket}
+    end
   end
 
   def handle_event("delete_photo", %{"id" => photo_id}, socket) do
@@ -1932,5 +1952,22 @@ defmodule RanchPhxWeb.AnimalLive.Show do
     else
       socket
     end
+  end
+
+  @doc false
+  # Where the focus dot sits on the full photo.
+  def focus_dot(focus) do
+    {x, y} =
+      case Regex.run(~r/^(\d+)% (\d+)%$/, focus) do
+        [_, x, y] -> {x, y}
+        _ ->
+          case focus do
+            "top" -> {"50", "0"}
+            "bottom" -> {"50", "100"}
+            _ -> {"50", "50"}
+          end
+      end
+
+    "left: #{x}%; top: #{y}%"
   end
 end

@@ -58,7 +58,7 @@ defmodule RanchPhxWeb.AnimalSidebar do
           aria-current={a.id == @current && "page"}
         >
           <span class="as-pic">
-            <img :if={a.cover_photo_url} src={a.cover_photo_url} alt="" loading="lazy" />
+            <img :if={a.cover_photo_url} src={a.cover_photo_url} alt="" loading="lazy" style={"object-position: #{RanchPhx.Animals.Animal.cover_focus(a)}"} />
             <span :if={!a.cover_photo_url}>{String.first(RanchPhx.Animals.Animal.display_name(a) || "?")}</span>
           </span>
           <span class="as-main">
