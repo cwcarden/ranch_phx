@@ -12,6 +12,14 @@
   .cf-go { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; }
   .cf-go label { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 56px; border-radius: 14px; font-size: 17px; font-weight: 800; cursor: pointer; border: 1.5px solid var(--border); background: var(--surface); color: var(--text); }
   .cf-go label.primary { background: #0f766e; border-color: #0f766e; color: #fff; }
+  .cf-later { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; margin-top: 10px; border-radius: 14px; border: 1.5px dashed color-mix(in srgb, #0f766e 50%, var(--border)); color: #0f766e; font-size: 16px; font-weight: 700; cursor: pointer; text-align: center; padding: 0 12px; }
+  [data-theme="dark"] .cf-later { color: #2dd4bf; }
+  .cf-later [class^="hero-"] { width: 20px; height: 20px; }
+  .cf-wait { cursor: default; align-items: center; }
+  .cf-draw { flex: none; min-height: 44px; padding: 0 14px; background: #0f766e; border-color: #0f766e; color: #fff; }
+  [data-theme="dark"] .cf-draw { background: #2dd4bf; border-color: #2dd4bf; color: #042f2e; }
+  .cf-del { flex: none; width: 40px; height: 40px; border-radius: 50%; border: 1.5px solid var(--border); background: none; color: var(--text2); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+  .cf-del [class^="hero-"] { width: 18px; height: 18px; }
   [data-theme="dark"] .cf-go label.primary { color: #042f2e; background: #2dd4bf; border-color: #2dd4bf; }
   .cf-go [class^="hero-"] { width: 22px; height: 22px; }
   .cf-tips { margin: 0 0 14px; padding-left: 20px; list-style: disc; color: var(--text2); font-size: 15px; line-height: 1.5; }
@@ -105,9 +113,53 @@
         </label>
       </div>
     </div>
+    <form :if={@is_superuser} id="conf-later-form" phx-change="upload_change">
+      <label class="cf-later">
+        <.icon name="hero-clock" /> Save photo, do the dots later
+        <.live_file_input upload={@uploads.conf_later} class="sr-only" />
+      </label>
+    </form>
+    <p :for={e <- @uploads.conf_later.entries} class="tr-muted" style="margin:6px 0 0">Uploading… {e.progress}%</p>
     <form id="conf-upload-form" phx-change="upload_change" style="display:none">
       <.live_file_input upload={@uploads.conf} />
     </form>
+  </div>
+
+  <div :if={@waiting != []} class="tr-card" id="conf-waiting" style="margin-top:14px">
+    <h2 style="margin:0 0 4px">Waiting for dots</h2>
+    <p class="tr-muted" style="margin:0 0 6px">Photos saved for later. Tap one to place the dots.</p>
+    <div :for={e <- @waiting} class="cf-row cf-wait" id={"wait-#{e.id}"}>
+      <img src={e.photo_url} alt="" loading="lazy" />
+      <div class="cf-main">
+        <b>{RanchPhx.Conformations.who(e)}</b>
+        <div class="cf-when">{Calendar.strftime(e.date, "%b %-d, %Y")}</div>
+      </div>
+      <button
+        :if={@is_superuser}
+        type="button"
+        class="tr-btn cf-draw"
+        id={"draw-#{e.id}"}
+        phx-click={
+          JS.dispatch("ranch:hoof-draw",
+            to: "#conf-tool",
+            detail: %{url: e.original_url, view: "body", id: e.id, date: Date.to_iso8601(e.date), points: %{}}
+          )
+        }
+      >
+        Place dots
+      </button>
+      <button
+        :if={@is_superuser}
+        type="button"
+        class="cf-del"
+        phx-click="delete"
+        phx-value-id={e.id}
+        data-confirm="Delete this photo?"
+        aria-label="Delete"
+      >
+        <.icon name="hero-trash" />
+      </button>
+    </div>
   </div>
 
   <div class="tr-card" id="conf-list" style="margin-top:14px">

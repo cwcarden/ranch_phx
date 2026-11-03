@@ -41,6 +41,14 @@ defmodule RanchPhxWeb.ConformationLive.Index do
        max_file_size: 15_000_000,
        auto_upload: true,
        progress: &handle_progress/3
+     )
+     # A photo now (often on the phone), the dots later.
+     |> allow_upload(:conf_later,
+       accept: ~w(.jpg .jpeg .png),
+       max_entries: 4,
+       max_file_size: 30_000_000,
+       auto_upload: true,
+       progress: &handle_later/3
      )}
   end
 
@@ -64,7 +72,9 @@ defmodule RanchPhxWeb.ConformationLive.Index do
 
   defp load(socket) do
     animal = socket.assigns.animal
-    assign(socket, :evaluations, Conformations.list(animal_id: animal && animal.id))
+    all = Conformations.list(animal_id: animal && animal.id)
+    {waiting, done} = Enum.split_with(all, &is_nil(&1.shoulder))
+    assign(socket, evaluations: done, waiting: waiting)
   end
 
   # ── Who it's of ──
@@ -251,6 +261,41 @@ defmodule RanchPhxWeb.ConformationLive.Index do
     end
   end
 
+  def handle_progress(:conf_later, entry, socket), do: handle_later(:conf_later, entry, socket)
+
+  # Saved now, dots later: an evaluation with the photo and no numbers yet.
+  def handle_later(:conf_later, entry, socket) do
+    cond do
+      not entry.done? ->
+        {:noreply, socket}
+
+      not socket.assigns.is_superuser ->
+        {:noreply, socket}
+
+      true ->
+        url = consume_uploaded_entry(socket, entry, &{:ok, store(&1.path)})
+
+        attrs =
+          Map.merge(
+            %{date: RanchPhx.LocalTime.today(), photo_url: url, original_url: url, points: %{}},
+            who_attrs(socket)
+          )
+
+        case Conformations.create(attrs) do
+          {:ok, _} ->
+            {:noreply,
+             socket
+             |> load()
+             |> put_flash(:info, "Photo saved. Tap it under Waiting for dots when you're ready.")}
+
+          {:error, cs} ->
+            remove(url)
+            msg = cs.errors |> Enum.map_join(", ", fn {_, {m, _}} -> m end)
+            {:noreply, put_flash(socket, :error, "Couldn't save the photo: #{msg}.")}
+        end
+    end
+  end
+
   defp finish(socket, p, files) do
     existing = p.id && Conformations.get(p.id)
 
@@ -274,7 +319,8 @@ defmodule RanchPhxWeb.ConformationLive.Index do
         e ->
           # New lines: the old marked-up photo goes, and the AI's old review with it.
           with {:ok, e2} <- Conformations.update(e, Map.merge(attrs, %{ai_notes: nil})) do
-            if e.photo_url != e2.photo_url, do: remove(e.photo_url)
+            # (A photo saved for later is its own original: keep that file.)
+            if e.photo_url != e2.photo_url and e.photo_url != e2.original_url, do: remove(e.photo_url)
             {:ok, e2}
           end
       end
