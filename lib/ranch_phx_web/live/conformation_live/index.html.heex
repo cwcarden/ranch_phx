@@ -286,14 +286,10 @@
                 <button
                   class="tr-btn"
                   id="share-review"
-                  phx-click={
-                    JS.dispatch("ranch:share",
-                      detail: %{
-                        from: "#conf-review",
-                        title: "#{RanchPhx.Conformations.who(e)} conformation"
-                      }
-                    )
-                  }
+                  phx-hook="SharePhoto"
+                  data-image={e.photo_url}
+                  data-from="#conf-summary, #conf-review"
+                  data-title={"#{RanchPhx.Conformations.who(e)} conformation"}
                 >
                   <.icon name="hero-share" /> Share
                 </button>

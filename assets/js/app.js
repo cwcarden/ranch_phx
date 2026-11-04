@@ -128,6 +128,49 @@ const Hooks = {HoofMeasure, PhotoMarkup, NotePad}
 // "Papers" on an animal: saves its current Coggins, health certificate, registration
 // and brand inspection on this device, then opens them full screen. Saved copies
 // open at the arena with no signal (see /offline.html and sw.js).
+// Share a photo with text (conformation review: the marked-up photo, the numbers and the
+// AI notes). The photo is fetched as soon as the button appears, because iPhones only
+// open the share sheet right after a tap, with no waiting in between.
+Hooks.SharePhoto = {
+  mounted() { this.prefetch(); this.el.addEventListener("click", () => this.share()) },
+  updated() { if (this.url !== this.el.dataset.image) this.prefetch() },
+  prefetch() {
+    this.url = this.el.dataset.image
+    this.file = null
+    if (!this.url) return
+    const url = this.url
+    fetch(url).then((r) => r.ok ? r.blob() : null).then((blob) => {
+      if (!blob || url !== this.url) return
+      const ext = blob.type === "image/png" ? "png" : "jpg"
+      const name = (this.el.dataset.title || "photo").replace(/[^\w '-]+/g, "").trim() + "." + ext
+      this.file = new File([blob], name, {type: blob.type || "image/jpeg"})
+    }).catch(() => {})
+  },
+  text() {
+    return [...document.querySelectorAll(this.el.dataset.from || "")]
+      .map((el) => el.innerText.trim()).filter(Boolean).join("\n\n")
+  },
+  async share() {
+    const title = this.el.dataset.title || ""
+    const text = this.text()
+    const files = this.file ? [this.file] : []
+    try {
+      if (files.length && navigator.canShare && navigator.canShare({files})) {
+        await navigator.share({files, title, text})
+      } else if (navigator.share) {
+        await navigator.share({title, text})
+      } else {
+        await navigator.clipboard.writeText(text)
+        const label = this.el.innerHTML
+        this.el.textContent = "Copied"
+        setTimeout(() => this.el.innerHTML = label, 1500)
+      }
+    } catch (_) {
+      // Share sheet closed without sending.
+    }
+  },
+}
+
 Hooks.ShowPapers = {
   mounted() {
     this.el.addEventListener("click", () => this.open())
