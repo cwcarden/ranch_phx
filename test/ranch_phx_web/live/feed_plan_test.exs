@@ -116,4 +116,33 @@ defmodule RanchPhxWeb.FeedPlanTest do
   test "a made-up link shows nothing" do
     assert build_conn() |> get(~p"/share/feed/not-a-real-link-at-all-xx") |> response(404)
   end
+
+  test "an open shared page can tell when the plan changed or was turned off", %{cat: cat} do
+    {:ok, plan} =
+      FeedPlans.save(FeedPlans.get_or_new(cat.id), [%{"title" => "Hay", "body" => "Keep it full"}])
+
+    {:ok, plan} = FeedPlans.set_sharing(plan, true)
+    path = ~p"/share/feed/#{plan.share_token}"
+
+    html = build_conn() |> get(path) |> html_response(200)
+    [_, v1] = Regex.run(~r/data-version="(\d+)"/, html)
+
+    assert build_conn() |> get(path <> "/version") |> json_response(200) == %{
+             "shared" => true,
+             "v" => v1
+           }
+
+    # The page's PDF maker comes from under /share/, the only part open to the public.
+    assert html =~ ~s(data-pdf-lib="/share/vendor/html2pdf.bundle.min.js")
+    assert build_conn() |> get("/share/vendor/html2pdf.bundle.min.js") |> response(200)
+
+    {:ok, plan} =
+      FeedPlans.save(plan, [%{"title" => "Hay", "body" => "Out of hay: call Charles"}])
+
+    %{"v" => v2} = build_conn() |> get(path <> "/version") |> json_response(200)
+    assert v2 != v1
+
+    {:ok, _} = FeedPlans.set_sharing(plan, false)
+    assert build_conn() |> get(path <> "/version") |> json_response(404) == %{"shared" => false}
+  end
 end

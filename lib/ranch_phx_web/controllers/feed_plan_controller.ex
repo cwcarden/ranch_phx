@@ -32,6 +32,27 @@ defmodule RanchPhxWeb.FeedPlanController do
     end
   end
 
+  @doc """
+  What the shared page checks every few seconds: a fingerprint of everything it shows.
+  When it changes, the open page pulls the new version in place; a 404 means sharing
+  was turned off, and the page says so.
+  """
+  def version(conn, %{"token" => token}) do
+    conn = put_resp_header(conn, "cache-control", "no-store")
+
+    case FeedPlans.get_shared(token) do
+      nil -> conn |> put_status(404) |> json(%{shared: false})
+      plan -> json(conn, %{shared: true, v: fingerprint(plan)})
+    end
+  end
+
+  defp fingerprint(plan),
+    do:
+      :erlang.phash2(
+        {FeedPlans.filled(plan), FeedPlans.current_care(plan.animal_id), plan.animal_id}
+      )
+      |> to_string()
+
   defp render_plan(conn, animal, plan, public?) do
     name = Animal.display_name(animal)
 
@@ -45,6 +66,7 @@ defmodule RanchPhxWeb.FeedPlanController do
       sections: FeedPlans.filled(plan),
       care: FeedPlans.current_care(animal.id),
       public: public?,
+      version: if(public?, do: fingerprint(plan)),
       report_title: "#{name} feed plan"
     )
   end

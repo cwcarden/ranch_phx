@@ -83,7 +83,7 @@
     }
   </style>
 </head>
-<body>
+<body data-pdf-lib={if assigns[:public], do: "/share/vendor/html2pdf.bundle.min.js", else: "/vendor/html2pdf.bundle.min.js"}>
   <div class="no-print">
     <%= unless assigns[:public] do %>
     <button class="btn-back" onclick="if (history.length > 1) { history.back() } else { window.location = document.querySelector('[data-back]')?.dataset.back || '/' }">‹ Back</button>
@@ -98,7 +98,7 @@
       if (window.html2pdf) return Promise.resolve()
       return new Promise((resolve, reject) => {
         const s = document.createElement("script")
-        s.src = "/vendor/html2pdf.bundle.min.js"
+        s.src = document.body.dataset.pdfLib || "/vendor/html2pdf.bundle.min.js"
         s.onload = resolve
         s.onerror = () => reject(new Error("Couldn't load the PDF maker."))
         document.head.appendChild(s)
