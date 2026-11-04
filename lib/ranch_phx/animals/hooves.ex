@@ -117,12 +117,75 @@ defmodule RanchPhx.Animals.Hooves do
     RanchPhx.Animals.create_event(%{
       "animal_id" => animal.id,
       "event_type" => "hoof",
-      "title" => "#{foot_name(foot)} #{if view == "sole", do: "sole", else: "side"} photo, to measure",
+      "title" => pending_title(foot, view),
       "event_date" => date,
       "photo_urls" => [url],
       "metadata" => %{"status" => "pending", "foot" => foot, "view" => view, "original" => url}
     })
   end
+
+  @doc """
+  Fixes which foot and view (side or bottom) a hoof photo is under, keeping the photo.
+
+    * A photo waiting for its lines just moves.
+    * A measured photo moved to another foot keeps its numbers.
+    * A measured photo moved to the other view goes back to "to measure" with its clean
+      photo, since its lines were for the other view; the old numbers and marked-up
+      photo are kept in the entry (under "earlier"), never thrown away.
+  """
+  def relabel(%RanchPhx.Animals.TimelineEvent{event_type: "hoof"} = event, foot, view)
+      when view in ["side", "sole"] do
+    if foot in Enum.map(@feet, &elem(&1, 0)) do
+      m = event.metadata || %{}
+      was = if m["view"] == "sole", do: "sole", else: "side"
+
+      attrs =
+        cond do
+          m["status"] == "pending" ->
+            %{
+              "title" => pending_title(foot, view),
+              "metadata" => Map.merge(m, %{"foot" => foot, "view" => view})
+            }
+
+          view == was ->
+            m = Map.put(m, "foot", foot)
+
+            title =
+              if view == "sole",
+                do:
+                  sole_title(foot, %{
+                    toe_share: num(m["toe_share"]),
+                    sides: num(m["sides"]),
+                    heels: num(m["heels"])
+                  }),
+                else: title(foot, num(m["toe"]), num(m["pastern"]))
+
+            %{"title" => title, "metadata" => m}
+
+          true ->
+            clean = m["original"] || List.first(event.photo_urls || [])
+
+            %{
+              "title" => pending_title(foot, view),
+              "photo_urls" => [clean],
+              "metadata" => %{
+                "status" => "pending",
+                "foot" => foot,
+                "view" => view,
+                "original" => clean,
+                "earlier" => Map.put(m, "photo_urls", event.photo_urls || [])
+              }
+            }
+        end
+
+      RanchPhx.Animals.update_event(event, attrs)
+    else
+      {:error, :bad_foot}
+    end
+  end
+
+  defp pending_title(foot, view),
+    do: "#{foot_name(foot)} #{if view == "sole", do: "sole", else: "side"} photo, to measure"
 
   @doc "Photos saved to draw the lines on later (oldest first)."
   def to_measure(events) do

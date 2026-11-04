@@ -31,6 +31,7 @@ defmodule RanchPhxWeb.HoofLive.Index do
      |> assign(:viewing, nil)
      |> assign(:ai_on, Coach.configured?())
      |> assign(:notes, nil)
+     |> assign(:relabel, nil)
      |> assign(:notes_loading, false)
      |> load()
      |> assign(:files, %{})
@@ -160,6 +161,70 @@ defmodule RanchPhxWeb.HoofLive.Index do
   end
 
   def handle_event("close_view", _params, socket), do: {:noreply, assign(socket, :viewing, nil)}
+
+  # "Fix label": the photo went under the wrong foot or view.
+  def handle_event("open_relabel", %{"id" => id}, socket) do
+    case Integer.parse(to_string(id)) do
+      {n, ""} -> hoof_event(socket, n)
+      _ -> nil
+    end
+    |> case do
+      %{} = e ->
+        m = e.metadata || %{}
+
+        {:noreply,
+         assign(socket, :relabel, %{
+           id: e.id,
+           foot: m["foot"],
+           view: if(m["view"] == "sole", do: "sole", else: "side"),
+           was_view: if(m["view"] == "sole", do: "sole", else: "side"),
+           measured: m["status"] != "pending",
+           photo: m["original"] || List.first(e.photo_urls || [])
+         })}
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("relabel_pick", params, socket) do
+    r = socket.assigns.relabel
+
+    r =
+      r
+      |> then(
+        &if(params["foot"] in Enum.map(Hooves.feet(), fn {c, _} -> c end),
+          do: %{&1 | foot: params["foot"]},
+          else: &1
+        )
+      )
+      |> then(&if(params["view"] in ["side", "sole"], do: %{&1 | view: params["view"]}, else: &1))
+
+    {:noreply, assign(socket, :relabel, r)}
+  end
+
+  def handle_event("close_relabel", _params, socket),
+    do: {:noreply, assign(socket, :relabel, nil)}
+
+  def handle_event("save_relabel", _params, socket) do
+    r = socket.assigns.relabel
+
+    with true <- socket.assigns.is_superuser,
+         %{} = e <- hoof_event(socket, r.id),
+         {:ok, _} <- Hooves.relabel(e, r.foot, r.view) do
+      what = "#{Hooves.foot_name(r.foot)}, #{if r.view == "sole", do: "bottom", else: "side"}"
+
+      msg =
+        if r.measured and r.view != r.was_view,
+          do: "Moved to #{what}. It's back under To measure to draw the lines for that view.",
+          else: "Moved to #{what}."
+
+      {:noreply,
+       socket |> assign(relabel: nil, viewing: nil) |> reload() |> put_flash(:info, msg)}
+    else
+      _ -> {:noreply, put_flash(socket, :error, "Couldn't change that one.")}
+    end
+  end
 
   def handle_event("delete", %{"id" => id}, socket) do
     with true <- socket.assigns.is_superuser,
