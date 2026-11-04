@@ -244,4 +244,83 @@ defmodule RanchPhxWeb.HoofLiveTest do
     static = Application.app_dir(:ranch_phx, "priv/static")
     for u <- [hd(event.photo_urls), event.metadata["original"]], do: File.rm(Path.join(static, u))
   end
+
+  describe "fixing a photo's foot or view" do
+    test "a saved-for-later photo moves without losing the photo", %{conn: conn, animal: animal} do
+      {:ok, e} =
+        RanchPhx.Animals.Hooves.create_pending(
+          animal,
+          "LF",
+          "sole",
+          "/uploads/animals/#{animal.id}/hooves/a.jpg",
+          RanchPhx.LocalTime.today()
+        )
+
+      {:ok, view, _} = live(conn, ~p"/animals/#{animal.id}/hooves")
+      assert has_element?(view, "#todo-#{e.id}", "bottom")
+
+      view |> element("#relabel-#{e.id}") |> render_click()
+      view |> element("#rl-foot-RF") |> render_click()
+      view |> element("#rl-view-side") |> render_click()
+      refute has_element?(view, "#relabel-warn")
+      view |> element("#save-relabel") |> render_click()
+
+      assert has_element?(view, "#todo-#{e.id}", "Right front")
+      assert has_element?(view, "#todo-#{e.id}", "side")
+      e = RanchPhx.Repo.get!(RanchPhx.Animals.TimelineEvent, e.id)
+      assert e.metadata["original"] == "/uploads/animals/#{animal.id}/hooves/a.jpg"
+      assert e.metadata["view"] == "side" and e.metadata["foot"] == "RF"
+    end
+
+    test "a measured photo under the wrong view goes back to To measure, numbers kept",
+         %{conn: conn, animal: animal} do
+      {:ok, e} =
+        Animals.create_event(%{
+          "animal_id" => animal.id,
+          "event_type" => "hoof",
+          "title" => "Left front sole: toe 52%",
+          "event_date" => RanchPhx.LocalTime.today(),
+          "photo_urls" => ["/uploads/animals/#{animal.id}/hooves/marked.jpg"],
+          "metadata" => %{
+            "view" => "sole",
+            "foot" => "LF",
+            "toe_share" => 52.0,
+            "sides" => 51.0,
+            "heels" => 1.0,
+            "original" => "/uploads/animals/#{animal.id}/hooves/clean.jpg"
+          }
+        })
+
+      {:ok, view, _} = live(conn, ~p"/animals/#{animal.id}/hooves")
+      render_click(view, "view", %{"id" => to_string(e.id)})
+      view |> element("#relabel-view") |> render_click()
+      view |> element("#rl-view-side") |> render_click()
+      assert has_element?(view, "#relabel-warn")
+      view |> element("#save-relabel") |> render_click()
+
+      assert has_element?(view, "#todo-#{e.id}", "Left front")
+      e = RanchPhx.Repo.get!(RanchPhx.Animals.TimelineEvent, e.id)
+      assert e.photo_urls == ["/uploads/animals/#{animal.id}/hooves/clean.jpg"]
+      assert e.metadata["earlier"]["toe_share"] == 52.0
+
+      assert e.metadata["earlier"]["photo_urls"] == [
+               "/uploads/animals/#{animal.id}/hooves/marked.jpg"
+             ]
+    end
+
+    test "a measured photo under the wrong foot keeps its numbers", %{animal: animal} do
+      {:ok, e} =
+        Animals.create_event(%{
+          "animal_id" => animal.id,
+          "event_type" => "hoof",
+          "title" => "Left front: toe 52°",
+          "event_date" => RanchPhx.LocalTime.today(),
+          "metadata" => %{"foot" => "LF", "toe" => 52.0, "pastern" => 50.0}
+        })
+
+      {:ok, e} = RanchPhx.Animals.Hooves.relabel(e, "LH", "side")
+      assert e.metadata["toe"] == 52.0 and e.metadata["foot"] == "LH"
+      assert e.title =~ "Left hind: toe 52"
+    end
+  end
 end

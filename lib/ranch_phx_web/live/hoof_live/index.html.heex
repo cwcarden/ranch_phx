@@ -49,6 +49,18 @@
   [data-theme="dark"] .hf-later { color: #2dd4bf; }
   .hf-later [class^="hero-"] { width: 20px; height: 20px; }
   .hf-later small { font-weight: 600; color: var(--text2); }
+  .hf-sheet-bg { position: fixed; inset: 0; z-index: 400; background: rgba(0,0,0,.45); display: flex; align-items: flex-end; justify-content: center; }
+  .hf-sheet { width: 100%; max-width: 520px; background: var(--surface); color: var(--text); border-radius: 18px 18px 0 0; padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); }
+  @media (min-width: 700px) { .hf-sheet-bg { align-items: center; } .hf-sheet { border-radius: 18px; } }
+  .hf-sheet-head { display: flex; gap: 12px; align-items: center; margin-bottom: 14px; }
+  .hf-sheet-head img { width: 64px; height: 64px; object-fit: cover; border-radius: 10px; flex: none; }
+  .hf-sheet-head b { display: block; font-size: 17px; }
+  .hf-sheet-head small { color: var(--text2); font-size: 14px; }
+  .hf-sheet .hf-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0 0 10px; padding: 0; border: none; background: none; box-shadow: none; }
+  .hf-sheet .hf-pick button { min-height: 46px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); font-size: 16px; font-weight: 600; }
+  .hf-sheet .hf-pick button.on { background: #0f766e; border-color: #0f766e; color: #fff; }
+  .hf-sheet-warn { font-size: 14px; color: #b45309; margin: 2px 0 10px; line-height: 1.4; }
+  .hf-sheet-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px; }
   .hf-todo { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
   .hf-todo:last-child { border-bottom: none; }
   .hf-todo img { width: 72px; height: 72px; object-fit: cover; border-radius: 10px; flex: none; background: var(--surface2); }
@@ -225,6 +237,18 @@
         }
       >
         Draw lines
+      </button>
+      <button
+        :if={@is_superuser}
+        type="button"
+        class="tr-link-btn"
+        id={"relabel-#{t.id}"}
+        phx-click="open_relabel"
+        phx-value-id={t.id}
+        aria-label="Fix foot or view"
+        title="Fix foot or view"
+      >
+        <.icon name="hero-tag" />
       </button>
       <button
         :if={@is_superuser}
@@ -441,6 +465,9 @@
     >
       Edit lines
     </button>
+    <button :if={@is_superuser} id="relabel-view" phx-click="open_relabel" phx-value-id={@viewing.id}>
+      Fix label
+    </button>
     <button phx-click="close_view" id="close-view">Done</button>
   </div>
   <img :if={@viewing.photo} src={@viewing.photo} alt="Marked-up hoof photo" />
@@ -473,5 +500,44 @@
         </li>
       </ul>
     <% end %>
+  </div>
+</div>
+
+<div :if={@relabel} class="hf-sheet-bg" id="relabel-sheet" phx-click="close_relabel">
+  <div class="hf-sheet" phx-click={%JS{}} role="dialog" aria-label="Fix foot or view">
+    <div class="hf-sheet-head">
+      <img :if={@relabel.photo} src={@relabel.photo} alt="" />
+      <div>
+        <b>Which foot and view is this?</b>
+        <small>The photo stays; only its label changes.</small>
+      </div>
+    </div>
+    <div class="hf-pick" role="group" aria-label="Foot">
+      <button
+        :for={{code, name} <- RanchPhx.Animals.Hooves.feet()}
+        type="button"
+        id={"rl-foot-#{code}"}
+        class={[@relabel.foot == code && "on"]}
+        phx-click="relabel_pick"
+        phx-value-foot={code}
+      >
+        {name}
+      </button>
+    </div>
+    <div class="hf-pick two" role="group" aria-label="View">
+      <button type="button" id="rl-view-side" class={[@relabel.view == "side" && "on"]} phx-click="relabel_pick" phx-value-view="side">
+        Side
+      </button>
+      <button type="button" id="rl-view-sole" class={[@relabel.view == "sole" && "on"]} phx-click="relabel_pick" phx-value-view="sole">
+        Bottom
+      </button>
+    </div>
+    <p :if={@relabel.measured and @relabel.view != @relabel.was_view} class="hf-sheet-warn" id="relabel-warn">
+      Its lines were drawn for the {if @relabel.was_view == "sole", do: "bottom", else: "side"} view, so it goes back under To measure to draw them for this view. The photo is kept.
+    </p>
+    <div class="hf-sheet-btns">
+      <button type="button" class="tr-btn" phx-click="close_relabel">Cancel</button>
+      <button type="button" class="tr-btn tr-btn-primary" id="save-relabel" phx-click="save_relabel">Save</button>
+    </div>
   </div>
 </div>
