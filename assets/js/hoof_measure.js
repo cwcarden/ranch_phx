@@ -260,7 +260,16 @@ const CSS = `
 .hm-help .hm-btn { margin-top: 18px; }
 .hm-help svg { display: block; max-width: 320px; margin: 4px 0 6px; }
 .hm-q { width: 46px; padding: 0; font-size: 20px; }
-.hm-ai { border-color: #f87171; color: #fecaca; }
+.hm-ai { border-color: #f87171; color: #fecaca; white-space: nowrap; }
+/* Phones: the title gets its own line and the buttons sit in a row under it. */
+@media (max-width: 600px) {
+  .hm-bar { flex-wrap: wrap; gap: 6px; }
+  .hm-step { flex: 1 1 100%; }
+  .hm-bar .hm-btn { min-height: 42px; padding: 0 10px; }
+  .hm-bar .hm-q { width: 40px; padding: 0; }
+  .hm-bar [data-cancel] { margin-left: auto; }
+  .hm-ai-long { display: none; }
+}
 .hm-note { position: absolute; top: 10px; left: 10px; z-index: 4; max-width: min(520px, 70%); display: flex; gap: 8px; align-items: flex-start; padding: 10px 12px; border-radius: 12px; background: rgba(17,24,39,.88); color: #f1f5f9; font-size: 14px; line-height: 1.4; box-shadow: 0 4px 14px rgba(0,0,0,.35); }
 .hm-note button { flex: none; width: 32px; height: 32px; border-radius: 50%; border: 1px solid rgba(255,255,255,.3); background: none; color: #fff; font-size: 18px; cursor: pointer; }
 .hm-step span { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
@@ -323,6 +332,8 @@ const BODY_SVG = `<svg viewBox="0 0 320 190" aria-hidden="true">
   <text x="266" y="104" fill="#cbd5e1" font-size="11">buttock</text>
   <text x="54" y="48" fill="#cbd5e1" font-size="11">poll</text>
 </svg>`
+
+const AI_LABEL = `✦ <span class="hm-ai-long">Place dots with </span>AI`
 
 export const HoofMeasure = {
   mounted() {
@@ -389,8 +400,8 @@ export const HoofMeasure = {
     ed.className = "hm-editor"
     ed.innerHTML = `
       <div class="hm-bar">
-        <div class="hm-step"><b>${this.mode === "body" ? "Conformation" : (FEET[this.foot] || this.foot) + (this.mode === "sole" ? " · sole" : "")}</b><span data-say></span></div>
-        ${this.el.dataset.ai === "1" ? `<button class="hm-btn hm-ai" data-ai>✦ Place dots with AI</button>` : ""}
+        <div class="hm-step"><b>${this.mode === "body" ? "Conformation" : (FEET[this.foot] || this.foot) + (this.mode === "sole" ? " · bottom" : " · side")}</b><span data-say></span></div>
+        ${this.el.dataset.ai === "1" ? `<button class="hm-btn hm-ai" data-ai>✦ <span class="hm-ai-long">Place dots with </span>AI</button>` : ""}
         <button class="hm-btn hm-q" data-help aria-label="What are these lines?">?</button>
         <button class="hm-btn hm-q" data-rotate aria-label="Rotate photo" title="Rotate photo">⟳</button>
         <button class="hm-btn" data-undo>Undo</button>
@@ -825,7 +836,7 @@ export const HoofMeasure = {
     clearTimeout(this.aiTimer)
     if (!this.ed) return
     const btn = this.ed.querySelector("[data-ai]")
-    if (btn) { btn.disabled = false; btn.textContent = "✦ Place dots with AI" }
+    if (btn) { btn.disabled = false; btn.innerHTML = AI_LABEL }
     if (!reply || reply.error) { this.say(reply && reply.error ? reply.error : "The AI couldn't place the dots. Place them yourself."); return }
     const W = this.img.naturalWidth, H = this.img.naturalHeight
     const pt = (q) => q && isFinite(q.x) && isFinite(q.y) ? {x: Math.max(0, Math.min(1, q.x)) * W, y: Math.max(0, Math.min(1, q.y)) * H} : null
