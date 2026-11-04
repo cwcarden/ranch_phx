@@ -37,13 +37,14 @@ defmodule RanchPhxWeb.Router do
   # A feed plan someone was sent a link to: no login, read-only, and only while the
   # owner has sharing turned on (Cloudflare Access bypasses /share/* for this).
   pipeline :shared do
-    plug :accepts, ["html"]
+    plug :accepts, ["html", "json"]
     plug :put_secure_browser_headers
   end
 
   scope "/share", RanchPhxWeb do
     pipe_through :shared
     get "/feed/:token", FeedPlanController, :shared
+    get "/feed/:token/version", FeedPlanController, :version
   end
 
   # Protected animal routes — require login

@@ -27,6 +27,12 @@ defmodule RanchPhxWeb.Endpoint do
     from: {RanchPhx.Storage, :root, []},
     gzip: false
 
+  # The PDF maker for shared pages: Cloudflare only lets the public reach /share/*.
+  plug Plug.Static,
+    at: "/share/vendor",
+    from: {:ranch_phx, "priv/static/vendor"},
+    gzip: false
+
   plug Plug.Static,
     at: "/",
     from: :ranch_phx,

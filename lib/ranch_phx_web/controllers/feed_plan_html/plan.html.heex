@@ -7,11 +7,18 @@
   .fp-box p { font-size: 11pt; margin: 4pt 0; line-height: 1.45; }
   .fp-box a { color: inherit; }
   .fp-foot { text-align: center; color: #888; font-size: 8.5pt; margin-top: 14pt; }
+  .fp-updated { text-align: center; background: #16a34a; color: #fff; font-weight: 700; border-radius: 8pt; padding: 6pt; margin-bottom: 10pt; }
+  @media print { .fp-updated { display: none; } }
   .fp-empty { text-align: center; padding: 30pt 10pt; color: #555; font-size: 12pt; }
   @media screen and (max-width: 600px) { .print-page { padding: 16px 14px !important; } .fp-title { font-size: 20pt; } }
 </style>
 
-<div class="print-page fp-page" data-back={"/animals/#{@animal.id}/feed"}>
+<div
+  class="print-page fp-page"
+  id="fp-page"
+  data-back={"/animals/#{@animal.id}/feed"}
+  data-version={@version}
+>
   <div class="fp-title">{@name}'s Feeding Schedule</div>
   <div class="fp-sub">
     {[
@@ -45,3 +52,48 @@
     This page always shows the latest plan. Gimel Ranch
   </div>
 </div>
+
+<script :if={@public}>
+  // Keeps an open shared page up to date: checks every few seconds (and right away when
+  // the tab comes back into view) and swaps in the new plan without a reload.
+  (() => {
+    const page = document.getElementById("fp-page")
+    let version = page.dataset.version, busy = false
+    const url = location.pathname.replace(/\/$/, "")
+
+    async function check() {
+      if (busy || document.hidden) return
+      busy = true
+      try {
+        const r = await fetch(url + "/version", {cache: "no-store"})
+        if (r.status === 404) {
+          page.innerHTML = '<div class="fp-empty"><b>This feed plan isn\'t shared right now.</b><br>Ask the owner for a new link.</div>'
+          clearInterval(timer)
+          return
+        }
+        const {v} = await r.json()
+        if (v && v !== version) {
+          const html = await (await fetch(url, {cache: "no-store"})).text()
+          const fresh = new DOMParser().parseFromString(html, "text/html").getElementById("fp-page")
+          if (fresh) {
+            page.innerHTML = fresh.innerHTML
+            version = fresh.dataset.version
+            const note = document.createElement("div")
+            note.className = "fp-updated"
+            note.textContent = "Just updated"
+            page.prepend(note)
+            setTimeout(() => note.remove(), 6000)
+          }
+        }
+      } catch (_) {
+        // No signal at the barn: try again next time.
+      } finally {
+        busy = false
+      }
+    }
+
+    const timer = setInterval(check, 8000)
+    document.addEventListener("visibilitychange", check)
+    window.addEventListener("focus", check)
+  })()
+</script>
