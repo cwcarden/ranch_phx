@@ -1,5 +1,5 @@
 <.styles />
-<.app_nav active={:animals} detail flash={@flash} />
+<.app_nav active={:animals} detail flash={@flash} superuser={RanchPhx.Accounts.Scope.superuser?(@current_scope)} />
 <.topbar back={~p"/"} back_label="Animals" title="Notifications" />
 
 <style>

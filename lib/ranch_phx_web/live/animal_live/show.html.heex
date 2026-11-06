@@ -726,6 +726,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .act-row [class^="hero-"] { width: 22px; height: 22px; color: var(--brand); flex: none; }
 .act-row.quiet { font-size: 15px; color: var(--text2); min-height: 48px; }
 .act-row.quiet [class^="hero-"] { color: var(--text3); }
+.act-row.on { color: var(--brand); background: var(--surface2); }
+#actions-sheet .act-title { padding-top: 12px; }
+#actions-sheet .sm-group { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--text3); padding: 12px 12px 4px; }
+#actions-sheet .sm-row { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 54px; padding: 0 14px; border: none; border-radius: 12px; background: none; color: var(--text); font: inherit; font-size: 17px; font-weight: 600; text-align: left; text-decoration: none; cursor: pointer; flex: none; }
+#actions-sheet .sm-row:active { background: var(--surface2); }
+#actions-sheet .sm-row [class^="hero-"] { width: 22px; height: 22px; color: var(--brand); flex: none; }
 .act-row.cancel { justify-content: center; margin-top: 6px; background: var(--surface2); }
 .act-sep { height: 1px; background: var(--border); margin: 6px 12px; }
 /* iPad and other touch screens: the ⋯ sheet too; upright, the same clean bar as phones */
@@ -744,7 +750,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 }
 </style>
 
-<.app_nav active={:animals} detail flash={@flash} />
+<.app_nav active={:animals} detail flash={@flash} superuser={RanchPhx.Accounts.Scope.superuser?(@current_scope)} />
 <div class={["as-layout", length(@side_rows) > 1 && "has-side"]}>
 <RanchPhxWeb.AnimalSidebar.animal_sidebar :if={length(@side_rows) > 1} rows={@side_rows} current={@animal.id} tab={@tab} />
 <div class="as-main-col">
@@ -827,7 +833,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 <div id="actions-backdrop" class="act-backdrop" style="display:none" phx-click={close_actions}></div>
 <div id="actions-sheet" class="act-sheet" style="display:none" role="dialog" aria-label="Actions">
   <div class="act-handle"></div>
-  <div class="act-title">{@animal.name}</div>
+  <div class="act-title">{Animal.display_name(@animal)}</div>
   <button :if={@is_superuser} class="act-row" phx-click={close_actions |> JS.push("open_edit")}>
     <.icon name="hero-pencil-square" /> Edit profile
   </button>
@@ -835,11 +841,37 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     <.icon name={if @animal.is_favorite, do: "hero-star-solid", else: "hero-star"} />
     {if @animal.is_favorite, do: "Remove from favorites", else: "Add to favorites"}
   </button>
+  <button :if={papers(@animal) != []} class="act-row" id="act-papers" phx-click={close_actions |> JS.dispatch("click", to: "#show-papers")}>
+    <.icon name="hero-identification" /> Papers (works offline)
+  </button>
+
+  <div class="act-title">Tabs</div>
+  <button
+    :for={
+      {id, label, icon} <- [
+        {"overview", "Overview", "hero-home"},
+        {"records", "Records", "hero-clipboard-document-check"},
+        {"documents", "Documents", "hero-document-text"},
+        {"photos", "Photos", "hero-photo"},
+        {"pedigree", "Pedigree", "hero-share"},
+        {"timeline", "Timeline", "hero-clock"},
+        {"genetics", "Genetics", "hero-beaker"},
+        {"expenses", "Expenses", "hero-currency-dollar"}
+      ]
+    }
+    class={["act-row", @tab == id && "on"]}
+    id={"act-tab-#{id}"}
+    phx-click={close_actions |> JS.push("switch_tab", value: %{tab: id})}
+  >
+    <.icon name={icon} /> {label}
+  </button>
+
+  <div class="act-title">{Animal.display_name(@animal)}'s pages</div>
   <a :if={@animal.kind == "horse"} class="act-row" href={training_href(@animal)} data-phx-link="redirect" data-phx-link-state="push">
     <.icon name="hero-academic-cap" /> Training book
   </a>
   <a class="act-row" href={~p"/animals/#{@animal.id}/notes"} data-phx-link="redirect" data-phx-link-state="push">
-    <.icon name="hero-pencil-square" /> Notes
+    <.icon name="hero-pencil" /> Notes
   </a>
   <a :if={@animal.kind == "horse"} class="act-row" href={~p"/animals/#{@animal.id}/hooves"} data-phx-link="redirect" data-phx-link-state="push">
     <.icon name="hero-camera" /> Hooves
@@ -854,22 +886,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     <.icon name="hero-clipboard-document-list" /> Feed plan
   </a>
   <button class="act-row" phx-click={close_actions |> JS.push("open_report")}>
-    <.icon name="hero-document-text" /> Report / PDF
+    <.icon name="hero-document-arrow-down" /> Report / PDF
   </button>
-  <a :if={@is_superuser} class="act-row" href={~p"/voice"} data-phx-link="redirect" data-phx-link-state="push">
-    <.icon name="hero-microphone" /> Siri voice log
-  </a>
-  <a class="act-row" href={~p"/notifications"} data-phx-link="redirect" data-phx-link-state="push">
-    <.icon name="hero-bell" /> Notifications
-  </a>
-  <button class="act-row" phx-click={close_actions |> JS.dispatch("ranch:toggle-theme")}>
-    <.icon name="hero-moon" /> Light or dark
-  </button>
-  <div class="act-sep"></div>
-  <a :if={@is_superuser} class="act-row quiet" href="/admin/settings" data-phx-link="redirect" data-phx-link-state="push"><.icon name="hero-cog-6-tooth" /> Settings</a>
-  <a :if={@is_superuser} class="act-row quiet" href="/admin/backups" data-phx-link="redirect" data-phx-link-state="push"><.icon name="hero-cloud-arrow-up" /> Backups</a>
-  <a class="act-row quiet" href="https://portal.gimelranch.com"><.icon name="hero-home" /> Portal</a>
-  <.link class="act-row quiet" href={~p"/users/log-out"} method="delete"><.icon name="hero-arrow-right-on-rectangle" /> Log out</.link>
+
+  <RanchPhxWeb.SiteMenu.site_links superuser={@is_superuser} />
   <button class="act-row cancel" phx-click={close_actions}>Close</button>
 </div>
 
@@ -2146,124 +2166,126 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       offline_docs_json = Jason.encode!(all_paper_meta(@animal))
     %>
 
-    <!-- Search bar -->
+    <% shown_docs = Enum.take(visible_docs, @doc_limit) %>
+    <style>
+      .dk-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+      .dk-bar .tl-search-wrap { flex: 1; min-width: 0; }
+      .dk-bar input[type=text] { padding: 11px 12px 11px 36px; border: 1.5px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--text); font-size: 16px; outline: none; width: 100%; }
+      .dk-add { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 46px; padding: 0 16px; border-radius: 12px; border: none; background: var(--brand); color: #fff; font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+      .dk-add [class^="hero-"] { width: 18px; height: 18px; }
+      .dk-list { border: 1px solid var(--border); border-radius: 14px; background: var(--surface); overflow: hidden; }
+      .dk-row { display: flex; align-items: center; gap: 10px; padding: 10px 8px 10px 12px; border-top: 1px solid var(--border); min-height: 60px; }
+      .dk-row:first-child { border-top: none; }
+      .dk-open { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; color: inherit; text-decoration: none; }
+      .dk-ico { flex: none; width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; background: color-mix(in srgb, var(--c) 14%, transparent); color: var(--c); }
+      .dk-ico [class^="hero-"] { width: 18px; height: 18px; }
+      .dk-text { min-width: 0; }
+      .dk-title { display: block; font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .dk-meta { display: block; font-size: 12.5px; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+      .dk-act { flex: none; width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--text2); display: grid; place-items: center; cursor: pointer; }
+      .dk-act [class^="hero-"] { width: 18px; height: 18px; }
+      .dk-act.is-offline-saved { background: #16a34a; border-color: #16a34a; color: #fff; }
+      .dk-act.del { color: #b91c1c; }
+      .dk-act.is-saving { opacity: .5; pointer-events: none; }
+      .dk-more { display: block; width: 100%; min-height: 46px; margin-top: 10px; border-radius: 12px; border: 1.5px solid var(--border); background: var(--surface); color: var(--brand); font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; }
+      .dk-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 12px; font-size: 13px; color: var(--text3); flex-wrap: wrap; }
+      .dk-foot button { background: none; border: none; color: var(--brand); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; padding: 8px 0; }
+      .dk-sheet-bg { position: fixed; inset: 0; z-index: 400; background: rgba(0,0,0,.45); display: flex; align-items: flex-end; justify-content: center; }
+      .dk-sheet { width: 100%; max-width: 560px; max-height: 90vh; overflow-y: auto; background: var(--surface); border-radius: 18px 18px 0 0; padding: 14px 16px calc(16px + env(safe-area-inset-bottom)); }
+      @media (min-width: 700px) { .dk-sheet-bg { align-items: center; } .dk-sheet { border-radius: 18px; } }
+      .dk-sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+      .dk-sheet-head b { font-size: 18px; }
+      .dk-types { margin-top: 14px; }
+      .dk-types summary { cursor: pointer; font-size: 14px; font-weight: 700; color: var(--text2); padding: 6px 0; }
+      @media (max-width: 600px) { .dk-sheet .form-row { display: block; } .dk-sheet .form-row .form-field { margin-bottom: 10px !important; } }
+    </style>
+
+    <div class="dk-bar">
+      <div :if={length(@animal.documents) > 0} class="tl-search-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input type="text" id="doc-search" placeholder="Search documents…" value={@doc_search}
+               phx-keyup="doc_search" phx-debounce="250" aria-label="Search documents" />
+      </div>
+      <button :if={@is_superuser} type="button" class="dk-add" id="doc-add" phx-click="open_doc_form">
+        <.icon name="hero-plus" /> Add
+      </button>
+    </div>
+
+    <div :if={map_size(doc_counts) > 1} class="rx-chips" style="margin-bottom:12px">
+      <button
+        class={["rx-fchip", @doc_filter_type == "" && "on"]}
+        style="--c:var(--brand)"
+        phx-click="filter_docs"
+        phx-value-type=""
+      >
+        All <small>{length(@animal.documents)}</small>
+      </button>
+      <button
+        :for={{type, n} <- Enum.sort_by(doc_counts, &elem(&1, 0))}
+        class={["rx-fchip", @doc_filter_type == type && "on"]}
+        style={"--c:#{doc_color(type, @categories, @record_types_by_cat)}"}
+        phx-click="filter_docs"
+        phx-value-type={type}
+      >
+        <span class="rx-dot"></span>{type} <small>{n}</small>
+      </button>
+    </div>
+
     <%= if length(@animal.documents) > 0 do %>
-      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:16px">
-        <div class="tl-search-wrap" style="max-width:360px;flex:1;min-width:200px">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
-            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-          </svg>
-          <input type="text" placeholder="Search documents…" value={@doc_search}
-                 phx-keyup="doc_search" phx-debounce="250"
-                 style="padding:9px 12px 9px 36px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-size:14px;outline:none;width:100%"/>
-        </div>
-        <button id={"save-all-offline-#{@animal.id}"} phx-hook="SaveAllOffline" data-docs={offline_docs_json}
-                data-animal-id={@animal.id} data-animal-name={@animal.name}
-                style="background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--brand);font-size:13px;font-weight:600;padding:9px 14px;cursor:pointer;white-space:nowrap">
-          Save All for Offline
-        </button>
-      </div>
-      <div :if={map_size(doc_counts) > 1} class="rx-chips" style="margin-bottom:14px">
-        <button
-          class={["rx-fchip", @doc_filter_type == "" && "on"]}
-          style="--c:var(--brand)"
-          phx-click="filter_docs"
-          phx-value-type=""
-        >
-          All <small>{length(@animal.documents)}</small>
-        </button>
-        <button
-          :for={{type, n} <- Enum.sort_by(doc_counts, &elem(&1, 0))}
-          class={["rx-fchip", @doc_filter_type == type && "on"]}
-          style={"--c:#{doc_color(type, @categories, @record_types_by_cat)}"}
-          phx-click="filter_docs"
-          phx-value-type={type}
-        >
-          <span class="rx-dot"></span>{type} <small>{n}</small>
-        </button>
-      </div>
-    <% end %>
-
-
-    <%= if length(@animal.documents) > 0 do %>
-      <div class="doc-list" style="margin-bottom:24px">
-        <%= if length(visible_docs) == 0 do %>
-          <p style="font-size:14px;color:var(--text3);padding:20px 0">No documents match "<%= @doc_search %>".</p>
-        <% end %>
-        <%= for doc <- visible_docs do %>
-          <div class="doc-row rx-doc" style={"--c:#{doc_color(doc.doc_type, @categories, @record_types_by_cat)}"}>
-            <a href={doc.file_url} onclick="openPdfViewer(event, this.href, this.title)" class="doc-icon" style="color:var(--brand);text-decoration:none" title={doc.title}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="18" height="18">
-                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-                <polyline points="14 2 14 8 20 8"/>
-              </svg>
-            </a>
-            <div class="doc-info">
-              <a href={doc.file_url} onclick="openPdfViewer(event, this.href, this.title)" title={doc.title} class="doc-title" style="color:inherit;text-decoration:none">
-                <%= doc.title %>
-              </a>
-              <div class="doc-meta" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:4px">
-                <%= if doc.doc_date do %>
-                  <span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;color:var(--text2)">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                    <%= Calendar.strftime(doc.doc_date, "%b %d, %Y") %>
-                  </span>
-                <% end %>
-                <%= if doc.doc_type && doc.doc_type != "" do %>
-                  <span class="rx-doc-badge" style={"--c:#{doc_color(doc.doc_type, @categories, @record_types_by_cat)}"}>
-                    <%= doc.doc_type %>
-                  </span>
-                <% end %>
-                <%= if doc.file_size && doc.file_size > 0 do %>
-                  <span style="font-size:11px;color:var(--text3)"><%= Float.round(doc.file_size / 1_000_000, 1) %> MB</span>
-                <% end %>
-              </div>
-            </div>
-            <div class="doc-actions">
-              <button id={"save-offline-#{doc.id}"} phx-hook="SaveOffline" class="doc-save-btn"
-                      data-url={doc.file_url} data-meta={Jason.encode!(paper_meta(doc))}
-                      data-animal-name={@animal.name} data-animal-id={@animal.id}>
-                Save Offline
-              </button>
-              <a class="doc-link" href={doc.file_url} title={doc.title} onclick="openPdfViewer(event, this.href, this.title)">Open ↗</a>
-              <%= if @is_superuser do %>
-                <button class="tl-del" phx-click="delete_document" phx-value-id={doc.id}
-                        data-confirm="Delete this document? This cannot be undone.">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
-                    <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
-                  </svg>
-                </button>
-              <% end %>
-            </div>
-          </div>
-        <% end %>
-      </div>
-    <% end %>
-
-    <%= if @is_superuser do %>
-      <!-- Document Type Manager -->
-      <div class="doc-type-manager">
-        <h4>Document Types</h4>
-        <%= if length(@doc_types) > 0 do %>
-          <div class="doc-type-chips">
-            <%= for dt <- @doc_types do %>
-              <span class="doc-type-chip">
-                <%= dt.name %>
-                <button type="button" phx-click="delete_doc_type" phx-value-id={dt.id} title="Remove type"
-                      data-confirm="Remove this document type?">✕</button>
+      <p :if={visible_docs == []} style="font-size:14px;color:var(--text3);padding:20px 0">
+        No documents match{if @doc_search != "", do: " \"#{@doc_search}\""}.
+      </p>
+      <div :if={shown_docs != []} class="dk-list" id="doc-list">
+        <div :for={doc <- shown_docs} class="dk-row" id={"doc-#{doc.id}"} style={"--c:#{doc_color(doc.doc_type, @categories, @record_types_by_cat)}"}>
+          <a href={doc.file_url} onclick="openPdfViewer(event, this.href, this.title)" title={doc.title} class="dk-open">
+            <span class="dk-ico"><.icon name={if (doc.mime_type || "") =~ "image", do: "hero-photo", else: "hero-document-text"} /></span>
+            <span class="dk-text">
+              <span class="dk-title">{doc.title}</span>
+              <span class="dk-meta">
+                {[
+                  doc.doc_date && Calendar.strftime(doc.doc_date, "%b %-d, %Y"),
+                  doc.doc_type not in [nil, ""] && doc.doc_type,
+                  doc.file_size && doc.file_size > 0 && "#{Float.round(doc.file_size / 1_000_000, 1)} MB"
+                ]
+                |> Enum.filter(& &1)
+                |> Enum.join(" · ")}
               </span>
-            <% end %>
-          </div>
-        <% else %>
-          <p style="font-size:13px;color:var(--text3);margin-bottom:10px">No custom types yet. Add your first one below.</p>
-        <% end %>
-        <form phx-submit="add_doc_type" class="doc-type-add">
-          <input type="text" name="name" placeholder="New type name (e.g. Coggins, Bill of Sale…)" autocomplete="off"/>
-          <button type="submit" class="btn btn-primary btn-sm">Add</button>
-        </form>
+            </span>
+          </a>
+          <button id={"save-offline-#{doc.id}"} phx-hook="SaveOffline" class="dk-act" data-compact="1"
+                  data-url={doc.file_url} data-meta={Jason.encode!(paper_meta(doc))}
+                  data-animal-name={@animal.name} data-animal-id={@animal.id}
+                  aria-label="Save offline" title="Save offline">
+            <.icon name="hero-arrow-down-tray" />
+          </button>
+          <button :if={@is_superuser} class="dk-act del" id={"delete-doc-#{doc.id}"} phx-click="delete_document" phx-value-id={doc.id}
+                  data-confirm={"Delete \"#{doc.title}\"? This removes the document from the app."}
+                  aria-label={"Delete #{doc.title}"} title="Delete">
+            <.icon name="hero-trash" />
+          </button>
+        </div>
       </div>
+      <button :if={length(visible_docs) > @doc_limit} type="button" class="dk-more" id="doc-more" phx-click="more_docs">
+        Show {min(length(visible_docs) - @doc_limit, 10)} more ({length(visible_docs) - @doc_limit} left)
+      </button>
+      <div class="dk-foot">
+        <span>Tap a document to open it. <.icon name="hero-arrow-down-tray" class="w-3 h-3" /> keeps a copy on this phone for no-signal spots; tap again to remove it.</span>
+        <button id={"save-all-offline-#{@animal.id}"} phx-hook="SaveAllOffline" data-docs={offline_docs_json}
+                data-animal-id={@animal.id} data-animal-name={@animal.name}>
+          Save all for offline
+        </button>
+      </div>
+    <% end %>
 
-      <.form for={%{}} phx-submit="upload_document" phx-change="validate_doc">
+    <div :if={@is_superuser and @show_doc_form} class="dk-sheet-bg" id="doc-sheet" phx-click="close_doc_form">
+      <div class="dk-sheet" phx-click={%JS{}} role="dialog" aria-label="Add a document">
+        <div class="dk-sheet-head">
+          <b>Add a document</b>
+          <button type="button" class="dk-act" phx-click="close_doc_form" aria-label="Close"><.icon name="hero-x-mark" /></button>
+        </div>
+      <.form for={%{}} id="doc-upload-form" phx-submit="upload_document" phx-change="validate_doc">
         <div class="form-row" style="margin-bottom:10px">
           <div class="form-field" style="margin-bottom:0">
             <label>Document Title</label>
@@ -2314,11 +2336,34 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
         <% end %>
         <%= if length(@uploads.document.entries) > 0 do %>
           <div style="margin-top:14px;display:flex;justify-content:flex-end">
-            <button type="submit" class="btn btn-primary">Upload Document</button>
+            <button type="submit" class="btn btn-primary" id="doc-upload-submit">Upload Document</button>
           </div>
         <% end %>
       </.form>
-    <% end %>
+      <!-- Document Type Manager -->
+      <details class="doc-type-manager dk-types" id="doc-types">
+        <summary>Document types ({length(@doc_types)})</summary>
+        <%= if length(@doc_types) > 0 do %>
+          <div class="doc-type-chips">
+            <%= for dt <- @doc_types do %>
+              <span class="doc-type-chip">
+                <%= dt.name %>
+                <button type="button" phx-click="delete_doc_type" phx-value-id={dt.id} title="Remove type"
+                      data-confirm="Remove this document type?">✕</button>
+              </span>
+            <% end %>
+          </div>
+        <% else %>
+          <p style="font-size:13px;color:var(--text3);margin-bottom:10px">No custom types yet. Add your first one below.</p>
+        <% end %>
+        <form phx-submit="add_doc_type" class="doc-type-add">
+          <input type="text" name="name" placeholder="New type name (e.g. Coggins, Bill of Sale…)" autocomplete="off"/>
+          <button type="submit" class="btn btn-primary btn-sm">Add</button>
+        </form>
+      </details>
+
+      </div>
+    </div>
     <%= if !@is_superuser && length(@animal.documents) == 0 do %>
       <div class="empty-tab">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40">

@@ -171,7 +171,7 @@ a.ci-row:active { background: var(--surface2); }
 }
 </style>
 
-<.app_nav active={:animals} flash={@flash} />
+<.app_nav active={:animals} flash={@flash} superuser={RanchPhx.Accounts.Scope.superuser?(@current_scope)} />
 
 <button :if={@is_superuser} class="add-fab" phx-click="open_new" id="add-fab" aria-label="Add animal">
   <.icon name="hero-plus" />

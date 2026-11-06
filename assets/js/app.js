@@ -438,7 +438,16 @@ Hooks.SaveOffline = {
 
   updateLabel() {
     const saved = isDocSaved(this.el.dataset.url)
-    this.el.textContent = saved ? "✓ Offline" : "Save Offline"
+    if (this.el.dataset.compact) {
+      // Icon button: green when a copy is on this phone.
+      const label = saved ? "Saved offline (tap to remove)" : "Save offline"
+      this.el.setAttribute("aria-label", label)
+      this.el.title = label
+      this.el.setAttribute("aria-pressed", saved ? "true" : "false")
+      this.el.classList.remove("is-saving")
+    } else {
+      this.el.textContent = saved ? "✓ Offline" : "Save Offline"
+    }
     this.el.classList.toggle("is-offline-saved", saved)
   },
 
@@ -455,7 +464,8 @@ Hooks.SaveOffline = {
       return
     }
 
-    this.el.textContent = "Saving…"
+    if (this.el.dataset.compact) this.el.classList.add("is-saving")
+    else this.el.textContent = "Saving…"
     try {
       await cacheDoc(url)
       saveOfflineDocs([...loadOfflineDocs().filter((d) => d.url !== url), offlineEntry(meta, animalId, animalName, false)])

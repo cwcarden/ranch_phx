@@ -1,5 +1,5 @@
 <.styles />
-<.app_nav active={:training} detail />
+<.app_nav active={:training} detail superuser={RanchPhx.Accounts.Scope.superuser?(@current_scope)} />
 <.topbar back={@back} back_label="Back" title="Customize lists" />
 
 <div class="tr-wrap">

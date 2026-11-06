@@ -1,5 +1,5 @@
 <.styles />
-<.app_nav active={:training} />
+<.app_nav active={:training} superuser={RanchPhx.Accounts.Scope.superuser?(@current_scope)} />
 
 <div class="tr-wrap">
   <div :if={@cards == [] and not @show_new} class="tr-card">
