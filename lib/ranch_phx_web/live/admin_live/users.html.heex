@@ -58,7 +58,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 }
 </style>
 
-<.app_nav />
+<.app_nav superuser={RanchPhx.Accounts.Scope.superuser?(@current_scope)} />
 
 <div class="topbar">
   <div class="topbar-left">

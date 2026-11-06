@@ -26,6 +26,28 @@ defmodule RanchPhxWeb.TrainingComponents do
         {@back_label}
       </a>
       <span class="tr-title">{@title}</span>
+      <button
+        type="button"
+        class="tr-menu"
+        phx-click={RanchPhxWeb.SiteMenu.open()}
+        aria-label="All pages"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          width="20"
+          height="20"
+        >
+          <line x1="4" y1="7" x2="20" y2="7" /><line x1="4" y1="12" x2="20" y2="12" /><line
+            x1="4"
+            y1="17"
+            x2="20"
+            y2="17"
+          />
+        </svg>
+      </button>
     </div>
     """
   end
@@ -439,7 +461,8 @@ defmodule RanchPhxWeb.TrainingComponents do
 
       .tr-topbar { position: sticky; top: calc(var(--an-h, 52px) + env(safe-area-inset-top)); z-index: 50; height: 56px; display: flex; align-items: center; gap: 12px; padding: 0 16px; background: var(--surface); border-bottom: 1px solid var(--border); }
       .tr-back { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; color: var(--brand); font-weight: 600; text-decoration: none; font-size: 16px; }
-      .tr-title { font-weight: 700; font-size: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .tr-title { font-weight: 700; font-size: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+      .tr-menu { flex: none; margin-left: auto; width: 42px; height: 42px; border-radius: 50%; border: 1.5px solid var(--border); background: var(--surface); color: var(--text2); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
 
       .tr-wrap { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; display: grid; gap: 16px; }
       /* Grid items default to their content's min width; long one-line text would widen the page. */

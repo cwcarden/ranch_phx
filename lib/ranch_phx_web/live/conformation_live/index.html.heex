@@ -1,5 +1,5 @@
 <.styles />
-<.app_nav active={:evaluate} detail={@animal != nil} flash={@flash} />
+<.app_nav active={:evaluate} detail={@animal != nil} flash={@flash} superuser={RanchPhx.Accounts.Scope.superuser?(@current_scope)} />
 <.topbar
   back={if @animal, do: ~p"/animals/#{@animal.id}", else: nil}
   back_label={@animal && @animal.name}

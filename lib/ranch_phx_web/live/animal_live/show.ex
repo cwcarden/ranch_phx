@@ -1,7 +1,17 @@
 defmodule RanchPhxWeb.AnimalLive.Show do
   use RanchPhxWeb, :live_view
   alias RanchPhx.Animals
-  alias RanchPhx.Animals.{Animal, TimelineEvent, Record, CareSchedule, CarePreset, RecordsAI, Insights}
+
+  alias RanchPhx.Animals.{
+    Animal,
+    TimelineEvent,
+    Record,
+    CareSchedule,
+    CarePreset,
+    RecordsAI,
+    Insights
+  }
+
   alias RanchPhx.VoiceNotes
   alias RanchPhx.Training.Coach
   import RanchPhxWeb.TrainingComponents, only: [coach_answer: 1]
@@ -14,6 +24,7 @@ defmodule RanchPhxWeb.AnimalLive.Show do
   @impl true
   def mount(%{"id" => id}, _session, socket) do
     animal = Animals.get_animal_with_pedigree!(id)
+
     {:ok,
      socket
      |> assign(:animal, animal)
@@ -60,6 +71,8 @@ defmodule RanchPhxWeb.AnimalLive.Show do
      |> assign(:exp_search, "")
      |> assign(:report_modal, false)
      |> assign(:doc_search, "")
+     |> assign(:doc_limit, 10)
+     |> assign(:show_doc_form, false)
      |> assign(:doc_form_title, "")
      |> assign(:doc_form_type, "")
      |> assign(:doc_form_date, "")
@@ -92,12 +105,36 @@ defmodule RanchPhxWeb.AnimalLive.Show do
        progress: &handle_progress/3
      )
      |> assign(:photos_saved, 0)
-     |> allow_upload(:document, accept: ~w(.pdf .doc .docx .jpg .jpeg .png .txt), max_entries: 5, max_file_size: 50_000_000)
-     |> allow_upload(:scan, accept: ~w(.jpg .jpeg .png .webp .pdf), max_entries: 1, max_file_size: 25_000_000, auto_upload: true, progress: &handle_progress/3)
-     |> allow_upload(:visit_doc, accept: ~w(.pdf .doc .docx .jpg .jpeg .png .heic .txt), max_entries: 5, max_file_size: 50_000_000)
-     |> allow_upload(:markup, accept: ~w(.jpg .jpeg), max_entries: 1, max_file_size: 20_000_000, auto_upload: true, progress: &handle_progress/3)
+     |> allow_upload(:document,
+       accept: ~w(.pdf .doc .docx .jpg .jpeg .png .txt),
+       max_entries: 5,
+       max_file_size: 50_000_000
+     )
+     |> allow_upload(:scan,
+       accept: ~w(.jpg .jpeg .png .webp .pdf),
+       max_entries: 1,
+       max_file_size: 25_000_000,
+       auto_upload: true,
+       progress: &handle_progress/3
+     )
+     |> allow_upload(:visit_doc,
+       accept: ~w(.pdf .doc .docx .jpg .jpeg .png .heic .txt),
+       max_entries: 5,
+       max_file_size: 50_000_000
+     )
+     |> allow_upload(:markup,
+       accept: ~w(.jpg .jpeg),
+       max_entries: 1,
+       max_file_size: 20_000_000,
+       auto_upload: true,
+       progress: &handle_progress/3
+     )
      |> assign(:markup_caption, nil)
-     |> allow_upload(:record_doc, accept: ~w(.pdf .doc .docx .jpg .jpeg .png .txt), max_entries: 5, max_file_size: 50_000_000)}
+     |> allow_upload(:record_doc,
+       accept: ~w(.pdf .doc .docx .jpg .jpeg .png .txt),
+       max_entries: 5,
+       max_file_size: 50_000_000
+     )}
   end
 
   @impl true
@@ -106,7 +143,8 @@ defmodule RanchPhxWeb.AnimalLive.Show do
   def handle_params(params, _uri, socket) do
     socket =
       case params["tab"] do
-        tab when tab in ~w(overview records documents photos pedigree timeline genetics expenses) ->
+        tab
+        when tab in ~w(overview records documents photos pedigree timeline genetics expenses) ->
           assign(socket, :tab, tab)
 
         _ ->
@@ -124,7 +162,9 @@ defmodule RanchPhxWeb.AnimalLive.Show do
 
     # From the Siri voice log: draft records from what was said, to check and save.
     socket =
-      if params["voice"] && connected?(socket), do: open_voice_note(socket, params["voice"]), else: socket
+      if params["voice"] && connected?(socket),
+        do: open_voice_note(socket, params["voice"]),
+        else: socket
 
     {:noreply, socket}
   end
@@ -139,7 +179,10 @@ defmodule RanchPhxWeb.AnimalLive.Show do
             socket
 
           # "Gave him his Panacur": check off today's dose rather than drafting a new record.
-          match?({:ok, _}, quick = RanchPhx.VoiceQuick.check_off(animal, note.text, RanchPhx.LocalTime.today())) ->
+          match?(
+            {:ok, _},
+            quick = RanchPhx.VoiceQuick.check_off(animal, note.text, RanchPhx.LocalTime.today())
+          ) ->
             {:ok, msg} = quick
             VoiceNotes.mark(note, "done")
 
@@ -210,9 +253,11 @@ defmodule RanchPhxWeb.AnimalLive.Show do
 
   def handle_event("save_event", %{"timeline_event" => params}, socket) do
     merged = Map.put(params, "animal_id", socket.assigns.animal.id)
+
     case Animals.create_event(merged) do
       {:ok, _} ->
         animal = Animals.get_animal_with_pedigree!(socket.assigns.animal.id)
+
         {:noreply,
          socket
          |> assign(:animal, animal)
@@ -247,26 +292,38 @@ defmodule RanchPhxWeb.AnimalLive.Show do
     {:noreply, assign(socket, :animal, animal)}
   end
 
-  def handle_event("set_cover_position", %{"pos" => pos}, socket) when pos in ~w(top center bottom) do
+  def handle_event("set_cover_position", %{"pos" => pos}, socket)
+      when pos in ~w(top center bottom) do
     Animals.update_animal(socket.assigns.animal, %{cover_position: pos})
     animal = Animals.get_animal_with_pedigree!(socket.assigns.animal.id)
     {:noreply, assign(socket, :animal, animal)}
   end
 
-  def handle_event("open_focus", _params, socket), do: {:noreply, assign(socket, :focus_open, true)}
-  def handle_event("close_focus", _params, socket), do: {:noreply, assign(socket, :focus_open, false)}
+  def handle_event("open_focus", _params, socket),
+    do: {:noreply, assign(socket, :focus_open, true)}
+
+  def handle_event("close_focus", _params, socket),
+    do: {:noreply, assign(socket, :focus_open, false)}
 
   # Tapped on the cover photo: keep that spot in view in every crop.
   def handle_event("set_cover_focus", %{"x" => x, "y" => y}, socket) do
-    clamp = fn v -> v |> to_string() |> Float.parse() |> case do
+    clamp = fn v ->
+      v
+      |> to_string()
+      |> Float.parse()
+      |> case do
         {n, _} -> n |> max(0.0) |> min(100.0) |> round()
         _ -> 50
       end
     end
 
     if socket.assigns.is_superuser do
-      Animals.update_animal(socket.assigns.animal, %{cover_position: "#{clamp.(x)}% #{clamp.(y)}%"})
-      {:noreply, assign(socket, :animal, Animals.get_animal_with_pedigree!(socket.assigns.animal.id))}
+      Animals.update_animal(socket.assigns.animal, %{
+        cover_position: "#{clamp.(x)}% #{clamp.(y)}%"
+      })
+
+      {:noreply,
+       assign(socket, :animal, Animals.get_animal_with_pedigree!(socket.assigns.animal.id))}
     else
       {:noreply, socket}
     end
@@ -274,12 +331,15 @@ defmodule RanchPhxWeb.AnimalLive.Show do
 
   def handle_event("delete_photo", %{"id" => photo_id}, socket) do
     photo = Enum.find(socket.assigns.animal.photos, &("#{&1.id}" == photo_id))
+
     if photo do
       Animals.delete_photo(photo)
+
       if socket.assigns.animal.cover_photo_url == photo.url do
         Animals.update_animal(socket.assigns.animal, %{cover_photo_url: nil})
       end
     end
+
     animal = Animals.get_animal_with_pedigree!(socket.assigns.animal.id)
     {:noreply, assign(socket, :animal, animal)}
   end
@@ -289,14 +349,15 @@ defmodule RanchPhxWeb.AnimalLive.Show do
     dir = Path.join([uploads_dir(), "animals", "#{animal_id}", "documents"])
     File.mkdir_p!(dir)
 
-    uploaded = consume_uploaded_entries(socket, :document, fn %{path: tmp}, entry ->
-      ext  = Path.extname(entry.client_name)
-      name = "#{:crypto.strong_rand_bytes(8) |> Base.url_encode64(padding: false)}#{ext}"
-      dest = Path.join(dir, name)
-      File.cp!(tmp, dest)
-      url = "/uploads/animals/#{animal_id}/documents/#{name}"
-      {:ok, {url, entry}}
-    end)
+    uploaded =
+      consume_uploaded_entries(socket, :document, fn %{path: tmp}, entry ->
+        ext = Path.extname(entry.client_name)
+        name = "#{:crypto.strong_rand_bytes(8) |> Base.url_encode64(padding: false)}#{ext}"
+        dest = Path.join(dir, name)
+        File.cp!(tmp, dest)
+        url = "/uploads/animals/#{animal_id}/documents/#{name}"
+        {:ok, {url, entry}}
+      end)
 
     for {url, entry} <- uploaded do
       title = params |> Map.get("title", "") |> String.trim()
@@ -318,13 +379,18 @@ defmodule RanchPhxWeb.AnimalLive.Show do
     end
 
     animal = Animals.get_animal_with_pedigree!(animal_id)
+
     {:noreply,
      socket
      |> assign(:animal, animal)
      |> assign(:doc_form_title, "")
      |> assign(:doc_form_type, "")
      |> assign(:doc_form_date, "")
-     |> put_flash(:info, "Document uploaded.")}
+     |> assign(:show_doc_form, uploaded == [])
+     |> put_flash(
+       if(uploaded == [], do: :error, else: :info),
+       if(uploaded == [], do: "Choose a file first.", else: "Document uploaded.")
+     )}
   end
 
   def handle_event("delete_document", %{"id" => doc_id}, socket) do
@@ -345,15 +411,34 @@ defmodule RanchPhxWeb.AnimalLive.Show do
     {:noreply, assign(socket, :tl_search, val)}
   end
 
+  def handle_event("open_doc_form", _params, socket),
+    do: {:noreply, assign(socket, :show_doc_form, true)}
+
+  def handle_event("close_doc_form", _params, socket) do
+    socket =
+      Enum.reduce(
+        socket.assigns.uploads.document.entries,
+        socket,
+        &cancel_upload(&2, :document, &1.ref)
+      )
+
+    {:noreply, assign(socket, :show_doc_form, false)}
+  end
+
+  def handle_event("more_docs", _params, socket),
+    do: {:noreply, assign(socket, :doc_limit, socket.assigns.doc_limit + 10)}
+
   def handle_event("doc_search", %{"value" => val}, socket) do
-    {:noreply, assign(socket, :doc_search, val)}
+    {:noreply, socket |> assign(:doc_search, val) |> assign(:doc_limit, 10)}
   end
 
   def handle_event("add_doc_type", %{"name" => name}, socket) do
     name = String.trim(name)
+
     if name != "" do
       Animals.create_doc_type(%{"name" => name})
     end
+
     {:noreply, assign(socket, doc_types: Animals.list_doc_types(), new_doc_type: "")}
   end
 
@@ -372,7 +457,13 @@ defmodule RanchPhxWeb.AnimalLive.Show do
   end
 
   def handle_event("start_add_category", _params, socket) do
-    {:noreply, assign(socket, adding_category: true, new_category_label: "", new_category_color: "#6366f1", category_error: nil)}
+    {:noreply,
+     assign(socket,
+       adding_category: true,
+       new_category_label: "",
+       new_category_color: "#6366f1",
+       category_error: nil
+     )}
   end
 
   def handle_event("cancel_add_category", _params, socket) do
@@ -395,7 +486,12 @@ defmodule RanchPhxWeb.AnimalLive.Show do
     else
       slug = label |> String.downcase() |> String.replace(~r/[^a-z0-9]+/, "_") |> String.trim("_")
 
-      case Animals.create_category(%{slug: slug, label: label, color: socket.assigns.new_category_color, position: 999}) do
+      case Animals.create_category(%{
+             slug: slug,
+             label: label,
+             color: socket.assigns.new_category_color,
+             position: 999
+           }) do
         {:ok, _} ->
           {:noreply,
            socket
@@ -451,6 +547,7 @@ defmodule RanchPhxWeb.AnimalLive.Show do
 
   def handle_event("delete_record_type", %{"id" => id}, socket) do
     Animals.get_record_type!(String.to_integer(id)) |> Animals.delete_record_type()
+
     {:noreply,
      socket
      |> assign(:record_types_by_cat, Animals.list_record_types_by_category())
@@ -468,6 +565,7 @@ defmodule RanchPhxWeb.AnimalLive.Show do
 
   def handle_event("edit_record", %{"id" => id}, socket) do
     record = Enum.find(socket.assigns.animal.records, &("#{&1.id}" == id))
+
     {:noreply,
      socket
      |> assign(:record_modal, true)
@@ -542,7 +640,11 @@ defmodule RanchPhxWeb.AnimalLive.Show do
         {:noreply,
          assign(socket, :reminder, %{
            "id" => r.id,
-           "kind" => if(r.record_type in ~w(medication deworming task), do: r.record_type, else: "medication"),
+           "kind" =>
+             if(r.record_type in ~w(medication deworming task),
+               do: r.record_type,
+               else: "medication"
+             ),
            "title" => r.title,
            "start" => Date.to_iso8601(r.date),
            "days" => days,
@@ -568,7 +670,8 @@ defmodule RanchPhxWeb.AnimalLive.Show do
     end
   end
 
-  def handle_event("close_reminder", _params, socket), do: {:noreply, assign(socket, :reminder, nil)}
+  def handle_event("close_reminder", _params, socket),
+    do: {:noreply, assign(socket, :reminder, nil)}
 
   def handle_event("reminder_change", %{"reminder" => params}, socket),
     do: {:noreply, assign(socket, :reminder, Map.merge(socket.assigns.reminder, params))}
@@ -598,7 +701,12 @@ defmodule RanchPhxWeb.AnimalLive.Show do
         {:noreply, socket}
 
       title == "" ->
-        {:noreply, assign(socket, :reminder, Map.put(r, "error", "Give it a name, like Bute or Soak left front."))}
+        {:noreply,
+         assign(
+           socket,
+           :reminder,
+           Map.put(r, "error", "Give it a name, like Bute or Soak left front.")
+         )}
 
       is_nil(days) ->
         {:noreply, assign(socket, :reminder, Map.put(r, "error", "Days in a row: 1 to 60."))}
@@ -642,11 +750,18 @@ defmodule RanchPhxWeb.AnimalLive.Show do
              |> assign(:reminder, nil)
              |> put_flash(
                :info,
-               if(existing, do: "Updated #{title}.", else: "Added #{title}, #{schedule}. Check off each day on the overview.")
+               if(existing,
+                 do: "Updated #{title}.",
+                 else: "Added #{title}, #{schedule}. Check off each day on the overview."
+               )
              )}
 
           {:error, cs} ->
-            msg = Enum.map_join(cs.errors, ", ", fn {f, {e, _}} -> "#{Phoenix.Naming.humanize(f)} #{e}" end)
+            msg =
+              Enum.map_join(cs.errors, ", ", fn {f, {e, _}} ->
+                "#{Phoenix.Naming.humanize(f)} #{e}"
+              end)
+
             {:noreply, assign(socket, :reminder, Map.put(r, "error", msg))}
         end
     end
@@ -811,7 +926,8 @@ defmodule RanchPhxWeb.AnimalLive.Show do
   # ── Weigh-in ──
 
   # Log a weight or a height: a number, how it was measured, the date and a note.
-  def handle_event("open_measure", %{"metric" => metric}, socket) when metric in ~w(weight height) do
+  def handle_event("open_measure", %{"metric" => metric}, socket)
+      when metric in ~w(weight height) do
     method =
       Insights.latest_method(socket.assigns.animal.timeline_events, metric) ||
         if(metric == "weight", do: "scale", else: "stick")
@@ -827,7 +943,8 @@ defmodule RanchPhxWeb.AnimalLive.Show do
      })}
   end
 
-  def handle_event("close_measure", _params, socket), do: {:noreply, assign(socket, :measure, nil)}
+  def handle_event("close_measure", _params, socket),
+    do: {:noreply, assign(socket, :measure, nil)}
 
   def handle_event("measure_change", %{"measure" => params}, socket),
     do: {:noreply, assign(socket, :measure, Map.merge(socket.assigns.measure, params))}
@@ -855,7 +972,11 @@ defmodule RanchPhxWeb.AnimalLive.Show do
         {:noreply, socket}
 
       is_nil(value) ->
-        msg = if weight?, do: "Enter the weight in pounds.", else: "Enter the height in hands, like 14.2."
+        msg =
+          if weight?,
+            do: "Enter the weight in pounds.",
+            else: "Enter the height in hands, like 14.2."
+
         {:noreply, assign(socket, :measure, Map.put(m, "error", msg))}
 
       true ->
@@ -874,7 +995,11 @@ defmodule RanchPhxWeb.AnimalLive.Show do
         }
 
         result =
-          case m["event_id"] && Enum.find(animal.timeline_events, &(to_string(&1.id) == to_string(m["event_id"]))) do
+          case m["event_id"] &&
+                 Enum.find(
+                   animal.timeline_events,
+                   &(to_string(&1.id) == to_string(m["event_id"]))
+                 ) do
             %{} = event -> Animals.update_event(event, attrs)
             _ -> Animals.create_event(attrs)
           end
@@ -886,11 +1011,17 @@ defmodule RanchPhxWeb.AnimalLive.Show do
             {:noreply,
              socket
              |> assign(:measure, nil)
-             |> then(&if(&1.assigns.data_metric, do: open_data(&1, &1.assigns.data_metric), else: &1))
+             |> then(
+               &if(&1.assigns.data_metric, do: open_data(&1, &1.assigns.data_metric), else: &1)
+             )
              |> put_flash(:info, "#{if m["event_id"], do: "Updated", else: "Saved"}: #{title}.")}
 
           {:error, cs} ->
-            msg = Enum.map_join(cs.errors, ", ", fn {f, {e, _}} -> "#{Phoenix.Naming.humanize(f)} #{e}" end)
+            msg =
+              Enum.map_join(cs.errors, ", ", fn {f, {e, _}} ->
+                "#{Phoenix.Naming.humanize(f)} #{e}"
+              end)
+
             {:noreply, assign(socket, :measure, Map.put(m, "error", msg))}
         end
     end
@@ -935,7 +1066,10 @@ defmodule RanchPhxWeb.AnimalLive.Show do
         value =
           if metric == "weight",
             do: to_string(meta["lbs"] || Insights.parse_weight(e.title) || ""),
-            else: (fn i -> if i, do: Insights.hands(i), else: "" end).(meta["inches"] || Insights.parse_height(e.title))
+            else:
+              (fn i -> if i, do: Insights.hands(i), else: "" end).(
+                meta["inches"] || Insights.parse_height(e.title)
+              )
 
         {:noreply,
          assign(socket, :measure, %{
@@ -949,7 +1083,8 @@ defmodule RanchPhxWeb.AnimalLive.Show do
          })}
 
       _ ->
-        {:noreply, put_flash(socket, :error, "That one came from a record. Change it on the Records tab.")}
+        {:noreply,
+         put_flash(socket, :error, "That one came from a record. Change it on the Records tab.")}
     end
   end
 
@@ -957,7 +1092,8 @@ defmodule RanchPhxWeb.AnimalLive.Show do
     %{animal: animal, measure: m, is_superuser: su?} = socket.assigns
 
     with true <- su?,
-         %{} = e <- Enum.find(animal.timeline_events, &(to_string(&1.id) == to_string(m["event_id"]))),
+         %{} = e <-
+           Enum.find(animal.timeline_events, &(to_string(&1.id) == to_string(m["event_id"]))),
          {:ok, _} <- Animals.delete_event(e) do
       socket = assign(socket, animal: Animals.get_animal_with_pedigree!(animal.id), measure: nil)
 
@@ -988,7 +1124,7 @@ defmodule RanchPhxWeb.AnimalLive.Show do
     do: {:noreply, assign(socket, :record_search, q)}
 
   def handle_event("filter_docs", %{"type" => type}, socket),
-    do: {:noreply, assign(socket, :doc_filter_type, type)}
+    do: {:noreply, socket |> assign(:doc_filter_type, type) |> assign(:doc_limit, 10)}
 
   # ── AI on records ──
 
@@ -1033,37 +1169,52 @@ defmodule RanchPhxWeb.AnimalLive.Show do
     animal_id = socket.assigns.animal.id
 
     # handle tags: split comma-separated string into list
-    params = case Map.get(params, "tags") do
-      nil -> params
-      "" -> Map.put(params, "tags", [])
-      tags_str -> Map.put(params, "tags", tags_str |> String.split(",") |> Enum.map(&String.trim/1) |> Enum.reject(&(&1 == "")))
-    end
+    params =
+      case Map.get(params, "tags") do
+        nil ->
+          params
 
-    result = case socket.assigns.record_editing do
-      nil -> Animals.create_record(Map.put(params, "animal_id", animal_id))
-      rec -> Animals.update_record(rec, params)
-    end
+        "" ->
+          Map.put(params, "tags", [])
+
+        tags_str ->
+          Map.put(
+            params,
+            "tags",
+            tags_str |> String.split(",") |> Enum.map(&String.trim/1) |> Enum.reject(&(&1 == ""))
+          )
+      end
+
+    result =
+      case socket.assigns.record_editing do
+        nil -> Animals.create_record(Map.put(params, "animal_id", animal_id))
+        rec -> Animals.update_record(rec, params)
+      end
 
     case result do
       {:ok, _} ->
         doc_dir = Path.join([uploads_dir(), "animals", "#{animal_id}", "documents"])
         File.mkdir_p!(doc_dir)
         record_title = params |> Map.get("title", "") |> String.trim()
-        record_type  = params |> Map.get("record_type", "")
-        record_date  = params |> Map.get("date", "")
-        doc_type     = if record_type != "", do: Record.type_label(record_type), else: nil
-        n_files      = length(socket.assigns.uploads.record_doc.entries)
+        record_type = params |> Map.get("record_type", "")
+        record_date = params |> Map.get("date", "")
+        doc_type = if record_type != "", do: Record.type_label(record_type), else: nil
+        n_files = length(socket.assigns.uploads.record_doc.entries)
+
         consume_uploaded_entries(socket, :record_doc, fn %{path: tmp}, entry ->
-          ext  = Path.extname(entry.client_name)
+          ext = Path.extname(entry.client_name)
           name = "#{:crypto.strong_rand_bytes(8) |> Base.url_encode64(padding: false)}#{ext}"
           dest = Path.join(doc_dir, name)
           File.cp!(tmp, dest)
           url = "/uploads/animals/#{animal_id}/documents/#{name}"
-          title = cond do
-            record_title == ""  -> entry.client_name
-            n_files == 1        -> record_title
-            true                -> "#{record_title} — #{Path.basename(entry.client_name, ext)}"
-          end
+
+          title =
+            cond do
+              record_title == "" -> entry.client_name
+              n_files == 1 -> record_title
+              true -> "#{record_title} — #{Path.basename(entry.client_name, ext)}"
+            end
+
           Animals.create_document(%{
             animal_id: animal_id,
             title: title,
@@ -1073,9 +1224,12 @@ defmodule RanchPhxWeb.AnimalLive.Show do
             mime_type: entry.client_type,
             file_size: entry.client_size
           })
+
           {:ok, url}
         end)
+
         animal = Animals.get_animal_with_pedigree!(animal_id)
+
         {:noreply,
          socket
          |> assign(:animal, animal)
@@ -1129,7 +1283,9 @@ defmodule RanchPhxWeb.AnimalLive.Show do
 
   def handle_event("markup_meta", %{"caption" => caption}, socket) do
     if socket.assigns.is_superuser,
-      do: {:reply, %{ok: true}, assign(socket, :markup_caption, String.slice(String.trim(caption), 0, 120))},
+      do:
+        {:reply, %{ok: true},
+         assign(socket, :markup_caption, String.slice(String.trim(caption), 0, 120))},
       else: {:reply, %{ok: false}, socket}
   end
 
@@ -1143,7 +1299,7 @@ defmodule RanchPhxWeb.AnimalLive.Show do
     {:noreply, assign(socket, :lightbox_url, nil)}
   end
 
-  def handle_event("validate_photo",      _params, socket), do: {:noreply, socket}
+  def handle_event("validate_photo", _params, socket), do: {:noreply, socket}
   def handle_event("validate_record_doc", _params, socket), do: {:noreply, socket}
 
   def handle_event("validate_doc", %{"doc" => params}, socket) do
@@ -1153,6 +1309,7 @@ defmodule RanchPhxWeb.AnimalLive.Show do
      |> assign(:doc_form_type, Map.get(params, "doc_type", ""))
      |> assign(:doc_form_date, Map.get(params, "doc_date", ""))}
   end
+
   def handle_event("validate_doc", _params, socket), do: {:noreply, socket}
 
   def handle_event("cancel_upload", %{"ref" => ref}, socket) do
@@ -1164,27 +1321,42 @@ defmodule RanchPhxWeb.AnimalLive.Show do
     {:noreply, push_navigate(socket, to: "/")}
   end
 
-  def error_to_string(:too_large),      do: "Too large (over 30 MB)"
-  def error_to_string(:not_accepted),   do: "Not a photo type the app takes (JPG, PNG, WebP, GIF)"
-  def error_to_string(:too_many_files), do: "That's more than 40 at once. Add the rest in a second batch."
-  def error_to_string(_),               do: "Upload error"
+  def error_to_string(:too_large), do: "Too large (over 30 MB)"
+  def error_to_string(:not_accepted), do: "Not a photo type the app takes (JPG, PNG, WebP, GIF)"
+
+  def error_to_string(:too_many_files),
+    do: "That's more than 40 at once. Add the rest in a second batch."
+
+  def error_to_string(_), do: "Upload error"
 
   # ── Pedigree events ────────────────────────────────────────────────────────
 
   def handle_event("ped_edit", %{"slot" => slot}, socket) do
     existing = socket.assigns.pedigree_map[slot]
-    form = if existing do
-      %{"name" => existing.name || "",
-        "registration_number" => existing.registration_number || "",
-        "breed" => existing.breed || "",
-        "birth_year" => (existing.birth_year && Integer.to_string(existing.birth_year)) || "",
-        "color" => existing.color || "",
-        "sex" => existing.sex || "",
-        "notes" => existing.notes || ""}
-    else
-      %{"name" => "", "registration_number" => "", "breed" => "",
-        "birth_year" => "", "color" => "", "sex" => "", "notes" => ""}
-    end
+
+    form =
+      if existing do
+        %{
+          "name" => existing.name || "",
+          "registration_number" => existing.registration_number || "",
+          "breed" => existing.breed || "",
+          "birth_year" => (existing.birth_year && Integer.to_string(existing.birth_year)) || "",
+          "color" => existing.color || "",
+          "sex" => existing.sex || "",
+          "notes" => existing.notes || ""
+        }
+      else
+        %{
+          "name" => "",
+          "registration_number" => "",
+          "breed" => "",
+          "birth_year" => "",
+          "color" => "",
+          "sex" => "",
+          "notes" => ""
+        }
+      end
+
     {:noreply, assign(socket, ped_editing: slot, ped_form: form)}
   end
 
@@ -1198,16 +1370,17 @@ defmodule RanchPhxWeb.AnimalLive.Show do
 
   def handle_event("ped_save", %{"entry" => params}, socket) do
     slot = socket.assigns.ped_editing
+
     attrs = %{
-      animal_id:           socket.assigns.animal.id,
-      slot:                slot,
-      name:                String.trim(params["name"] || ""),
+      animal_id: socket.assigns.animal.id,
+      slot: slot,
+      name: String.trim(params["name"] || ""),
       registration_number: String.trim(params["registration_number"] || ""),
-      breed:               String.trim(params["breed"] || ""),
-      birth_year:          parse_int(params["birth_year"]),
-      color:               String.trim(params["color"] || ""),
-      sex:                 String.trim(params["sex"] || ""),
-      notes:               String.trim(params["notes"] || "")
+      breed: String.trim(params["breed"] || ""),
+      birth_year: parse_int(params["birth_year"]),
+      color: String.trim(params["color"] || ""),
+      sex: String.trim(params["sex"] || ""),
+      notes: String.trim(params["notes"] || "")
     }
 
     case Animals.upsert_pedigree_entry(attrs) do
@@ -1216,6 +1389,7 @@ defmodule RanchPhxWeb.AnimalLive.Show do
          socket
          |> assign(ped_editing: nil, ped_form: %{})
          |> assign(:pedigree_map, Animals.list_pedigree_entries(socket.assigns.animal.id))}
+
       {:error, _} ->
         {:noreply, socket}
     end
@@ -1223,9 +1397,12 @@ defmodule RanchPhxWeb.AnimalLive.Show do
 
   def handle_event("ped_delete", %{"slot" => slot}, socket) do
     case socket.assigns.pedigree_map[slot] do
-      nil -> {:noreply, socket}
+      nil ->
+        {:noreply, socket}
+
       entry ->
         Animals.delete_pedigree_entry(entry)
+
         {:noreply,
          socket
          |> assign(ped_editing: nil, ped_form: %{})
@@ -1236,38 +1413,51 @@ defmodule RanchPhxWeb.AnimalLive.Show do
   # ── Helpers ────────────────────────────────────────────────────────────────
 
   def format_cost(nil), do: "—"
+
   def format_cost(%Decimal{} = d) do
     rounded = Decimal.round(d, 2) |> Decimal.to_string()
     [whole | rest] = String.split(rounded, ".")
-    cents = case rest do
-      [] -> "00"
-      [c] -> String.pad_trailing(c, 2, "0")
-    end
+
+    cents =
+      case rest do
+        [] -> "00"
+        [c] -> String.pad_trailing(c, 2, "0")
+      end
+
     negative = String.starts_with?(whole, "-")
     abs_whole = if negative, do: String.slice(whole, 1..-1//1), else: whole
-    formatted = abs_whole |> String.graphemes() |> Enum.reverse()
-      |> Enum.chunk_every(3) |> Enum.map(&Enum.reverse/1) |> Enum.reverse()
+
+    formatted =
+      abs_whole
+      |> String.graphemes()
+      |> Enum.reverse()
+      |> Enum.chunk_every(3)
+      |> Enum.map(&Enum.reverse/1)
+      |> Enum.reverse()
       |> Enum.map_join(",", &Enum.join/1)
+
     "#{if negative, do: "-", else: ""}$#{formatted}.#{cents}"
   end
 
   def result_chip_class(r) when is_binary(r) do
     cond do
       String.upcase(r) in ["N/N", "N", "CLEAR", "NEGATIVE"] -> "result-n"
-      String.upcase(r) in ["N/H", "CARRIER", "HET", "C"]    -> "result-c"
-      String.upcase(r) in ["H/H", "AFFECTED", "H"]          -> "result-h"
-      String.upcase(r) in ["P", "POSITIVE", "POS"]          -> "result-p"
+      String.upcase(r) in ["N/H", "CARRIER", "HET", "C"] -> "result-c"
+      String.upcase(r) in ["H/H", "AFFECTED", "H"] -> "result-h"
+      String.upcase(r) in ["P", "POSITIVE", "POS"] -> "result-p"
       true -> "result-u"
     end
   end
+
   def result_chip_class(_), do: "result-u"
 
   defp parse_int(nil), do: nil
   defp parse_int(""), do: nil
+
   defp parse_int(s) do
     case Integer.parse(String.trim(s)) do
       {n, _} -> n
-      :error  -> nil
+      :error -> nil
     end
   end
 
@@ -1291,7 +1481,12 @@ defmodule RanchPhxWeb.AnimalLive.Show do
   end
 
   def ped_slot_label(slot) do
-    slot |> String.graphemes() |> Enum.map_join("'s ", fn "S" -> "Sire"; "D" -> "Dam" end)
+    slot
+    |> String.graphemes()
+    |> Enum.map_join("'s ", fn
+      "S" -> "Sire"
+      "D" -> "Dam"
+    end)
   end
 
   def ped_gen_label(1), do: "Sire / Dam"
@@ -1334,7 +1529,8 @@ defmodule RanchPhxWeb.AnimalLive.Show do
          rec_voice_loading: false,
          rec_voice_error:
            if(socket.assigns.voice_note,
-             do: "This doesn't sound like a care record (a vaccine, deworming, trim…). Nothing was saved.",
+             do:
+               "This doesn't sound like a care record (a vaccine, deworming, trim…). Nothing was saved.",
              else: "Couldn't pick out any records. Try naming what was done."
            )
        )}
@@ -1426,7 +1622,11 @@ defmodule RanchPhxWeb.AnimalLive.Show do
 
       {:noreply,
        socket
-       |> assign(animal: Animals.get_animal_with_pedigree!(animal.id), markup_caption: nil, tab: "photos")
+       |> assign(
+         animal: Animals.get_animal_with_pedigree!(animal.id),
+         markup_caption: nil,
+         tab: "photos"
+       )
        |> push_event("markup-saved", %{})
        |> put_flash(:info, "Saved the marked-up photo.")}
     else
@@ -1787,8 +1987,11 @@ defmodule RanchPhxWeb.AnimalLive.Show do
     end
   end
 
-  def metric_points(animal, "weight"), do: Insights.weights(animal.timeline_events, animal.records)
-  def metric_points(animal, "height"), do: Insights.heights(animal.timeline_events, animal.records)
+  def metric_points(animal, "weight"),
+    do: Insights.weights(animal.timeline_events, animal.records)
+
+  def metric_points(animal, "height"),
+    do: Insights.heights(animal.timeline_events, animal.records)
 
   @doc "A value in its unit: 792 lb, or 14.2 hh for a height in inches."
   def fmt_value("weight", v), do: "#{v} lb"
@@ -1806,7 +2009,10 @@ defmodule RanchPhxWeb.AnimalLive.Show do
 
   @doc "+1.2 / -0.4 with the sign, for gains."
   def signed(nil), do: "–"
-  def signed(n) when is_float(n), do: "#{if n >= 0, do: "+"}#{:erlang.float_to_binary(n, decimals: 1)}"
+
+  def signed(n) when is_float(n),
+    do: "#{if n >= 0, do: "+"}#{:erlang.float_to_binary(n, decimals: 1)}"
+
   def signed(n), do: "#{if n >= 0, do: "+"}#{n}"
 
   @paper_types [
@@ -1960,7 +2166,9 @@ defmodule RanchPhxWeb.AnimalLive.Show do
   def focus_dot(focus) do
     {x, y} =
       case Regex.run(~r/^(\d+)% (\d+)%$/, focus) do
-        [_, x, y] -> {x, y}
+        [_, x, y] ->
+          {x, y}
+
         _ ->
           case focus do
             "top" -> {"50", "0"}
