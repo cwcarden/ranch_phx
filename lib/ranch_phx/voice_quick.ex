@@ -5,6 +5,7 @@ defmodule RanchPhx.VoiceQuick do
 
     * "Gave Asher his Panacur" checks off today's dose of a running treatment.
     * "Asher weighed 805" (or "805 on the tape") logs his weight for today.
+    * "Asher's temp is 100.2" (pulse, breathing too) logs his vitals, with the time.
 
   Anything bigger (a vet visit, a training session, two animals at once) still waits
   to be checked. Each quick save is also kept in the voice log as done, for the record.
@@ -22,7 +23,12 @@ defmodule RanchPhx.VoiceQuick do
     case check_off(animal, text, today) do
       {:ok, message} ->
         %VoiceNote{}
-        |> VoiceNote.changeset(%{text: text, animal_id: animal.id, user_id: user && user.id, status: "done"})
+        |> VoiceNote.changeset(%{
+          text: text,
+          animal_id: animal.id,
+          user_id: user && user.id,
+          status: "done"
+        })
         |> Repo.insert()
 
         {:ok, message}
@@ -40,7 +46,10 @@ defmodule RanchPhx.VoiceQuick do
         Repo.all(from a in Animal, where: a.owned == true and a.status == "active")
         |> Enum.filter(fn a ->
           full = Animals.get_animal_with_pedigree!(a.id)
-          full.records |> CareSchedule.active_courses(today) |> Enum.any?(&(&1.today_i != nil and course_named?(&1, text)))
+
+          full.records
+          |> CareSchedule.active_courses(today)
+          |> Enum.any?(&(&1.today_i != nil and course_named?(&1, text)))
         end)
 
       case fits do
@@ -58,10 +67,11 @@ defmodule RanchPhx.VoiceQuick do
   Does the routine part for one animal (today's dose, a weight) without touching the
   voice log: `{:ok, message}` or `:none`. Also used when a waiting note is opened.
   """
-  def check_off(%Animal{} = animal, text, today) do
+  def check_off(%Animal{} = animal, text, today, opts \\ []) do
     full = Animals.get_animal_with_pedigree!(animal.id)
 
-    with :none <- start_course(full, text, today),
+    with :none <- vitals(full, text, today, opts[:time]),
+         :none <- start_course(full, text, today),
          :none <- weight(full, text, today) do
       dose(full, text, today)
     end
@@ -69,25 +79,49 @@ defmodule RanchPhx.VoiceQuick do
 
   # ── Starting a treatment: "Started Asher on Bute for five days" ──
 
-  @numbers %{"one" => 1, "two" => 2, "three" => 3, "four" => 4, "five" => 5, "six" => 6,
-             "seven" => 7, "eight" => 8, "nine" => 9, "ten" => 10, "eleven" => 11, "twelve" => 12,
-             "fourteen" => 14, "a week" => 7, "two weeks" => 14, "ten days" => 10}
+  @numbers %{
+    "one" => 1,
+    "two" => 2,
+    "three" => 3,
+    "four" => 4,
+    "five" => 5,
+    "six" => 6,
+    "seven" => 7,
+    "eight" => 8,
+    "nine" => 9,
+    "ten" => 10,
+    "eleven" => 11,
+    "twelve" => 12,
+    "fourteen" => 14,
+    "a week" => 7,
+    "two weeks" => 14,
+    "ten days" => 10
+  }
   @dewormers ~r/panacur|quest|ivermectin|strongid|safe-?guard|dewormer|wormer|fenbendazole|pyrantel|equimax|zimecterin|anthelcide|power ?pac/i
 
   defp start_course(animal, text, today) do
     n_words = "\\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fourteen"
 
     patterns = [
-      Regex.compile!("\\b(?:start(?:ed|ing)?|begin|began|beginning)\\b\\s+(?:.+?\\s+)?on\\s+(?<what>.+?)\\s+for\\s+(?:(?<n>#{n_words})\\s+days?|(?<w>a week|two weeks))\\b", "i"),
-      Regex.compile!("\\b(?:start(?:ed|ing)?|begin|began)\\s+(?:(?:his|her|the)\\s+)?(?<what>.+?)\\s+for\\s+(?:(?<n>#{n_words})\\s+days?|(?<w>a week|two weeks))\\b", "i")
+      Regex.compile!(
+        "\\b(?:start(?:ed|ing)?|begin|began|beginning)\\b\\s+(?:.+?\\s+)?on\\s+(?<what>.+?)\\s+for\\s+(?:(?<n>#{n_words})\\s+days?|(?<w>a week|two weeks))\\b",
+        "i"
+      ),
+      Regex.compile!(
+        "\\b(?:start(?:ed|ing)?|begin|began)\\s+(?:(?:his|her|the)\\s+)?(?<what>.+?)\\s+for\\s+(?:(?<n>#{n_words})\\s+days?|(?<w>a week|two weeks))\\b",
+        "i"
+      )
     ]
 
     case Enum.find_value(patterns, &Regex.named_captures(&1, text)) do
       %{"what" => what} = m ->
         n =
           case {m["n"], m["w"]} do
-            {"", w} -> @numbers[String.downcase(w)]
-            {n, _} -> if n =~ ~r/^\d+$/, do: String.to_integer(n), else: @numbers[String.downcase(n)]
+            {"", w} ->
+              @numbers[String.downcase(w)]
+
+            {n, _} ->
+              if n =~ ~r/^\d+$/, do: String.to_integer(n), else: @numbers[String.downcase(n)]
           end
 
         title =
@@ -122,13 +156,31 @@ defmodule RanchPhx.VoiceQuick do
     end
   end
 
+  # ── Vitals: temperature, pulse, breathing ──
+
+  # The time said ("at 9:30 AM") wins; otherwise when it was said.
+  defp vitals(animal, text, today, said_time) do
+    alias RanchPhx.Animals.Vitals
+
+    case Vitals.parse(text) do
+      nil ->
+        :none
+
+      v ->
+        time = Vitals.parse_time(text) || said_time
+        {:ok, _} = Vitals.log(animal, v, date: today, time: time, source: "siri", note: text)
+        {:ok, Vitals.spoken(animal, v)}
+    end
+  end
+
   # ── Weight ──
 
   @weight ~r/\b(?:weigh(?:ed|s|ing)?|weight(?:\s+(?:is|was|of))?|taped(?:\s+at)?)\s+(?:in\s+at\s+|at\s+|about\s+|around\s+)?(\d{3,4})(?:\s*(?:lb|lbs|pounds))?\b/i
   @weight_alt ~r/\b(\d{3,4})\s*(?:lb|lbs|pounds)\b/i
 
   defp weight(animal, text, today) do
-    case Regex.run(@weight, text) || (Regex.match?(~r/\bweigh|\bweight|\btape/i, text) && Regex.run(@weight_alt, text)) do
+    case Regex.run(@weight, text) ||
+           (Regex.match?(~r/\bweigh|\bweight|\btape/i, text) && Regex.run(@weight_alt, text)) do
       [_, n] ->
         lbs = String.to_integer(n)
         t = String.downcase(text)
@@ -163,7 +215,6 @@ defmodule RanchPhx.VoiceQuick do
 
   # ── Today's dose of a running treatment ──
 
-
   defp dose(animal, text, today) do
     courses =
       animal.records
@@ -174,10 +225,18 @@ defmodule RanchPhx.VoiceQuick do
 
     pick =
       cond do
-        not Regex.match?(@gave, text) -> nil
-        length(named) == 1 -> hd(named)
-        named == [] and length(courses) == 1 and Regex.match?(~r/\b(dose|medicine|meds|treatment|dewormer|wormer)\b/i, text) -> hd(courses)
-        true -> nil
+        not Regex.match?(@gave, text) ->
+          nil
+
+        length(named) == 1 ->
+          hd(named)
+
+        named == [] and length(courses) == 1 and
+            Regex.match?(~r/\b(dose|medicine|meds|treatment|dewormer|wormer)\b/i, text) ->
+          hd(courses)
+
+        true ->
+          nil
       end
 
     case pick do
@@ -185,7 +244,8 @@ defmodule RanchPhx.VoiceQuick do
         :none
 
       %{today_given?: true} = c ->
-        {:ok, "#{Animal.display_name(animal)}'s #{c.record.title} was already checked off for today, day #{c.today_i + 1} of #{c.total}."}
+        {:ok,
+         "#{Animal.display_name(animal)}'s #{c.record.title} was already checked off for today, day #{c.today_i + 1} of #{c.total}."}
 
       c ->
         done = Enum.sort([today | c.record.course_done || []], Date) |> Enum.uniq()
@@ -218,8 +278,10 @@ defmodule RanchPhx.VoiceQuick do
     product? =
       Enum.any?(words, fn w ->
         Enum.any?(said, fn s ->
-          s == w or (String.length(s) >= 5 and String.length(w) >= 5 and
-                       String.slice(s, 0, 3) == String.slice(w, 0, 3) and String.jaro_distance(s, w) >= 0.8)
+          s == w or
+            (String.length(s) >= 5 and String.length(w) >= 5 and
+               String.slice(s, 0, 3) == String.slice(w, 0, 3) and
+               String.jaro_distance(s, w) >= 0.8)
         end)
       end)
 
@@ -241,15 +303,23 @@ defmodule RanchPhx.VoiceQuick do
 
     t in ["today", "ranch today", "barn today", "rundown", "brief", "morning brief"] or
       (words <= 10 and
-         Regex.match?(~r/\b(what'?s|what is|anything)\b.*\b(due|on|up|need(ed)?|going on)\b.*\b(today|this morning|tonight)\b|\b(today'?s|morning) (rundown|brief|list)\b|\bwhat do i (need|have) to do today\b/, t))
+         Regex.match?(
+           ~r/\b(what'?s|what is|anything)\b.*\b(due|on|up|need(ed)?|going on)\b.*\b(today|this morning|tonight)\b|\b(today'?s|morning) (rundown|brief|list)\b|\bwhat do i (need|have) to do today\b/,
+           t
+         ))
   end
 
   @doc "What's due today, said plainly. `only` limits it to the animals named."
   def brief(today, only \\ []) do
     animals =
       case only do
-        [] -> Repo.all(from a in Animal, where: a.owned == true and a.status == "active", order_by: a.name)
-        some -> some
+        [] ->
+          Repo.all(
+            from a in Animal, where: a.owned == true and a.status == "active", order_by: a.name
+          )
+
+        some ->
+          some
       end
 
     lines =
@@ -263,7 +333,8 @@ defmodule RanchPhx.VoiceQuick do
           |> Enum.filter(&(&1.today_i != nil))
           |> Enum.map(fn c ->
             if c.today_given?,
-              do: "#{name}'s #{c.record.title}, day #{c.today_i + 1} of #{c.total}, is already given.",
+              do:
+                "#{name}'s #{c.record.title}, day #{c.today_i + 1} of #{c.total}, is already given.",
               else: "#{name} is due #{c.record.title} today, day #{c.today_i + 1} of #{c.total}."
           end)
 
