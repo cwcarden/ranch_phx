@@ -227,7 +227,28 @@ defmodule RanchPhxWeb.VitalsLive.Index do
   def status_class(nil), do: ""
   def status_class(:normal), do: "ok"
   def status_class(:high), do: "high"
+  def status_class(:fever), do: "high"
+  def status_class(:elevated), do: "warm"
   def status_class(:low), do: "low"
+
+  @doc "\"99.0–101.0 °F (37.2–38.3 °C)\""
+  def temp_range_text({lo, hi}),
+    do: "#{range_text({lo, hi})} °F (#{c(lo)}–#{c(hi)} °C)"
+
+  def c(f), do: :erlang.float_to_binary((f - 32) * 5 / 9, decimals: 1)
+
+  def dot_color(:fever), do: "#dc2626"
+  def dot_color(:high), do: "#dc2626"
+  def dot_color(:elevated), do: "#d97706"
+  def dot_color(:low), do: "#2563eb"
+  def dot_color(_), do: "#16a34a"
+
+  def word(:elevated), do: "slightly high"
+  def word(:fever), do: "fever"
+  def word(:high), do: "high"
+  def word(:low), do: "low"
+  def word(:normal), do: "normal"
+  def word(_), do: nil
 
   def range_text({lo, hi}) when is_float(lo),
     do: "#{:erlang.float_to_binary(lo, decimals: 1)}–#{:erlang.float_to_binary(hi, decimals: 1)}"

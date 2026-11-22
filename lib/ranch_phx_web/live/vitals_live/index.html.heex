@@ -13,6 +13,25 @@
   .vt-stat.high b, .vt-chip.high { color: #dc2626; }
   .vt-stat.low b, .vt-chip.low { color: #2563eb; }
   .vt-stat.ok b { color: #16a34a; }
+  .vt-stat.warm b, .vt-chip.warm { color: #d97706; }
+  .vt-stat em { display: block; font-style: normal; font-size: 13px; font-weight: 700; color: var(--text2); margin-top: 1px; }
+  .vt-mean { font-size: 13px; line-height: 1.4; margin-top: 4px; color: var(--text2); }
+  .vt-mean.warm { color: #b45309; }
+  .vt-mean.high { color: #b91c1c; }
+  .vt-mean.low { color: #1d4ed8; }
+  .vt-guide summary { cursor: pointer; font-weight: 800; font-size: 16px; list-style: none; display: flex; align-items: center; gap: 8px; }
+  .vt-guide summary::-webkit-details-marker { display: none; }
+  .vt-guide summary [class^="hero-"] { width: 20px; height: 20px; color: var(--brand); }
+  .vt-scale { display: grid; gap: 6px; margin: 12px 0; }
+  .vt-band { display: flex; justify-content: space-between; gap: 10px; padding: 8px 10px; border-radius: 10px; font-size: 14px; }
+  .vt-band b { font-weight: 800; }
+  .vt-band.low { background: color-mix(in srgb, #2563eb 12%, transparent); }
+  .vt-band.ok { background: color-mix(in srgb, #16a34a 14%, transparent); }
+  .vt-band.warm { background: color-mix(in srgb, #d97706 15%, transparent); }
+  .vt-band.high { background: color-mix(in srgb, #dc2626 14%, transparent); }
+  .vt-guide ul { margin: 8px 0 0; padding-left: 18px; font-size: 14px; line-height: 1.5; color: var(--text2); }
+  .vt-guide li + li { margin-top: 4px; }
+  .vt-guide h4 { margin: 14px 0 2px; font-size: 14px; font-weight: 800; }
   .vt-when { font-size: 13px; color: var(--text2); margin-top: 8px; }
   .vt-add { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 50px; border-radius: 14px; border: none; background: var(--brand); color: #fff; font: inherit; font-size: 16px; font-weight: 700; cursor: pointer; }
   .vt-add [class^="hero-"] { width: 20px; height: 20px; }
@@ -58,7 +77,10 @@
         <div class={["vt-stat", status_class(s)]} id={"now-#{key}"}>
           <small>{label}</small>
           <b>{if e, do: fmt.(m(e, key)), else: "–"}<span :if={e} style="display:inline;font-size:13px;color:var(--text3);font-weight:600">{" " <> unit}</span></b>
-          <span :if={@ranges}>normal {range_text(@ranges[k])}</span>
+          <em :if={e && key == "temp_f"}>{Vitals.fmt_c(m(e, key))}</em>
+          <em :if={s && s != :normal}>{word(s)}</em>
+          <span :if={@ranges && key != "temp_f"}>normal {range_text(@ranges[k])}</span>
+          <span :if={@ranges && key == "temp_f"}>normal {range_text(@ranges.temp_f)}</span>
         </div>
       <% end %>
     </div>
@@ -74,7 +96,7 @@
   <section :if={@is_superuser and @show_form} class="tr-card" id="vitals-form-card">
     <.form for={@form} id="vitals-form" phx-submit="save" class="vt-form">
       <div>
-        <label for="v_temp">Temp °F</label>
+        <label for="v_temp">Temp °F or °C</label>
         <input id="v_temp" type="text" inputmode="decimal" name="v[temp]" value={@form[:temp].value} placeholder="100.2" autofocus />
       </div>
       <div>
@@ -104,7 +126,7 @@
         <button type="submit" class="tr-btn tr-btn-primary" id="vitals-save">Save</button>
       </div>
       <p class="wide tr-muted" style="font-size:13px;margin:0">
-        Celsius works too (38.1 is read as °C). Or just tell Siri: "Ranch log, Asher's temp is 100.2 at 9:30 AM."
+        Type °F or °C: anything up to 45 is read as °C (38.1 °C = 100.6 °F). Or just tell Siri: "Ranch log, Asher's temp is 100.2 at 9:30 AM."
       </p>
     </.form>
   </section>
@@ -132,24 +154,53 @@
           cx={p.x}
           cy={p.y}
           r="4"
-          fill={case Vitals.status_of(@animal, :temp_f, m(p.e, "temp_f")) do
-            :high -> "#dc2626"
-            :low -> "#2563eb"
-            _ -> "#16a34a"
-          end}
+          fill={dot_color(Vitals.status_of(@animal, :temp_f, m(p.e, "temp_f")))}
           stroke="var(--surface)"
           stroke-width="1.5"
         >
-          <title>{Vitals.fmt_temp(m(p.e, "temp_f"))} · {day_label(p.e.event_date)}{if t = time_label(p.e.event_time), do: " #{t}"}</title>
+          <title>{Vitals.fmt_both(m(p.e, "temp_f"))} · {day_label(p.e.event_date)}{if t = time_label(p.e.event_time), do: " #{t}"}</title>
         </circle>
         <text x={c.pad_l} y={c.h - 6}>{Calendar.strftime(c.first, "%b %-d")}</text>
         <text x={c.w - c.pad_r} y={c.h - 6} text-anchor="end">{Calendar.strftime(c.last, "%b %-d")}</text>
       </svg>
-      <p :if={@ranges} class="vt-legend">Green band: normal ({range_text(@ranges.temp_f)} °F). Red dots are high, blue are low.</p>
+      <p :if={@ranges} class="vt-legend">
+        Green band: normal ({temp_range_text(@ranges.temp_f)}). Amber dots are slightly high, red are a fever (over {:erlang.float_to_binary(@ranges.fever_f, decimals: 1)} °F), blue are low.
+      </p>
     <% else %>
       <p class="tr-muted" style="font-size:14px;margin:8px 0 0">No temperatures in this window.</p>
     <% end %>
   </section>
+
+  <%!-- What the numbers mean --%>
+  <details :if={@ranges} class="tr-card vt-guide" id="vitals-guide">
+    <summary><.icon name="hero-information-circle" /> What's normal for {Animal.display_name(@animal)}</summary>
+    <% {lo, hi} = @ranges.temp_f %>
+    <% fev = @ranges.fever_f %>
+    <h4>Temperature{if Vitals.foal?(@animal), do: " (foal under 6 months)"}</h4>
+    <div class="vt-scale">
+      <div class="vt-band low"><span>Low</span><b>below {:erlang.float_to_binary(lo, decimals: 1)} °F ({c(lo)} °C)</b></div>
+      <div class="vt-band ok"><span>Normal</span><b>{temp_range_text({lo, hi})}</b></div>
+      <div class="vt-band warm"><span>Slightly high, not a fever</span><b>{:erlang.float_to_binary(hi + 0.1, decimals: 1)}–{:erlang.float_to_binary(fev, decimals: 1)} °F</b></div>
+      <div class="vt-band high"><span>Fever</span><b>over {:erlang.float_to_binary(fev, decimals: 1)} °F ({c(fev)} °C)</b></div>
+    </div>
+    <ul>
+      <li>It moves 1–2 °F through the day, usually highest in the late afternoon. Exercise, excitement, and hot or humid weather raise it for a while.</li>
+      <li>To compare day to day, take it the same way at about the same time, with him at rest and cooled off.</li>
+      <li>Slightly high: take it again in an hour or two at rest, and watch his appetite and attitude.</li>
+    </ul>
+    <h4>Pulse and breathing at rest</h4>
+    <ul>
+      <li>Pulse {range_text(@ranges.pulse)} beats a minute. Breathing {range_text(@ranges.resp)} breaths a minute.</li>
+      <li>Count for 15 seconds and multiply by 4. Both run higher after work, in heat, or when he's worked up.</li>
+    </ul>
+    <h4>Call the vet</h4>
+    <ul>
+      <li>A fever over {:erlang.float_to_binary(fev, decimals: 1)} °F that stays, or any temperature of 103 °F or more.</li>
+      <li>A raised temperature along with being off his feed, dull, colic signs, cough, nasal discharge or swelling.</li>
+      <li>A low temperature with him seeming dull or cold.</li>
+    </ul>
+    <p class="tr-muted" style="font-size:12px;margin:10px 0 0">General guidance for healthy animals at rest. Your vet's advice for him comes first.</p>
+  </details>
 
   <%!-- Timeline --%>
   <section id="vitals-timeline">
@@ -163,7 +214,7 @@
         <div class="vt-body">
           <div class="vt-chips">
             <span :if={m(e, "temp_f")} class={["vt-chip", status_class(Vitals.status_of(@animal, :temp_f, m(e, "temp_f")))]}>
-              {Vitals.fmt_temp(m(e, "temp_f"))}
+              {Vitals.fmt_temp(m(e, "temp_f"))}<small>{Vitals.fmt_c(m(e, "temp_f"))}</small>
             </span>
             <span :if={m(e, "pulse")} class={["vt-chip", status_class(Vitals.status_of(@animal, :pulse, m(e, "pulse")))]}>
               {m(e, "pulse")}<small>pulse</small>
@@ -171,6 +222,13 @@
             <span :if={m(e, "resp")} class={["vt-chip", status_class(Vitals.status_of(@animal, :resp, m(e, "resp")))]}>
               {m(e, "resp")}<small>breaths</small>
             </span>
+          </div>
+          <div
+            :for={{key, k} <- [{"temp_f", :temp_f}, {"pulse", :pulse}, {"resp", :resp}]}
+            :if={m(e, key) && Vitals.meaning(@animal, k, m(e, key))}
+            class={["vt-mean", status_class(Vitals.status_of(@animal, k, m(e, key)))]}
+          >
+            {Vitals.meaning(@animal, k, m(e, key))}
           </div>
           <div :if={e.description not in [nil, ""]} class="vt-note">{e.description}</div>
           <div :if={m(e, "source") == "siri"} class="vt-src"><.icon name="hero-microphone" /> From Siri</div>

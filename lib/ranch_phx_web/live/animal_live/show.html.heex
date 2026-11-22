@@ -1164,12 +1164,19 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
         <% s = Vitals.status_of(@animal, :temp_f, vt.metadata["temp_f"]) %>
         <p class="rx-sub">
           <b style={"font-size:17px;color:#{case s do
-            :high -> "#dc2626"
+            :fever -> "#dc2626"
+            :elevated -> "#d97706"
             :low -> "#2563eb"
             :normal -> "#16a34a"
             _ -> "inherit"
-          end}"}>{Vitals.fmt_temp(vt.metadata["temp_f"])}</b>
-          {if s in [:high, :low], do: " #{s} ·", else: if(s == :normal, do: " normal ·", else: " ·")}
+          end}"}>{Vitals.fmt_both(vt.metadata["temp_f"])}</b>
+          {case s do
+            :elevated -> " slightly high, not a fever ·"
+            :fever -> " fever ·"
+            :low -> " low ·"
+            :normal -> " normal ·"
+            _ -> " ·"
+          end}
           {Calendar.strftime(vt.event_date, "%b %-d")}{if vt.event_time, do: ", #{Calendar.strftime(vt.event_time, "%-I:%M %p")}"} · {length(vit)} {if length(vit) == 1, do: "reading", else: "readings"}
         </p>
       <% else %>

@@ -98,28 +98,34 @@ defmodule RanchPhx.Animals.Vitals do
   # ── Normal ranges ──
 
   @doc """
-  Normal resting ranges for the animal: `%{temp_f: {lo, hi}, pulse: ..., resp: ...}`.
-  Foals under six months run warmer and faster. Nil for kinds without a set range.
+  Normal resting ranges for the animal: `%{temp_f: {lo, hi}, fever_f: over_this, pulse:
+  {lo, hi}, resp: {lo, hi}}`. Between the top of normal and `fever_f` a temperature is
+  "slightly high"; above it, a fever. Foals under six months run warmer and faster. Nil
+  for kinds without a set range.
   """
   def ranges(%Animal{kind: "horse"} = a) do
     if months_old(a) < 6,
-      do: %{temp_f: {99.5, 102.0}, pulse: {60, 100}, resp: {20, 40}},
-      else: %{temp_f: {99.0, 101.0}, pulse: {28, 44}, resp: {10, 24}}
+      do: %{temp_f: {100.0, 102.0}, fever_f: 102.5, pulse: {60, 100}, resp: {20, 40}},
+      else: %{temp_f: {99.0, 101.0}, fever_f: 101.5, pulse: {28, 44}, resp: {10, 24}}
   end
 
   def ranges(%Animal{kind: "dog"}),
-    do: %{temp_f: {100.5, 102.5}, pulse: {60, 140}, resp: {10, 35}}
+    do: %{temp_f: {101.0, 102.5}, fever_f: 103.0, pulse: {60, 140}, resp: {10, 35}}
 
   def ranges(%Animal{kind: "cat"}),
-    do: %{temp_f: {100.0, 102.5}, pulse: {140, 220}, resp: {20, 30}}
+    do: %{temp_f: {100.5, 102.5}, fever_f: 103.0, pulse: {140, 220}, resp: {20, 30}}
 
   def ranges(%Animal{kind: k}) when k in ["cow", "cattle"],
-    do: %{temp_f: {100.4, 102.8}, pulse: {48, 84}, resp: {26, 50}}
+    do: %{temp_f: {100.4, 102.8}, fever_f: 103.0, pulse: {48, 84}, resp: {26, 50}}
 
   def ranges(%Animal{kind: k}) when k in ["goat", "sheep"],
-    do: %{temp_f: {101.5, 103.5}, pulse: {70, 90}, resp: {12, 20}}
+    do: %{temp_f: {101.5, 103.5}, fever_f: 104.0, pulse: {70, 90}, resp: {12, 20}}
 
   def ranges(_), do: nil
+
+  @doc "True for a foal under six months (its own, warmer ranges)."
+  def foal?(%Animal{kind: "horse"} = a), do: months_old(a) < 6
+  def foal?(_), do: false
 
   defp months_old(%Animal{birth_date: nil}), do: 999
   defp months_old(%Animal{birth_date: d}), do: div(Date.diff(LocalTime.today(), d), 30)
@@ -131,7 +137,53 @@ defmodule RanchPhx.Animals.Vitals do
   def status(v, {_lo, hi}) when v > hi, do: :high
   def status(_, _), do: :normal
 
+  @doc """
+  How a reading compares for this animal. Temperature: :low, :normal, :elevated
+  (above normal, not a fever) or :fever. Pulse and breathing: :low, :normal or :high.
+  """
+  def status_of(%Animal{} = a, :temp_f, v) do
+    case {ranges(a), v} do
+      {nil, _} -> nil
+      {_, nil} -> nil
+      {%{temp_f: {lo, _}}, v} when v < lo -> :low
+      {%{temp_f: {_, hi}}, v} when v <= hi -> :normal
+      {%{fever_f: f}, v} when v <= f -> :elevated
+      _ -> :fever
+    end
+  end
+
   def status_of(%Animal{} = a, key, v), do: status(v, a |> ranges() |> then(&(&1 && &1[key])))
+
+  @doc "One plain line on what a reading means, for under it in the timeline; nil when normal."
+  def meaning(%Animal{} = a, key, v) do
+    r = ranges(a)
+
+    case {key, status_of(a, key, v)} do
+      {:temp_f, :elevated} ->
+        "Slightly above normal, not a fever (fever is over #{num(r.fever_f)} °F). Recheck later, at rest."
+
+      {:temp_f, :fever} ->
+        "Fever range (over #{num(r.fever_f)} °F). Call the vet, sooner if he's off his feed or dull."
+
+      {:temp_f, :low} ->
+        "Below normal. Take it again (all the way in, until it beeps). If it stays low or he seems dull or cold, call the vet."
+
+      {:pulse, :high} ->
+        "Faster than resting. Recheck once he's calm; pain, fever or heat can raise it."
+
+      {:pulse, :low} ->
+        "Below the usual resting range. Fit horses can run low; recheck."
+
+      {:resp, :high} ->
+        "Breathing faster than resting. Recheck once he's calm and cool."
+
+      {:resp, :low} ->
+        "Below the usual range. Recheck."
+
+      _ ->
+        nil
+    end
+  end
 
   # ── Saving and listing ──
 
@@ -173,7 +225,7 @@ defmodule RanchPhx.Animals.Vitals do
   @doc "\"Temp 100.2 °F · pulse 40 · resp 12\""
   def describe(meta) do
     [
-      meta["temp_f"] && "Temp #{fmt_temp(meta["temp_f"])}",
+      meta["temp_f"] && "Temp #{fmt_both(meta["temp_f"])}",
       meta["pulse"] && "pulse #{meta["pulse"]}",
       meta["resp"] && "resp #{meta["resp"]}"
     ]
@@ -184,6 +236,14 @@ defmodule RanchPhx.Animals.Vitals do
 
   def fmt_temp(nil), do: nil
   def fmt_temp(f), do: "#{:erlang.float_to_binary(f * 1.0, decimals: 1)} °F"
+
+  @doc "\"38.4 °C\" for a Fahrenheit reading."
+  def fmt_c(nil), do: nil
+  def fmt_c(f), do: "#{:erlang.float_to_binary((f - 32) * 5 / 9, decimals: 1)} °C"
+
+  @doc "\"101.2 °F (38.4 °C)\""
+  def fmt_both(nil), do: nil
+  def fmt_both(f), do: "#{fmt_temp(f)} (#{fmt_c(f)})"
 
   @doc "What Siri says back after saving a reading."
   def spoken(%Animal{} = a, v) do
@@ -202,33 +262,40 @@ defmodule RanchPhx.Animals.Vitals do
 
     said = parts |> Enum.map(&elem(&1, 0)) |> join_and()
 
-    off =
-      for {_, key, val} <- parts,
-          s = status(val, r && r[key]),
-          s in [:high, :low],
-          do: {key, s, r[key]}
+    statuses = for {_, key, val} <- parts, do: {key, status_of(a, key, val)}
+    temp = Keyword.get(statuses, :temp_f)
+
+    temp_text =
+      case temp do
+        :elevated ->
+          " That's slightly above normal (#{range_words(r.temp_f)}) but not a fever. Check it again later, at rest."
+
+        :fever ->
+          " That's a fever (over #{num(r.fever_f)}). If it stays up or he's off his feed, call the vet."
+
+        :low ->
+          " That's below normal (#{range_words(r.temp_f)}). Take it again to be sure."
+
+        _ ->
+          ""
+      end
+
+    others =
+      for {key, s} <- statuses, key != :temp_f, s in [:high, :low] do
+        "#{label(key)} is #{s} (normal #{range_words(r[key])})"
+      end
 
     tail =
-      case off do
-        [] when r != nil ->
-          " That's normal."
-
-        [] ->
+      cond do
+        r == nil ->
           ""
 
-        off ->
-          bits =
-            Enum.map(off, fn {key, s, {lo, hi}} ->
-              "#{label(key)} is #{s} (normal #{num(lo)} to #{num(hi)})"
-            end)
+        temp in [nil, :normal] and others == [] ->
+          " That's normal."
 
-          " " <>
-            String.capitalize(join_and(bits)) <>
-            "." <>
-            if(Enum.any?(off, &(elem(&1, 0) == :temp_f and elem(&1, 1) == :high)),
-              do: " If it stays up or he's off his feed, call the vet.",
-              else: ""
-            )
+        true ->
+          temp_text <>
+            if(others == [], do: "", else: " " <> String.capitalize(join_and(others)) <> ".")
       end
 
     "Logged #{name}'s #{said}." <> tail
@@ -237,6 +304,8 @@ defmodule RanchPhx.Animals.Vitals do
   defp label(:temp_f), do: "temperature"
   defp label(:pulse), do: "pulse"
   defp label(:resp), do: "respiration"
+
+  defp range_words({lo, hi}), do: "#{num(lo)} to #{num(hi)}"
 
   defp num(n) when is_float(n), do: :erlang.float_to_binary(n, decimals: 1)
   defp num(n), do: to_string(n)

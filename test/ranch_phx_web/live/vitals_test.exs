@@ -52,7 +52,7 @@ defmodule RanchPhxWeb.VitalsTest do
 
     msg = siri(key, "Checked Asher's vitals he was 101.2 Fahrenheit at 9:30 AM today")["message"]
     assert msg =~ "Logged Asher's temperature 101.2 degrees."
-    assert msg =~ "Temperature is high (normal 99.0 to 101.0)"
+    assert msg =~ "slightly above normal (99.0 to 101.0) but not a fever"
     assert VoiceNotes.list_pending() == []
 
     [r] = Vitals.list(cat.id)
@@ -60,6 +60,7 @@ defmodule RanchPhxWeb.VitalsTest do
     assert r.event_date == LocalTime.today()
 
     assert siri(key, "Asher's temp is 100.1")["message"] =~ "That's normal."
+    assert siri(key, "Asher's temp is 102.4")["message"] =~ "That's a fever (over 101.5)"
   end
 
   test "a waiting Siri note from yesterday is saved for yesterday", %{
@@ -103,7 +104,9 @@ defmodule RanchPhxWeb.VitalsTest do
     |> render_submit()
 
     assert has_element?(view, "#now-temp_f", "101.5")
-    assert has_element?(view, "#now-temp_f.high")
+    assert has_element?(view, "#now-temp_f.warm", "38.6 °C")
+    assert has_element?(view, "#vitals-guide", "Slightly high, not a fever")
+    assert has_element?(view, "#vitals-timeline", "not a fever (fever is over 101.5 °F)")
     assert has_element?(view, "#temp-chart svg circle")
     assert has_element?(view, "#vitals-timeline", "Yesterday")
     assert has_element?(view, "#vitals-timeline", "After turnout")
@@ -118,6 +121,6 @@ defmodule RanchPhxWeb.VitalsTest do
     {:ok, _} = Vitals.log(cat, %{temp_f: 100.2, pulse: 38}, time: ~T[09:30:00])
     html = conn |> get(~p"/animals/#{cat.id}/health") |> html_response(200)
     assert html =~ "Vitals (recent)"
-    assert html =~ "100.2 °F"
+    assert html =~ "100.2 °F (37.9 °C)"
   end
 end

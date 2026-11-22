@@ -136,7 +136,7 @@
       <tbody>
         <tr :for={v <- @vitals}>
           <td class="d">{fmt.(v.event_date)}{if v.event_time, do: " #{Calendar.strftime(v.event_time, "%-I:%M %p")}"}</td>
-          <td>{RanchPhx.Animals.Vitals.fmt_temp(v.metadata["temp_f"])}</td>
+          <td>{RanchPhx.Animals.Vitals.fmt_both(v.metadata["temp_f"])}</td>
           <td>{v.metadata["pulse"]}</td>
           <td>{v.metadata["resp"]}</td>
           <td class="hr-sub">{v.description}</td>
@@ -144,7 +144,7 @@
       </tbody>
     </table>
     <p :if={@vital_ranges} class="hr-covers" style="margin-top:4pt">
-      Normal at rest: temp {elem(@vital_ranges.temp_f, 0)}–{elem(@vital_ranges.temp_f, 1)} °F, pulse {elem(@vital_ranges.pulse, 0)}–{elem(@vital_ranges.pulse, 1)}, breaths {elem(@vital_ranges.resp, 0)}–{elem(@vital_ranges.resp, 1)} a minute.
+      Normal at rest: temp {elem(@vital_ranges.temp_f, 0)}–{elem(@vital_ranges.temp_f, 1)} °F (fever over {@vital_ranges.fever_f} °F), pulse {elem(@vital_ranges.pulse, 0)}–{elem(@vital_ranges.pulse, 1)}, breaths {elem(@vital_ranges.resp, 0)}–{elem(@vital_ranges.resp, 1)} a minute.
     </p>
   </div>
 
