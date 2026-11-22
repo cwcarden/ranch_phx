@@ -174,10 +174,18 @@ defmodule RanchPhxWeb.AnimalReportController do
       |> Enum.sort_by(&elem(&1, 0), {:desc, Date})
       |> Enum.take(6)
 
+    vitals =
+      animal.id
+      |> RanchPhx.Animals.Vitals.list()
+      |> Enum.filter(&date_in_range?(&1.event_date, from, to))
+      |> Enum.take(20)
+
     conn
     |> put_root_layout(false)
     |> put_layout(html: {RanchPhxWeb.Layouts, :print})
     |> render(:health,
+      vitals: vitals,
+      vital_ranges: RanchPhx.Animals.Vitals.ranges(animal),
       animal: animal,
       today: today,
       date_from: from,

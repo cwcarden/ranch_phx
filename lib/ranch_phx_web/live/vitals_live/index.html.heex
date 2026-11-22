@@ -1,0 +1,193 @@
+<.styles />
+<.app_nav active={:animals} detail flash={@flash} superuser={@is_superuser} />
+<.topbar back={~p"/animals/#{@animal.id}"} back_label={Animal.display_name(@animal)} title="Vitals" />
+
+<style>
+  .vt-wrap > * + * { margin-top: 14px; }
+  .vt-now { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .vt-stat { border: 1px solid var(--border); border-radius: 14px; padding: 10px 12px; background: var(--surface); }
+  .vt-stat small { display: block; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text3); }
+  .vt-stat b { display: block; font-size: 21px; font-weight: 800; margin-top: 2px; white-space: nowrap; }
+  .vt-stat b span { font-size: 12px !important; }
+  .vt-stat span { display: block; font-size: 12px; color: var(--text3); margin-top: 2px; }
+  .vt-stat.high b, .vt-chip.high { color: #dc2626; }
+  .vt-stat.low b, .vt-chip.low { color: #2563eb; }
+  .vt-stat.ok b { color: #16a34a; }
+  .vt-when { font-size: 13px; color: var(--text2); margin-top: 8px; }
+  .vt-add { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 50px; border-radius: 14px; border: none; background: var(--brand); color: #fff; font: inherit; font-size: 16px; font-weight: 700; cursor: pointer; }
+  .vt-add [class^="hero-"] { width: 20px; height: 20px; }
+  .vt-form { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .vt-form label { font-size: 12px; font-weight: 700; color: var(--text2); display: block; margin-bottom: 4px; }
+  .vt-form input { width: 100%; min-height: 46px; font-size: 18px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); }
+  .vt-form .wide { grid-column: span 3; }
+  .vt-form .half { grid-column: span 3; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .vt-days { display: flex; gap: 6px; }
+  .vt-days button { flex: 1; min-height: 36px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--text2); font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+  .vt-days button.on { background: var(--brand); border-color: var(--brand); color: #fff; }
+  .vt-chart { width: 100%; height: auto; display: block; margin-top: 8px; }
+  .vt-chart text { font-size: 10px; fill: var(--text3); }
+  .vt-legend { font-size: 12px; color: var(--text3); margin-top: 4px; }
+  .vt-day { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--text3); margin: 16px 2px 6px; }
+  .vt-row { display: flex; gap: 12px; align-items: flex-start; padding: 12px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
+  .vt-row + .vt-row { margin-top: 8px; }
+  .vt-time { flex: none; width: 66px; font-size: 14px; font-weight: 700; color: var(--text2); padding-top: 2px; }
+  .vt-body { flex: 1; min-width: 0; }
+  .vt-chips { display: flex; flex-wrap: wrap; gap: 6px 12px; }
+  .vt-chip { font-size: 16px; font-weight: 800; }
+  .vt-chip.ok { color: #16a34a; }
+  .vt-chip small { font-size: 12px; font-weight: 600; color: var(--text3); margin-left: 2px; }
+  .vt-note { font-size: 14px; color: var(--text2); margin-top: 4px; line-height: 1.4; }
+  .vt-src { font-size: 12px; color: var(--text3); margin-top: 4px; display: flex; align-items: center; gap: 4px; }
+  .vt-src [class^="hero-"] { width: 13px; height: 13px; }
+  .vt-del { flex: none; width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--border); background: none; color: #b91c1c; display: grid; place-items: center; cursor: pointer; }
+  .vt-del [class^="hero-"] { width: 16px; height: 16px; }
+</style>
+
+<% latest = fn key -> Enum.find(@readings, &m(&1, key)) end %>
+<% pts = temp_points(@readings, @days) %>
+<% c = chart(pts, @ranges && @ranges.temp_f) %>
+
+<div class="tr-wrap vt-wrap">
+  <%!-- Latest of each --%>
+  <section class="tr-card" id="vitals-now">
+    <div class="vt-now">
+      <%= for {key, label, unit, fmt} <- [{"temp_f", "Temp", "°F", &:erlang.float_to_binary(&1 * 1.0, decimals: 1)}, {"pulse", "Pulse", "/min", &to_string/1}, {"resp", "Breathing", "/min", &to_string/1}] do %>
+        <% e = latest.(key) %>
+        <% k = %{"temp_f" => :temp_f, "pulse" => :pulse, "resp" => :resp}[key] %>
+        <% s = e && Vitals.status_of(@animal, k, m(e, key)) %>
+        <div class={["vt-stat", status_class(s)]} id={"now-#{key}"}>
+          <small>{label}</small>
+          <b>{if e, do: fmt.(m(e, key)), else: "–"}<span :if={e} style="display:inline;font-size:13px;color:var(--text3);font-weight:600">{" " <> unit}</span></b>
+          <span :if={@ranges}>normal {range_text(@ranges[k])}</span>
+        </div>
+      <% end %>
+    </div>
+    <p :if={@readings != []} class="vt-when">
+      Last reading {day_label(hd(@readings).event_date) |> String.downcase()}{if t = time_label(hd(@readings).event_time), do: " at #{t}"}.
+    </p>
+  </section>
+
+  <%!-- Log one --%>
+  <button :if={@is_superuser and !@show_form} type="button" class="vt-add" id="vitals-add" phx-click="toggle_form">
+    <.icon name="hero-plus" /> Log vitals
+  </button>
+  <section :if={@is_superuser and @show_form} class="tr-card" id="vitals-form-card">
+    <.form for={@form} id="vitals-form" phx-submit="save" class="vt-form">
+      <div>
+        <label for="v_temp">Temp °F</label>
+        <input id="v_temp" type="text" inputmode="decimal" name="v[temp]" value={@form[:temp].value} placeholder="100.2" autofocus />
+      </div>
+      <div>
+        <label for="v_pulse">Pulse</label>
+        <input id="v_pulse" type="text" inputmode="numeric" name="v[pulse]" value={@form[:pulse].value} placeholder="36" />
+      </div>
+      <div>
+        <label for="v_resp">Breaths</label>
+        <input id="v_resp" type="text" inputmode="numeric" name="v[resp]" value={@form[:resp].value} placeholder="12" />
+      </div>
+      <div class="half">
+        <div>
+          <label for="v_date">Date</label>
+          <input id="v_date" type="date" name="v[date]" value={@form[:date].value} />
+        </div>
+        <div>
+          <label for="v_time">Time</label>
+          <input id="v_time" type="time" name="v[time]" value={@form[:time].value} />
+        </div>
+      </div>
+      <div class="wide">
+        <label for="v_note">Note (optional)</label>
+        <input id="v_note" type="text" name="v[note]" value={@form[:note].value} placeholder="After turnout, ate all his breakfast" />
+      </div>
+      <div class="wide" style="display:grid;grid-template-columns:1fr 2fr;gap:8px;margin-top:4px">
+        <button type="button" class="tr-btn" phx-click="toggle_form">Cancel</button>
+        <button type="submit" class="tr-btn tr-btn-primary" id="vitals-save">Save</button>
+      </div>
+      <p class="wide tr-muted" style="font-size:13px;margin:0">
+        Celsius works too (38.1 is read as °C). Or just tell Siri: "Ranch log, Asher's temp is 100.2 at 9:30 AM."
+      </p>
+    </.form>
+  </section>
+
+  <%!-- Temperature chart --%>
+  <section :if={Enum.any?(@readings, &m(&1, "temp_f"))} class="tr-card" id="temp-chart">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <h2 style="margin:0">Temperature</h2>
+      <div class="vt-days" style="flex:0 1 220px">
+        <button :for={{d, label} <- [{7, "7d"}, {14, "14d"}, {30, "30d"}, {"all", "All"}]} type="button" class={[(@days == d or (d == "all" and @days == :all)) && "on"]} phx-click="days" phx-value-d={d}>
+          {label}
+        </button>
+      </div>
+    </div>
+    <%= if c do %>
+      <svg class="vt-chart" viewBox={"0 0 #{c.w} #{c.h}"} role="img" aria-label="Temperature chart">
+        <rect :if={c.band} x={c.pad_l} y={c.band.y} width={c.w - c.pad_l - c.pad_r} height={c.band.h} fill="#16a34a" opacity="0.12" />
+        <g :for={t <- c.ticks}>
+          <line x1={c.pad_l} x2={c.w - c.pad_r} y1={t.y} y2={t.y} stroke="currentColor" opacity="0.08" />
+          <text x={c.pad_l - 6} y={t.y + 3} text-anchor="end">{t.label}</text>
+        </g>
+        <polyline :if={length(c.pts) > 1} points={Enum.map_join(c.pts, " ", &"#{&1.x},#{&1.y}")} fill="none" stroke="var(--brand)" stroke-width="2" stroke-linejoin="round" />
+        <circle
+          :for={p <- c.pts}
+          cx={p.x}
+          cy={p.y}
+          r="4"
+          fill={case Vitals.status_of(@animal, :temp_f, m(p.e, "temp_f")) do
+            :high -> "#dc2626"
+            :low -> "#2563eb"
+            _ -> "#16a34a"
+          end}
+          stroke="var(--surface)"
+          stroke-width="1.5"
+        >
+          <title>{Vitals.fmt_temp(m(p.e, "temp_f"))} · {day_label(p.e.event_date)}{if t = time_label(p.e.event_time), do: " #{t}"}</title>
+        </circle>
+        <text x={c.pad_l} y={c.h - 6}>{Calendar.strftime(c.first, "%b %-d")}</text>
+        <text x={c.w - c.pad_r} y={c.h - 6} text-anchor="end">{Calendar.strftime(c.last, "%b %-d")}</text>
+      </svg>
+      <p :if={@ranges} class="vt-legend">Green band: normal ({range_text(@ranges.temp_f)} °F). Red dots are high, blue are low.</p>
+    <% else %>
+      <p class="tr-muted" style="font-size:14px;margin:8px 0 0">No temperatures in this window.</p>
+    <% end %>
+  </section>
+
+  <%!-- Timeline --%>
+  <section id="vitals-timeline">
+    <p :if={@readings == []} class="tr-muted" style="text-align:center;padding:20px 10px">
+      No readings yet. Tap Log vitals, or tell Siri "Ranch log, {Animal.display_name(@animal)}'s temp is 100.2."
+    </p>
+    <%= for {date, day} <- Enum.chunk_by(@readings, & &1.event_date) |> Enum.map(&{hd(&1).event_date, &1}) do %>
+      <div class="vt-day">{day_label(date)}</div>
+      <div :for={e <- day} class="vt-row" id={"reading-#{e.id}"}>
+        <div class="vt-time">{time_label(e.event_time) || "–"}</div>
+        <div class="vt-body">
+          <div class="vt-chips">
+            <span :if={m(e, "temp_f")} class={["vt-chip", status_class(Vitals.status_of(@animal, :temp_f, m(e, "temp_f")))]}>
+              {Vitals.fmt_temp(m(e, "temp_f"))}
+            </span>
+            <span :if={m(e, "pulse")} class={["vt-chip", status_class(Vitals.status_of(@animal, :pulse, m(e, "pulse")))]}>
+              {m(e, "pulse")}<small>pulse</small>
+            </span>
+            <span :if={m(e, "resp")} class={["vt-chip", status_class(Vitals.status_of(@animal, :resp, m(e, "resp")))]}>
+              {m(e, "resp")}<small>breaths</small>
+            </span>
+          </div>
+          <div :if={e.description not in [nil, ""]} class="vt-note">{e.description}</div>
+          <div :if={m(e, "source") == "siri"} class="vt-src"><.icon name="hero-microphone" /> From Siri</div>
+        </div>
+        <button
+          :if={@is_superuser}
+          type="button"
+          class="vt-del"
+          id={"delete-reading-#{e.id}"}
+          phx-click="delete"
+          phx-value-id={e.id}
+          data-confirm="Delete this reading?"
+          aria-label="Delete reading"
+        >
+          <.icon name="hero-trash" />
+        </button>
+      </div>
+    <% end %>
+  </section>
+</div>

@@ -3,6 +3,7 @@ defmodule RanchPhxWeb.AnimalLive.Show do
   alias RanchPhx.Animals
 
   alias RanchPhx.Animals.{
+    Vitals,
     Animal,
     TimelineEvent,
     Record,
@@ -181,7 +182,15 @@ defmodule RanchPhxWeb.AnimalLive.Show do
           # "Gave him his Panacur": check off today's dose rather than drafting a new record.
           match?(
             {:ok, _},
-            quick = RanchPhx.VoiceQuick.check_off(animal, note.text, RanchPhx.LocalTime.today())
+            quick =
+                (
+                  # When it was said: a note from yesterday counts for yesterday.
+                  said = RanchPhx.LocalTime.now(note.inserted_at)
+
+                  RanchPhx.VoiceQuick.check_off(animal, note.text, NaiveDateTime.to_date(said),
+                    time: said |> NaiveDateTime.to_time() |> Time.truncate(:second)
+                  )
+                )
           ) ->
             {:ok, msg} = quick
             VoiceNotes.mark(note, "done")
@@ -1151,10 +1160,23 @@ defmodule RanchPhxWeb.AnimalLive.Show do
   def handle_event("rec_voice_draft", %{"spoken" => text}, socket) do
     %{is_superuser: su?, rec_voice_loading: busy?} = socket.assigns
 
-    if su? and not busy? and String.trim(text) != "" do
-      {:noreply, start_voice_draft(socket, text)}
-    else
-      {:noreply, assign(socket, :rec_voice_text, text)}
+    animal = socket.assigns.animal
+    # Temperature, pulse or breathing: saved straight to Vitals, no AI needed.
+    vitals = su? and not busy? and Vitals.parse(text)
+
+    cond do
+      is_map(vitals) and match?({:ok, _}, Vitals.log(animal, vitals, source: "app", note: text)) ->
+        {:noreply,
+         socket
+         |> assign(:animal, Animals.get_animal_with_pedigree!(animal.id))
+         |> assign(rec_voice_text: "", rec_voice_error: nil)
+         |> put_flash(:info, Vitals.spoken(animal, vitals) <> " See Vitals for the chart.")}
+
+      su? and not busy? and String.trim(text) != "" ->
+        {:noreply, start_voice_draft(socket, text)}
+
+      true ->
+        {:noreply, assign(socket, :rec_voice_text, text)}
     end
   end
 
