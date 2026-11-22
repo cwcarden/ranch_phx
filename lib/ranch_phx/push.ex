@@ -178,7 +178,8 @@ defmodule RanchPhx.Push do
       from p in "push_sent",
         where: like(p.key, ^"morning:#{user_id}:%") or like(p.key, ^"evening:#{user_id}:%"),
         order_by: [desc: p.inserted_at],
-        select: {p.key, p.inserted_at},
+        # A raw table query gives a naive time; the page needs it as UTC.
+        select: {p.key, type(p.inserted_at, :utc_datetime)},
         limit: 1
     )
   end
